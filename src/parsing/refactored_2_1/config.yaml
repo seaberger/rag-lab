@@ -1,35 +1,41 @@
-# Pipeline configuration
 pipeline:
-  max_concurrent: 5          # Max concurrent document processing
-  timeout_seconds: 300       # Timeout per document
-  
+  max_concurrent: 5
+  timeout_seconds: 300
 validation:
-  validate_urls: true        # Validate URLs before fetching
-  validate_files: true       # Validate local files
-  
+  validate_urls: true
+  validate_files: true
 limits:
-  max_file_size_mb: 100      # Maximum file size
-  max_pages_per_pdf: 50      # Maximum pages to process
-  
+  max_file_size_mb: 100
+  max_pages_per_pdf: 50
 cache:
-  enabled: true              # Enable caching
-  directory: "./cache"       # Cache directory
-  ttl_days: 7               # Cache time-to-live
-  compress: true            # Compress cached files
-  
+  enabled: true
+  directory: ./cache
+  ttl_days: 7
+  compress: true
 batch:
-  enabled: true             # Enable batch keyword generation
-  threshold: 10             # Min documents for batch mode
-  
+  enabled: true
+  threshold: 10
 openai:
-  vision_model: "gpt-4o"    # Model for vision parsing
-  keyword_model: "gpt-4o-mini"  # Model for keywords
-  max_retries: 3            # API retry attempts
-  
+  vision_model: gpt-4o
+  keyword_model: gpt-4o-mini
+  max_retries: 3
+  embedding_model: text-embedding-3-small
+  dimensions: 1536
 logging:
-  level: "INFO"             # Logging level
-  file: "pipeline.log"      # Log file
-  
+  level: INFO
+  file: pipeline.log
 monitoring:
-  progress_callback: true    # Enable progress callbacks
-  save_report: true         # Save final report
+  progress_callback: true
+  save_report: true
+  report_file: processing_report.json
+qdrant:
+  path: ./qdrant_data
+  collection_name: datasheets
+parser:
+  datasheet_prompt_path: datasheet_parsing_prompt.md
+chunking:
+  chunk_size: 1024
+  chunk_overlap: 128
+storage:
+  keyword_db_path: ./keyword_index.db
+  base_dir: ./storage_data
