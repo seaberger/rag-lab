@@ -5,11 +5,17 @@ BM25 keyword index for hybrid search.
 import json
 import math
 import pickle
-from collections import defaultdict, Counter
-from typing import List, Dict, Tuple, Set
-import numpy as np
-from pathlib import Path
+import re # Moved re import higher for consistency
 import sqlite3
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Dict, List, Set, Tuple # Set was unused, but kept for now
+
+# import numpy as np # numpy seems unused in this file, commenting out.
+from llama_index.core.schema import TextNode # Added TextNode
+
+# FIXME: Consider using PipelineConfig for db_path
+# from ..utils.config import PipelineConfig
 import re
 
 
@@ -17,8 +23,11 @@ class BM25Index:
     """BM25 keyword index with SQLite FTS5 backend."""
 
     def __init__(self, db_path: str = "./keyword_index.db"):
+        # FIXME: db_path should come from config, e.g. config.storage.keyword_index_path
+        # config = PipelineConfig.from_yaml()
+        # self.db_path = config.storage.keyword_index_path
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(self.db_path)
         self._init_db()
 
     def _init_db(self):

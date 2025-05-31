@@ -1,3 +1,11 @@
+import argparse # Added import
+
+# FIXME: This CLI script only parses arguments.
+# It needs to import and call the main pipeline function (e.g., ingest_sources from pipeline.core)
+# Example:
+# import asyncio
+# from .pipeline.core import ingest_sources # Assuming this CLI is run from parent of src/ or PYTHONPATH is set
+
 # Updated CLI arguments
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

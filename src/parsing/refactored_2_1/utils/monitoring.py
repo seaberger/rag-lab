@@ -149,6 +149,7 @@ class ProgressMonitor:
 
     def save_report(self, filepath: str = "pipeline_report.json"):
         """Save detailed report to file."""
+        # FIXME: filepath should be configurable, e.g., from PipelineConfig.monitoring.report_filepath
         report = {
             "summary": self.get_summary(),
             "documents": [

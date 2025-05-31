@@ -1,4 +1,29 @@
 # In the refactored datasheet_ingest_pipeline.py
+import hashlib
+import json
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from openai import OpenAI
+
+from ..storage.cache import CacheManager # Assuming CacheManager is the correct class name
+from ..utils.common_utils import logger, retry_api_call
+
+# FIXME: Where should OPENAI_MODEL come from? e.g. config.openai.vision_model
+# from ..utils.config import PipelineConfig # Example if it's from config
+# OPENAI_MODEL = PipelineConfig().openai.vision_model
+
+# FIXME: _pdf_to_data_uris is not defined. It was likely a helper in the original file.
+# Placeholder for _pdf_to_data_uris
+def _pdf_to_data_uris(pdf_path: Path) -> List[str]:
+    # This function needs to be implemented or imported correctly.
+    # Example: Convert PDF pages to base64 data URIs.
+    logger.warning(f"_pdf_to_data_uris is not implemented for {pdf_path}")
+    return []
+
+# FIXME: OPENAI_MODEL is not defined. This should come from config.
+OPENAI_MODEL = "gpt-4o"  # Placeholder, replace with config access
 
 
 class DocumentType(Enum):
@@ -40,10 +65,13 @@ async def parse_document(
 
     # Check cache first
     if cache:
+        # FIXME: doc_hash was undefined. Assuming it's derived from pdf_path.
+        # Consider a more robust way to generate this, e.g., hash of file content or path + mtime
+        doc_hash_str = hashlib.sha256(str(pdf_path).encode()).hexdigest()
         cache_key = (
             f"{doc_type.value}_{hashlib.sha256(prompt_text.encode()).hexdigest()[:8]}"
         )
-        cached = cache.get(doc_hash, cache_key)
+        cached = cache.get(doc_hash_str, cache_key) # Use doc_hash_str
         if cached:
             return cached["markdown"], cached["pairs"], cached["metadata"]
 
@@ -66,8 +94,10 @@ async def parse_document(
 
     # Cache result
     if cache:
+        # FIXME: doc_hash was undefined (see above). Using doc_hash_str.
+        doc_hash_str = hashlib.sha256(str(pdf_path).encode()).hexdigest()
         cache.put(
-            doc_hash,
+            doc_hash_str, # Use doc_hash_str
             cache_key,
             {"markdown": markdown, "pairs": pairs, "metadata": metadata},
         )
