@@ -3,21 +3,39 @@ Simple cache manager for parsed documents.
 """
 
 import json
-import hashlib
-import shutil
-from pathlib import Path
+# import hashlib # Not directly used in this file, but hashes are passed in
+import shutil # Not used in the current snippet, consider removing if not needed elsewhere in this file
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import lz4.frame
 
+# FIXME: logger should be imported, e.g., from ..utils.common_utils import logger
+# from ..utils.common_utils import logger # Placeholder if you have a central logger
+class PrintLogger: # Basic logger placeholder if no central one is set up yet
+    def error(self, msg): print(f"ERROR: {msg}")
+    def warning(self, msg): print(f"WARNING: {msg}")
+    def info(self, msg): print(f"INFO: {msg}")
+logger = PrintLogger()
+
+# FIXME: Consider using PipelineConfig for cache_dir, ttl_days, compress
+# from ..utils.config import PipelineConfig
 
 class CacheManager:
     """Simple disk-based cache with optional compression."""
 
     def __init__(
         self, cache_dir: str = "./cache", ttl_days: int = 7, compress: bool = True
+        # config: Optional[PipelineConfig] = None # Example: pass config
     ):
-        self.cache_dir = Path(cache_dir)
+        # FIXME: These should come from config
+        # if config:
+        #     self.cache_dir = Path(config.cache.directory)
+        #     self.ttl = timedelta(days=config.cache.ttl_days)
+        #     self.compress = config.cache.compress
+        # else:
+        self.cache_dir = Path(cache_dir) # Default or from param
         self.cache_dir.mkdir(exist_ok=True)
         self.ttl = timedelta(days=ttl_days)
         self.compress = compress

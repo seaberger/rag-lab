@@ -2,8 +2,16 @@
 Hybrid search combining vector similarity and BM25.
 """
 
-from typing import List, Dict, Tuple
-import numpy as np
+from typing import Dict, List # Tuple was unused
+
+# import numpy as np # numpy seems unused
+from llama_index.embeddings.openai import OpenAIEmbedding # For type hinting
+from qdrant_client import QdrantClient # For type hinting
+
+from ..storage.keyword_index import BM25Index # For type hinting
+
+# FIXME: Consider using PipelineConfig for collection_name
+# from ..utils.config import PipelineConfig
 
 
 class HybridSearch:
@@ -27,8 +35,13 @@ class HybridSearch:
 
         # Vector search
         query_embedding = await embedding_model.aget_query_embedding(query)
+        # FIXME: collection_name should come from config
+        # config = PipelineConfig.from_yaml()
+        # collection_name = config.qdrant.collection_name
+        collection_name_to_use = "datasheets"
+
         vector_results = self.vector_store.search(
-            collection_name="datasheets",
+            collection_name=collection_name_to_use,
             query_vector=query_embedding,
             limit=limit * 2,  # Get more for reranking
         )
@@ -72,8 +85,9 @@ class HybridSearch:
         results = []
         for chunk_id, score in sorted_results:
             # Get from vector store (has all metadata)
+            # FIXME: collection_name should come from config
             point = self.vector_store.retrieve(
-                collection_name="datasheets", ids=[chunk_id]
+                collection_name=collection_name_to_use, ids=[chunk_id]
             )[0]
 
             results.append(
