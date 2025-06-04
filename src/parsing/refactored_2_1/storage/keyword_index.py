@@ -14,19 +14,18 @@ from typing import Dict, List, Set, Tuple # Set was unused, but kept for now
 # import numpy as np # numpy seems unused in this file, commenting out.
 from llama_index.core.schema import TextNode # Added TextNode
 
-# FIXME: Consider using PipelineConfig for db_path
-# from ..utils.config import PipelineConfig
-import re
+from ..utils.config import PipelineConfig
 
 
 class BM25Index:
     """BM25 keyword index with SQLite FTS5 backend."""
 
-    def __init__(self, db_path: str = "./keyword_index.db"):
-        # FIXME: db_path should come from config, e.g. config.storage.keyword_index_path
-        # config = PipelineConfig.from_yaml()
-        # self.db_path = config.storage.keyword_index_path
-        self.db_path = db_path
+    def __init__(self, db_path: str = None, config: PipelineConfig = None):
+        # Use config if provided, otherwise use parameter or default
+        if config and hasattr(config, 'storage'):
+            self.db_path = config.storage.keyword_db_path
+        else:
+            self.db_path = db_path or "./keyword_index.db"
         self.conn = sqlite3.connect(self.db_path)
         self._init_db()
 

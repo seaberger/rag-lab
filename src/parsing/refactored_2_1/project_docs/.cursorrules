@@ -1,0 +1,287 @@
+# Cursor Rules for Datasheet Ingestion Pipeline
+
+## Project Overview
+This is a production-ready ETL pipeline for ingesting PDF datasheets and Markdown documents into a searchable vector database. The system uses OpenAI Vision API for PDF parsing, LlamaIndex for document processing, Qdrant for vector storage, and SQLite FTS5 for keyword search.
+
+## Code Style and Conventions
+
+### Python Style
+- Use Python 3.8+ features and type hints throughout
+- Follow PEP 8 with 88-character line limit (Black formatter)
+- Use f-strings for string formatting
+- Prefer pathlib.Path over os.path
+- Use async/await for I/O operations
+
+### Naming Conventions
+- Classes: PascalCase (e.g., `DocumentProcessor`, `CacheManager`)
+- Functions/methods: snake_case (e.g., `process_document`, `get_cache_stats`)
+- Constants: UPPER_SNAKE_CASE (e.g., `OPENAI_MODEL`, `VECTOR_DB_PATH`)
+- Private methods: prefix with underscore (e.g., `_clean_text`, `_validate_input`)
+
+### Import Organization
+```python
+# Standard library imports
+import asyncio
+import hashlib
+import json
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
+# Third-party imports
+import aiohttp
+from openai import OpenAI
+from tqdm import tqdm
+
+# Local imports
+from pipeline_utils import logger, retry_api_call
+from cache_manager import CacheManager
+```
+
+## Architecture Principles
+
+### Modular Design
+- Each major component (parsing, caching, search) should be in separate modules
+- Use dependency injection for configuration and external services
+- Implement clear interfaces between components
+
+### Error Handling
+- Use custom exception classes for different error types (ValidationError, ParseError, NetworkError)
+- Implement retry logic with exponential backoff for API calls
+- Log errors with sufficient context for debugging
+- Graceful degradation when possible
+
+### Async Programming
+- Use async/await for all I/O operations (file reads, API calls, database operations)
+- Implement proper context managers for resource cleanup
+- Use asyncio.gather() for concurrent operations when safe
+
+## Key Components and Patterns
+
+### Document Processing Pattern
+```python
+async def process_document(
+    source: Union[str, Path],
+    config: PipelineConfig,
+    progress: Optional[ProgressMonitor] = None
+) -> DocumentResult:
+    """Standard document processing pattern."""
+    try:
+        with progress.stage("validation") if progress else nullcontext():
+            # Validate input
+            pass
+            
+        with progress.stage("parsing") if progress else nullcontext():
+            # Parse document
+            pass
+            
+        with progress.stage("indexing") if progress else nullcontext():
+            # Index content
+            pass
+            
+        return DocumentResult(success=True, ...)
+    except Exception as e:
+        logger.error(f"Failed to process {source}: {e}")
+        return DocumentResult(success=False, error=str(e))
+```
+
+### Configuration Management
+- Use YAML files for configuration with environment variable overrides
+- Implement validation for all configuration values
+- Provide sensible defaults for all optional settings
+
+### Caching Strategy
+- Cache at the document level using SHA-256 hashes
+- Include prompt hash in cache key for parsing operations
+- Implement TTL-based expiration
+- Use LZ4 compression for space efficiency
+
+## API Integration Guidelines
+
+### OpenAI API Usage
+- Always use retry decorators for API calls
+- Implement rate limiting and backoff
+- Use structured prompts with clear instructions
+- Handle token limits gracefully
+
+```python
+@retry_api_call(max_attempts=3)
+async def call_openai_api(client: OpenAI, messages: List[Dict], model: str):
+    """Standard OpenAI API call pattern."""
+    return await client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0.0,
+        max_tokens=2000
+    )
+```
+
+### LlamaIndex Integration
+- Use current LlamaIndex APIs (avoid deprecated ServiceContext)
+- Implement proper Settings configuration
+- Use IngestionPipeline for document processing
+- Handle node metadata consistently
+
+### Vector Database (Qdrant)
+- Initialize collections with proper vector dimensions
+- Use batch upserts for performance
+- Implement proper metadata filtering
+- Handle connection errors gracefully
+
+## Testing Guidelines
+
+### Unit Tests
+- Test each component in isolation
+- Mock external dependencies (OpenAI API, file system)
+- Use pytest fixtures for common test setup
+- Test error conditions and edge cases
+
+### Integration Tests
+- Test end-to-end document processing workflows
+- Use test documents of different types and sizes
+- Verify search functionality with known queries
+- Test configuration loading and validation
+
+### Performance Tests
+- Benchmark document processing speed
+- Monitor memory usage during large batch operations
+- Test cache performance and hit rates
+- Validate search latency requirements
+
+## Common Tasks and Patterns
+
+### Adding a New Document Type
+1. Extend `DocumentType` enum
+2. Add classification logic to `DocumentClassifier`
+3. Implement parsing method in document processor
+4. Add tests for new document type
+5. Update configuration options if needed
+
+### Adding a New Search Feature
+1. Extend search interface in `hybrid_search.py`
+2. Add corresponding method to keyword index
+3. Update CLI to expose new feature
+4. Add tests for new search capability
+5. Update documentation
+
+### Performance Optimization
+- Profile code to identify bottlenecks
+- Use async operations for I/O-bound tasks
+- Implement batch processing for API calls
+- Add caching at appropriate levels
+- Monitor memory usage and optimize data structures
+
+## Debugging and Logging
+
+### Logging Strategy
+- Use structured logging with consistent format
+- Include correlation IDs for tracing operations
+- Log performance metrics at key stages
+- Use appropriate log levels (DEBUG, INFO, WARNING, ERROR)
+
+### Debug Information
+- Include document IDs and source paths in logs
+- Log API response times and token usage
+- Track cache hit/miss rates
+- Monitor error rates and types
+
+## Security Considerations
+
+### API Key Management
+- Never hardcode API keys in source code
+- Use environment variables or secure configuration
+- Implement key rotation support
+- Log API usage without exposing keys
+
+### Input Validation
+- Validate all file inputs for size and type
+- Sanitize URLs and file paths
+- Check for malicious content in PDFs
+- Implement rate limiting for API operations
+
+## Performance Guidelines
+
+### Memory Management
+- Use generators for large datasets
+- Implement proper cleanup of temporary files
+- Monitor memory usage during processing
+- Use streaming for large file operations
+
+### Optimization Targets
+- Document processing: 1-3 docs/minute
+- Search latency: <100ms
+- Cache hit rate: >50%
+- Memory usage: <2GB during processing
+
+## Code Review Checklist
+
+### Before Submitting Code
+- [ ] All functions have type hints
+- [ ] Error handling is implemented
+- [ ] Logging is added at appropriate levels
+- [ ] Tests are written and passing
+- [ ] Documentation is updated
+- [ ] Performance impact is considered
+- [ ] Security implications are reviewed
+
+### Architecture Review
+- [ ] Component boundaries are clear
+- [ ] Dependencies are minimal and well-defined
+- [ ] Configuration is externalized
+- [ ] Error propagation is handled correctly
+- [ ] Resource cleanup is implemented
+
+## Specific Project Patterns
+
+### Document Metadata Structure
+```python
+@dataclass
+class DocumentMetadata:
+    doc_id: str
+    source: str
+    pairs: List[Tuple[str, str]]  # Model/part number pairs
+    source_type: str  # "datasheet_pdf", "generic_pdf", "markdown"
+    chunk_count: int
+    processing_time: float
+```
+
+### Search Result Format
+```python
+@dataclass
+class SearchResult:
+    doc_id: str
+    chunk_id: str
+    text: str
+    score: float
+    metadata: Dict[str, Any]
+    source: str
+```
+
+### Configuration Schema
+- Use Pydantic or dataclasses for configuration validation
+- Support both YAML files and environment variables
+- Implement configuration inheritance and overrides
+- Validate all configuration at startup
+
+## Development Workflow
+
+### Local Development
+1. Set up virtual environment with requirements.txt
+2. Configure OpenAI API key
+3. Run tests to verify setup
+4. Use sample documents for testing
+5. Monitor logs for debugging
+
+### Adding Features
+1. Update PRD if needed
+2. Write tests first (TDD approach)
+3. Implement feature with proper error handling
+4. Update documentation
+5. Test with real documents
+6. Review performance impact
+
+### Deployment Preparation
+- Ensure all dependencies are in requirements.txt
+- Test with production-like data volumes
+- Verify configuration management
+- Document deployment procedures
+- Implement health checks and monitoring
