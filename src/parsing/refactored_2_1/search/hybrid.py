@@ -8,7 +8,7 @@ from typing import Dict, List # Tuple was unused
 from llama_index.embeddings.openai import OpenAIEmbedding # For type hinting
 from qdrant_client import QdrantClient # For type hinting
 
-from ..storage.keyword_index import BM25Index # For type hinting
+from storage.keyword_index import BM25Index # For type hinting
 
 # FIXME: Consider using PipelineConfig for collection_name
 # from ..utils.config import PipelineConfig

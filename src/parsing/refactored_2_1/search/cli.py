@@ -12,8 +12,8 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from qdrant_client import QdrantClient
 
 # Project-specific
-from ..storage.keyword_index import BM25Index
-from .hybrid import HybridSearch
+from storage.keyword_index import BM25Index
+from search.hybrid import HybridSearch
 # FIXME: Consider using PipelineConfig for paths, model names, collection names, etc.
 # from ..utils.config import PipelineConfig
 

@@ -8,7 +8,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from qdrant_client import QdrantClient # Added QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams # Added Qdrant models
 
-from ..utils.config import PipelineConfig
+from utils.config import PipelineConfig
 
 
 class EmbeddingManager:
