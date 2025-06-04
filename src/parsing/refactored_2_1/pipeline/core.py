@@ -15,13 +15,24 @@ except ImportError as e:
 from qdrant_client import QdrantClient
 from tqdm import tqdm
 
-# Project-specific
-from ..storage.cache import CacheManager # FIXME: Verify CacheManager class name and existence in cache.py
-from ..utils.chunking_metadata import process_and_index_document # Added import
-from ..utils.common_utils import logger # FIXME: Ensure logger is configured and available
-from ..utils.config import PipelineConfig
-from ..utils.monitoring import ProgressMonitor # FIXME: Verify ProgressMonitor class name
-from .parsers import DocumentClassifier, parse_document
+# Project-specific imports - using absolute imports to avoid relative import issues
+try:
+    from storage.cache import CacheManager
+    from utils.chunking_metadata import process_and_index_document
+    from utils.common_utils import logger
+    from utils.config import PipelineConfig
+    from utils.monitoring import ProgressMonitor
+    from pipeline.parsers import DocumentClassifier, parse_document
+except ImportError:
+    # Fallback for when running from different directory
+    import sys
+    sys.path.append(str(Path(__file__).parent.parent))
+    from storage.cache import CacheManager
+    from utils.chunking_metadata import process_and_index_document
+    from utils.common_utils import logger
+    from utils.config import PipelineConfig
+    from utils.monitoring import ProgressMonitor
+    from pipeline.parsers import DocumentClassifier, parse_document
 
 # FIXME: These names are used but not defined/imported in this snippet.
 # They might come from other local modules, constants files, or need to be implemented/moved.
@@ -199,6 +210,16 @@ async def ingest_sources(
     cache = CacheManager(config=config) if config.cache.enabled else None
     progress = ProgressMonitor()
 
+    # Initialize embedding model with config
+    from llama_index.core import Settings
+    from llama_index.embeddings.openai import OpenAIEmbedding
+    
+    embed_model = OpenAIEmbedding(
+        model=config.openai.embedding_model,
+        dimensions=config.openai.dimensions,
+    )
+    Settings.embed_model = embed_model
+
     # Initialize storage
     qclient = QdrantClient(path=config.qdrant.path)
     vstore = QdrantVectorStore(client=qclient, collection_name=config.qdrant.collection_name)
@@ -296,7 +317,7 @@ async def ingest_sources(
             # Index nodes
             try:
                 index_start = time.time()
-                index = VectorStoreIndex.from_nodes(nodes, storage_context=storage)
+                index = VectorStoreIndex(nodes, storage_context=storage)
                 progress.update_stage(doc_id, "vector_indexing", time.time() - index_start)
                 logger.info(f"Indexed {len(nodes)} nodes for {doc_id}")
                 progress.complete_document(doc_id, len(nodes))

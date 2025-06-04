@@ -7,10 +7,18 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from openai import OpenAI
 
-from ..storage.cache import CacheManager # Assuming CacheManager is the correct class name
-from ..utils.common_utils import logger, retry_api_call
-
-from ..utils.config import PipelineConfig
+# Use absolute imports to avoid relative import issues
+try:
+    from storage.cache import CacheManager
+    from utils.common_utils import logger, retry_api_call
+    from utils.config import PipelineConfig
+except ImportError:
+    # Fallback for when running from different directory
+    import sys
+    sys.path.append(str(Path(__file__).parent.parent))
+    from storage.cache import CacheManager
+    from utils.common_utils import logger, retry_api_call
+    from utils.config import PipelineConfig
 
 def _find_poppler() -> Optional[str]:
     """Return directory that contains pdfinfo/pdftoppm (Poppler) or None."""
@@ -180,18 +188,37 @@ async def parse_document(
         # Direct read - no API call
         markdown = pdf_path.read_text(encoding="utf-8", errors="ignore")
         pairs = []  # No model/part pairs in markdown
-        metadata = {"source_type": "markdown"}
+        metadata = {
+            "source_type": "markdown",
+            "file_name": pdf_path.name,
+            "file_size": pdf_path.stat().st_size,
+            "content_length": len(markdown),
+            "parse_method": "direct_read"
+        }
 
     elif doc_type == DocumentType.DATASHEET_PDF:
         # Use special datasheet prompt with pair extraction
         markdown, pairs = await vision_parse_datasheet(pdf_path, prompt_text, config)
-        metadata = {"source_type": "datasheet_pdf", "extracted_pairs": len(pairs)}
+        metadata = {
+            "source_type": "datasheet_pdf", 
+            "extracted_pairs": len(pairs),
+            "file_name": pdf_path.name,
+            "file_size": pdf_path.stat().st_size,
+            "content_length": len(markdown),
+            "parse_method": "openai_vision"
+        }
 
     elif doc_type == DocumentType.GENERIC_PDF:
         # Use generic prompt without pair extraction
         markdown, _ = await vision_parse_generic(pdf_path, prompt_text, config)
         pairs = []
-        metadata = {"source_type": "generic_pdf"}
+        metadata = {
+            "source_type": "generic_pdf",
+            "file_name": pdf_path.name,
+            "file_size": pdf_path.stat().st_size,
+            "content_length": len(markdown),
+            "parse_method": "openai_vision"
+        }
 
     # Cache result
     if cache:
@@ -260,7 +287,10 @@ async def vision_parse_datasheet(
     first_line, *rest = md.split("\n", 1)
     try:
         if first_line.startswith("Metadata:"):
-            meta = json.loads(first_line.replace("Metadata:", "").strip())
+            metadata_text = first_line.replace("Metadata:", "").strip()
+            # Handle single quotes in the response by converting to double quotes
+            metadata_text = metadata_text.replace("'", '"')
+            meta = json.loads(metadata_text)
             pairs = [tuple(p) for p in meta.get("pairs", [])]
             # Remove metadata line from markdown
             md = "\n".join(rest) if rest else md
