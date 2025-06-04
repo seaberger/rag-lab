@@ -11,34 +11,30 @@ from typing import Any, Dict, Optional
 
 import lz4.frame
 
-# FIXME: logger should be imported, e.g., from ..utils.common_utils import logger
-# from ..utils.common_utils import logger # Placeholder if you have a central logger
-class PrintLogger: # Basic logger placeholder if no central one is set up yet
-    def error(self, msg): print(f"ERROR: {msg}")
-    def warning(self, msg): print(f"WARNING: {msg}")
-    def info(self, msg): print(f"INFO: {msg}")
-logger = PrintLogger()
-
-# FIXME: Consider using PipelineConfig for cache_dir, ttl_days, compress
-# from ..utils.config import PipelineConfig
+from ..utils.common_utils import logger
+from ..utils.config import PipelineConfig
 
 class CacheManager:
     """Simple disk-based cache with optional compression."""
 
     def __init__(
-        self, cache_dir: str = "./cache", ttl_days: int = 7, compress: bool = True
-        # config: Optional[PipelineConfig] = None # Example: pass config
+        self, 
+        cache_dir: str = None, 
+        ttl_days: int = None, 
+        compress: bool = None,
+        config: Optional[PipelineConfig] = None
     ):
-        # FIXME: These should come from config
-        # if config:
-        #     self.cache_dir = Path(config.cache.directory)
-        #     self.ttl = timedelta(days=config.cache.ttl_days)
-        #     self.compress = config.cache.compress
-        # else:
-        self.cache_dir = Path(cache_dir) # Default or from param
+        # Use config if provided, otherwise use parameters or defaults
+        if config and hasattr(config, 'cache'):
+            self.cache_dir = Path(config.cache.directory)
+            self.ttl = timedelta(days=config.cache.ttl_days)
+            self.compress = config.cache.compress
+        else:
+            self.cache_dir = Path(cache_dir or "./cache")
+            self.ttl = timedelta(days=ttl_days or 7)
+            self.compress = compress if compress is not None else True
+            
         self.cache_dir.mkdir(exist_ok=True)
-        self.ttl = timedelta(days=ttl_days)
-        self.compress = compress
         self.stats = {"hits": 0, "misses": 0, "errors": 0}
 
     def _get_cache_key(self, doc_hash: str, prompt_hash: str) -> str:

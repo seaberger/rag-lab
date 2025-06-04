@@ -8,8 +8,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from qdrant_client import QdrantClient # Added QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams # Added Qdrant models
 
-# FIXME: Consider using PipelineConfig for model names, dimensions, paths, etc.
-# from ..utils.config import PipelineConfig
+from ..utils.config import PipelineConfig
 
 
 class EmbeddingManager:
@@ -17,30 +16,42 @@ class EmbeddingManager:
 
     def __init__(
         self,
-        model: str = "text-embedding-3-small",
-        chunk_size: int = 1024,
-        chunk_overlap: int = 128,
+        config: PipelineConfig = None,
+        model: str = None,
+        chunk_size: int = None,
+        chunk_overlap: int = None,
     ):
+        # Use config if provided, otherwise defaults
+        self.config = config
+        if config:
+            model = model or config.openai.embedding_model
+            chunk_size = chunk_size or config.chunking.chunk_size
+            chunk_overlap = chunk_overlap or config.chunking.chunk_overlap
+            self.dimensions = config.openai.dimensions
+            self.qdrant_path = config.qdrant.path
+            self.collection_name = config.qdrant.collection_name
+        else:
+            model = model or "text-embedding-3-small"
+            chunk_size = chunk_size or 1024
+            chunk_overlap = chunk_overlap or 128
+            self.dimensions = 1536
+            self.qdrant_path = "./qdrant_data"
+            self.collection_name = "datasheets"
+
         # Configure embedding model
-        # FIXME: model name, dimensions should come from config
-        # config = PipelineConfig.from_yaml() # Example: load config
-        # model = config.openai.embedding_model
-        # dimensions = config.openai.dimensions
         self.embed_model = OpenAIEmbedding(
-            model=model, # Use model from params or config
+            model=model,
             embed_batch_size=100,  # Process in batches
-            dimensions=dimensions if model == "text-embedding-3-small" else None, # Use dimensions from params or config
+            dimensions=self.dimensions if model == "text-embedding-3-small" else None,
         )
 
         # Set global settings
         Settings.embed_model = self.embed_model
-        # FIXME: chunk_size and chunk_overlap should come from config.chunking
-        Settings.chunk_size = chunk_size # Use chunk_size from params or config
-        Settings.chunk_overlap = chunk_overlap # Use chunk_overlap from params or config
+        Settings.chunk_size = chunk_size
+        Settings.chunk_overlap = chunk_overlap
 
         # Initialize Qdrant
-        # FIXME: Qdrant path should come from config.qdrant.path
-        self.qdrant_client = QdrantClient(path="./qdrant_data") # Use path from config
+        self.qdrant_client = QdrantClient(path=self.qdrant_path)
         self._init_collection()
 
     def _init_collection(self):
@@ -48,15 +59,11 @@ class EmbeddingManager:
         collections = self.qdrant_client.get_collections().collections
         collection_names = [c.name for c in collections]
 
-        # FIXME: collection_name should come from config.qdrant.collection_name
-        # FIXME: vector size (1536) should come from config.openai.dimensions
-        collection_name_to_check = "datasheets" # Use collection name from config
-
-        if collection_name_to_check not in collection_names:
+        if self.collection_name not in collection_names:
             self.qdrant_client.create_collection(
-                collection_name=collection_name_to_check,
+                collection_name=self.collection_name,
                 vectors_config=VectorParams(
-                    size=1536,  # Use dimension from config
+                    size=self.dimensions,
                     distance=Distance.COSINE,
                 ),
             )
@@ -93,7 +100,6 @@ class EmbeddingManager:
                 points.append(point)
 
         # Upsert to Qdrant
-        # FIXME: collection_name should come from config.qdrant.collection_name
-        self.qdrant_client.upsert(collection_name="datasheets", points=points) # Use collection name from config
+        self.qdrant_client.upsert(collection_name=self.collection_name, points=points)
 
         return len(points)
