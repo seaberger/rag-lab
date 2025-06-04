@@ -18,6 +18,7 @@ from tqdm import tqdm
 # Project-specific imports - using absolute imports to avoid relative import issues
 try:
     from storage.cache import CacheManager
+    from storage.keyword_index import BM25Index
     from utils.chunking_metadata import process_and_index_document
     from utils.common_utils import logger
     from utils.config import PipelineConfig
@@ -28,6 +29,7 @@ except ImportError:
     import sys
     sys.path.append(str(Path(__file__).parent.parent))
     from storage.cache import CacheManager
+    from storage.keyword_index import BM25Index
     from utils.chunking_metadata import process_and_index_document
     from utils.common_utils import logger
     from utils.config import PipelineConfig
@@ -224,6 +226,9 @@ async def ingest_sources(
     qclient = QdrantClient(path=config.qdrant.path)
     vstore = QdrantVectorStore(client=qclient, collection_name=config.qdrant.collection_name)
     storage = StorageContext.from_defaults(vector_store=vstore)
+    
+    # Initialize BM25 keyword index
+    keyword_index = BM25Index(config=config)
 
     prompt_text = _resolve_prompt(prompt_file or config.parser.datasheet_prompt_path)
 
@@ -314,16 +319,27 @@ async def ingest_sources(
                 progress.fail_document(doc_id, f"Node processing failed: {e}")
                 continue
 
-            # Index nodes
+            # Index nodes in vector store
             try:
                 index_start = time.time()
                 index = VectorStoreIndex(nodes, storage_context=storage)
                 progress.update_stage(doc_id, "vector_indexing", time.time() - index_start)
-                logger.info(f"Indexed {len(nodes)} nodes for {doc_id}")
-                progress.complete_document(doc_id, len(nodes))
+                logger.info(f"Vector indexed {len(nodes)} nodes for {doc_id}")
             except Exception as e:
                 logger.error(f"Vector indexing failed for {doc_id}: {e}")
-                progress.fail_document(doc_id, f"Indexing failed: {e}")
+                progress.fail_document(doc_id, f"Vector indexing failed: {e}")
+                continue
+
+            # Index nodes in keyword store (BM25)
+            try:
+                keyword_start = time.time()
+                keyword_index.index_nodes(nodes, doc_id, str(src), pairs)
+                progress.update_stage(doc_id, "keyword_indexing", time.time() - keyword_start)
+                logger.info(f"Keyword indexed {len(nodes)} nodes for {doc_id}")
+                progress.complete_document(doc_id, len(nodes))
+            except Exception as e:
+                logger.error(f"Keyword indexing failed for {doc_id}: {e}")
+                progress.fail_document(doc_id, f"Keyword indexing failed: {e}")
                 continue
 
         except Exception as e:

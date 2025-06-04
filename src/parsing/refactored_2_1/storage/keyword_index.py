@@ -14,7 +14,7 @@ from typing import Dict, List, Set, Tuple # Set was unused, but kept for now
 # import numpy as np # numpy seems unused in this file, commenting out.
 from llama_index.core.schema import TextNode # Added TextNode
 
-from ..utils.config import PipelineConfig
+from utils.config import PipelineConfig
 
 
 class BM25Index:
