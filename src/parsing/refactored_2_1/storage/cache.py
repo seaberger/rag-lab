@@ -11,8 +11,16 @@ from typing import Any, Dict, Optional
 
 import lz4.frame
 
-from ..utils.common_utils import logger
-from ..utils.config import PipelineConfig
+# Use absolute imports to avoid relative import issues
+try:
+    from utils.common_utils import logger
+    from utils.config import PipelineConfig
+except ImportError:
+    # Fallback for when running from different directory
+    import sys
+    sys.path.append(str(Path(__file__).parent.parent))
+    from utils.common_utils import logger
+    from utils.config import PipelineConfig
 
 class CacheManager:
     """Simple disk-based cache with optional compression."""

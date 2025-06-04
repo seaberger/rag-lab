@@ -19,12 +19,17 @@ class KeywordGenerator:
         self.max_keywords = max_keywords
     
     async def atransform(self, nodes: List[TextNode]) -> List[TextNode]:
-        """Transform nodes by adding keywords to metadata."""
+        """Transform nodes by appending keywords to content (per Anthropic RAG best practices)."""
         try:
             # Process nodes individually for better context
             for node in nodes:
                 keywords = await self._generate_keywords_for_node(node)
-                node.metadata["keywords"] = keywords
+                if keywords:
+                    # Append keywords to content as a block (Anthropic RAG best practice)
+                    keyword_block = "\n\n---\nKeywords: " + ", ".join(keywords)
+                    node.text = node.text + keyword_block
+                    # Also keep in metadata for reference
+                    node.metadata["keywords"] = keywords
                 
             logger.info(f"Added keywords to {len(nodes)} nodes")
             return nodes
@@ -65,6 +70,8 @@ Return only a JSON list of keywords, like: ["keyword1", "keyword2", ...]"""
             
             # Parse JSON response
             import json
+            # Handle single quotes in the response by converting to double quotes
+            keywords_text = keywords_text.replace("'", '"')
             keywords = json.loads(keywords_text)
             if isinstance(keywords, list):
                 return [str(k).strip() for k in keywords if k]
@@ -132,6 +139,8 @@ Return JSON format:
             
             # Parse batch results
             import json
+            # Handle single quotes in the response by converting to double quotes
+            result_text = result_text.replace("'", '"')
             batch_keywords = json.loads(result_text)
             
             # Apply keywords to nodes
@@ -140,7 +149,15 @@ Return JSON format:
                 if chunk_key in batch_keywords:
                     keywords = batch_keywords[chunk_key]
                     if isinstance(keywords, list):
-                        node.metadata["keywords"] = [str(k).strip() for k in keywords if k]
+                        keywords = [str(k).strip() for k in keywords if k]
+                        if keywords:
+                            # Append keywords to content as a block (Anthropic RAG best practice)
+                            keyword_block = "\n\n---\nKeywords: " + ", ".join(keywords)
+                            node.text = node.text + keyword_block
+                            # Also keep in metadata for reference
+                            node.metadata["keywords"] = keywords
+                        else:
+                            node.metadata["keywords"] = []
                     else:
                         node.metadata["keywords"] = []
                 else:
@@ -182,9 +199,10 @@ async def process_and_index_document(
     )
 
     # Chunk using MarkdownNodeParser (preserves structure)
-    with progress.stage("chunking") if progress else nullcontext():
-        md_parser = MarkdownNodeParser()
-        nodes = md_parser.get_nodes_from_documents([doc])
+    if progress:
+        progress.update_stage(doc_id, "chunking")
+    md_parser = MarkdownNodeParser()
+    nodes = md_parser.get_nodes_from_documents([doc])
 
     # Add metadata to each chunk
     for node in nodes:
@@ -199,15 +217,16 @@ async def process_and_index_document(
 
     # Optional keyword augmentation
     if with_keywords:
-        with progress.stage("keywords") if progress else nullcontext():
-            # Get model from config or use default
-            keyword_model = config.openai.keyword_model if config else "gpt-4o-mini"
-            batch_threshold = config.batch.threshold if config else 10
-            
-            if len(nodes) > batch_threshold:  # Use batch for large documents
-                nodes = await batch_generate_keywords(nodes, model=keyword_model)
-            else:
-                keyword_gen = KeywordGenerator(model=keyword_model)
-                nodes = await keyword_gen.atransform(nodes)
+        if progress:
+            progress.update_stage(doc_id, "keywords")
+        # Get model from config or use default
+        keyword_model = config.openai.keyword_model if config else "gpt-4o-mini"
+        batch_threshold = config.batch.threshold if config else 10
+        
+        if len(nodes) > batch_threshold:  # Use batch for large documents
+            nodes = await batch_generate_keywords(nodes, model=keyword_model)
+        else:
+            keyword_gen = KeywordGenerator(model=keyword_model)
+            nodes = await keyword_gen.atransform(nodes)
 
     return nodes

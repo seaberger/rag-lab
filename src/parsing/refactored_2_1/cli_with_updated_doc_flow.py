@@ -11,9 +11,15 @@ from pathlib import Path
 # Add current directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from pipeline.core import ingest_sources
-from utils.common_utils import logger
-from utils.env_utils import setup_environment
+# Use try/except for more robust imports
+try:
+    from pipeline.core import ingest_sources
+    from utils.common_utils import logger
+    from utils.env_utils import setup_environment
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Make sure you're running from the correct directory")
+    sys.exit(1)
 
 async def main():
     """Main CLI function."""
