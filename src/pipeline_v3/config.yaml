@@ -1,0 +1,98 @@
+# Production Pipeline v3 Configuration
+# Extends v2.1 configuration with enterprise production features
+
+# Core pipeline settings
+pipeline:
+  max_concurrent: 10  # Increased for production
+  timeout_seconds: 300
+  version: "3.0.0-dev"
+
+# Validation settings
+validation:
+  validate_urls: true
+  validate_files: true
+
+# Processing limits
+limits:
+  max_file_size_mb: 100
+  max_pages_per_pdf: 50
+
+# Enhanced caching system
+cache:
+  enabled: true
+  directory: ./cache_v3
+  ttl_days: 7
+  compress: true
+
+# Batch processing settings
+batch:
+  enabled: true
+  threshold: 10
+
+# Job queue management (NEW in v3)  
+job_queue:
+  max_concurrent: 10
+  job_persistence: true
+  job_storage_path: ./jobs_v3.db
+  job_retention_days: 30
+  chunk_size: 100
+  default_priority: 0
+  resume_interrupted: true
+
+# Document fingerprinting (NEW in v3)
+fingerprint:
+  enabled: true
+  storage_path: ./fingerprints_v3.db
+  retention_days: 90
+  include_metadata: true
+
+# Index management (NEW in v3)
+index_management:
+  consistency_checks: true
+  auto_backup: false  # Disabled by default
+  backup_path: ./backups_v3
+  backup_retention_days: 90
+  rebuild_on_corruption: true
+
+# OpenAI API settings
+openai:
+  vision_model: gpt-4o
+  keyword_model: gpt-4o-mini
+  max_retries: 3
+  embedding_model: text-embedding-3-small
+  dimensions: 1536
+
+# Enhanced logging
+logging:
+  level: INFO
+  file: pipeline_v3.log
+  detailed_progress: true
+  performance_metrics: true
+
+# Enhanced monitoring (NEW in v3)
+monitoring:
+  progress_callback: true
+  save_report: true
+  report_file: processing_report_v3.json
+  resource_monitoring: true
+  alert_on_failures: true
+
+# Vector store settings
+qdrant:
+  path: ./qdrant_data_v3
+  collection_name: datasheets_v3
+
+# Parser settings
+parser:
+  datasheet_prompt_path: datasheet_parsing_prompt.md
+
+# Document chunking
+chunking:
+  chunk_size: 1024
+  chunk_overlap: 128
+
+# Storage configuration
+storage:
+  keyword_db_path: ./keyword_index_v3.db
+  base_dir: ./storage_data_v3
+  document_registry_path: ./document_registry_v3.db
