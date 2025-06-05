@@ -5,6 +5,7 @@ A production-ready document processing pipeline with advanced queue management, 
 [![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-brightgreen)](./test_cli_simple.py)
 [![Integration](https://img.shields.io/badge/integration-verified-brightgreen)](./quick_integration_test.py)
 [![Phase 3](https://img.shields.io/badge/phase%203-complete-success)](./DEVELOPMENT_STATUS.md)
+[![Documentation](https://img.shields.io/badge/docs-complete-blue)](./USER_MANUAL.md)
 
 ## 🎯 Overview
 
@@ -36,11 +37,42 @@ Pipeline v3 Architecture
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## 📚 Documentation
+
+Pipeline v3 includes comprehensive documentation for all user types:
+
+### 📖 **[User Manual](./USER_MANUAL.md)** - Complete Usage Guide
+Your one-stop resource for using Pipeline v3 effectively:
+- **🚀 Quick Start** - Get running in 5 minutes
+- **⚙️ Installation & Setup** - Environment configuration and API keys
+- **📋 Basic Operations** - Document management, search, and status monitoring
+- **🔧 Advanced Features** - Queue management, system maintenance, and optimization
+- **💻 CLI Reference** - Complete command documentation with examples
+- **⚙️ Configuration** - YAML settings and environment variables
+- **🔍 Troubleshooting** - Common issues and solutions
+- **📊 Best Practices** - Performance optimization and workflow recommendations
+- **🏢 Examples & Use Cases** - Real-world scenarios and automation scripts
+
+### 🚀 **[Quick Reference](./QUICK_REFERENCE.md)** - Command Cheat Sheet
+Essential commands for daily use:
+- Core document operations
+- Search type comparisons  
+- Configuration shortcuts
+- Performance tips
+- JSON output for automation
+
+### 🏗️ **Technical Documentation**
+- **[Development Status](./DEVELOPMENT_STATUS.md)** - Complete implementation history
+- **[Phase 3 Plan](./PHASE3_PLAN.md)** - CLI implementation details
+- **[Architecture](./docs/architecture.md)** - Technical system design
+
 ## 📁 Project Structure
 
 ```
 src/pipeline_v3/
-├── README.md                     # This file
+├── README.md                     # This file - Technical overview
+├── USER_MANUAL.md               # Complete user guide
+├── QUICK_REFERENCE.md           # Command cheat sheet
 ├── DEVELOPMENT_STATUS.md         # Complete development status
 ├── PHASE3_PLAN.md               # Phase 3 implementation details
 ├── cli_main.py                  # CLI entry point
@@ -78,6 +110,8 @@ src/pipeline_v3/
 ```
 
 ## 🚀 Quick Start
+
+> **📖 For detailed instructions, see the [User Manual](./USER_MANUAL.md)** | **🚀 For daily commands, see [Quick Reference](./QUICK_REFERENCE.md)**
 
 ### Prerequisites
 
@@ -286,12 +320,34 @@ Pipeline v3 maintains full backward compatibility:
 2. **Phase 3 Plan:** See [`PHASE3_PLAN.md`](./PHASE3_PLAN.md)  
 3. **Architecture:** See [`docs/architecture.md`](./docs/architecture.md)
 
-## 📞 Support
+## 📞 Getting Started & Support
 
-- **CLI Help:** `python cli_main.py --help`
-- **Integration Tests:** Run test files for verification
-- **Configuration:** Check `config.yaml` for settings
-- **Status Monitoring:** Use `python cli_main.py status --detailed`
+### 🚀 **New Users Start Here:**
+1. **📖 [User Manual](./USER_MANUAL.md)** - Complete installation and usage guide
+2. **🚀 [Quick Reference](./QUICK_REFERENCE.md)** - Essential commands cheat sheet
+3. **⚙️ Quick Setup:** `cd src/pipeline_v3 && python cli_main.py --help`
+
+### 🔧 **Command Line Help:**
+- **General Help:** `python cli_main.py --help`
+- **Command Help:** `python cli_main.py [command] --help`
+- **Verbose Mode:** `python cli_main.py --verbose [command]`
+
+### 🧪 **Testing & Verification:**
+- **Integration Tests:** `python quick_integration_test.py`
+- **CLI Tests:** `python test_cli_simple.py`
+- **Search Verification:** `python verify_real_search.py`
+
+### ⚙️ **Configuration & Monitoring:**
+- **View Config:** `python cli_main.py config list`
+- **System Status:** `python cli_main.py status --detailed`
+- **Maintenance:** `python cli_main.py maintenance --consistency-check`
+
+### 📚 **Documentation Roadmap:**
+- **First Time?** → [User Manual](./USER_MANUAL.md) Quick Start section
+- **Daily Use?** → [Quick Reference](./QUICK_REFERENCE.md) command cheat sheet
+- **Advanced Setup?** → [User Manual](./USER_MANUAL.md) Configuration section
+- **Troubleshooting?** → [User Manual](./USER_MANUAL.md) Troubleshooting section
+- **Development?** → [Development Status](./DEVELOPMENT_STATUS.md) and [Architecture](./docs/architecture.md)
 
 ---
 
