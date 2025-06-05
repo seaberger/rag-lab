@@ -1,7 +1,12 @@
 import os
-import yaml
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict # Added List, Dict for potential future use
+
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
 
 @dataclass
 class PipelineSettings:
@@ -24,7 +29,7 @@ class LimitsSettings:
 @dataclass
 class CacheSettings:
     enabled: bool = True
-    directory: str = "./cache"
+    directory: str = "./cache_v3"
     ttl_days: int = 7
     compress: bool = True
 
@@ -55,8 +60,8 @@ class MonitoringSettings:
 
 @dataclass
 class QdrantSettings:
-    path: str = "./qdrant_data"
-    collection_name: str = "datasheets"
+    path: str = "./qdrant_data_v3"
+    collection_name: str = "datasheets_v3"
 
 @dataclass
 class ParserSettings:
@@ -71,7 +76,7 @@ class ChunkingSettings:
 class JobQueueSettings: # NEW in v3
     max_concurrent: int = 10
     job_persistence: bool = True
-    job_storage_path: str = "./jobs.db"
+    job_storage_path: str = "./jobs_v3.db"
     job_retention_days: int = 30
     chunk_size: int = 100
     default_priority: int = 0
@@ -80,7 +85,7 @@ class JobQueueSettings: # NEW in v3
 @dataclass
 class FingerprintSettings: # NEW in v3
     enabled: bool = True
-    storage_path: str = "./fingerprints.db"
+    storage_path: str = "./fingerprints_v3.db"
     retention_days: int = 90
     include_metadata: bool = True
 
@@ -94,9 +99,9 @@ class IndexManagementSettings: # NEW in v3
 
 @dataclass
 class StorageSettings: # Enhanced for v3
-    keyword_db_path: str = "./keyword_index.db"
-    base_dir: str = "./storage_data"
-    document_registry_path: str = "./document_registry.db" # NEW in v3
+    keyword_db_path: str = "./keyword_index_v3.db"
+    base_dir: str = "./storage_data_v3"
+    document_registry_path: str = "./document_registry_v3.db" # NEW in v3
 
 @dataclass
 class PipelineConfig:
@@ -119,6 +124,10 @@ class PipelineConfig:
 
     @classmethod
     def from_yaml(cls, config_path: str = "config.yaml"):
+        if not YAML_AVAILABLE:
+            print("Warning: PyYAML not available. Using default settings.")
+            return cls()
+            
         # Try to find the config file relative to this script, then parent, then grandparent
         # This helps if the script consuming PipelineConfig is in a subdirectory like 'pipeline' or 'search'
         # or if utils/config.py itself is run for testing.
@@ -149,7 +158,7 @@ class PipelineConfig:
         except FileNotFoundError:
             print(f"Warning: Config file '{config_path}' (resolved to '{abs_config_path}') not found. Using default settings.")
             config_data = {}
-        except yaml.YAMLError as e:
+        except Exception as e:  # Catch yaml.YAMLError or any other error
             print(f"Error parsing YAML file '{abs_config_path}': {e}. Using default settings.")
             config_data = {} # Fallback to default for safety
 

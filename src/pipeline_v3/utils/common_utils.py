@@ -4,7 +4,6 @@ Common utilities for the pipeline.
 
 import logging
 from functools import wraps
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 # Custom exceptions
 class PipelineError(Exception):
@@ -19,14 +18,22 @@ class NetworkError(PipelineError):
     """Network operation failed."""
     pass
 
-# Retry decorator for API calls
+# Retry decorator for API calls (simplified without tenacity)
 def retry_api_call(max_attempts=3):
-    """Retry decorator for OpenAI API calls."""
-    return retry(
-        stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(multiplier=1, min=4, max=60),
-        reraise=True,
-    )
+    """Simple retry decorator for API calls."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_attempts - 1:
+                        raise
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
+            return None
+        return wrapper
+    return decorator
 
 # Structured logging setup
 # FIXME: Consider using PipelineConfig for logging level and file path
