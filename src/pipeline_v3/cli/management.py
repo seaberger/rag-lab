@@ -42,10 +42,11 @@ except ImportError as e:
 
 try:
     from job_queue.manager import DocumentQueue
-    from core.registry import DocumentRegistry  
+    from core.registry import DocumentRegistry, IndexType  
     from core.index_manager import IndexManager
     from utils.config import PipelineConfig
     from utils.monitoring import ProgressMonitor
+    from utils.env_utils import setup_environment
     CORE_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Core components not available: {e}")
@@ -65,6 +66,9 @@ class PipelineCLI:
             print("Error: Core pipeline components not available")
             print("Please install dependencies: uv add llama-index llama-index-vector-stores-qdrant")
             sys.exit(1)
+        
+        # Setup environment (load .env file)
+        setup_environment()
             
         self.config = PipelineConfig()
         self.pipeline = None
@@ -78,16 +82,10 @@ class PipelineCLI:
         try:
             if PIPELINE_AVAILABLE:
                 self.pipeline = EnhancedPipeline(self.config)
-                await self.pipeline.initialize()
             
-            self.queue = DocumentQueue(
-                max_workers=self.config.get('queue.max_workers', 4),
-                storage_path=self.config.storage_config.get('jobs_db_path')
-            )
+            self.queue = DocumentQueue(self.config)
             
-            self.registry = DocumentRegistry(
-                storage_path=self.config.storage_config.get('registry_db_path')
-            )
+            self.registry = DocumentRegistry(self.config)
             
             self.index_manager = IndexManager(self.config)
             
@@ -338,6 +336,17 @@ Examples:
                 key, value = item.split('=', 1)
                 metadata[key] = value
         return metadata
+    
+    def _parse_index_type(self, index_type_str: str) -> IndexType:
+        """Convert string to IndexType enum."""
+        if index_type_str == 'vector':
+            return IndexType.VECTOR
+        elif index_type_str == 'keyword':
+            return IndexType.KEYWORD
+        elif index_type_str == 'both':
+            return IndexType.BOTH
+        else:
+            raise ValueError(f"Invalid index type: {index_type_str}")
 
     def _format_output(self, data: Any, json_format: bool = False) -> str:
         """Format output for display."""
@@ -360,8 +369,8 @@ Examples:
                 result = await self.pipeline.process_document(
                     path, 
                     metadata=metadata,
-                    force=args.force,
-                    index_types=args.index_type
+                    force_reprocess=args.force,
+                    index_types=self._parse_index_type(args.index_type)
                 )
                 
                 if args.json:
@@ -398,7 +407,7 @@ Examples:
             try:
                 result = await self.pipeline.remove_document(
                     path,
-                    index_types=args.index_type
+                    index_types=self._parse_index_type(args.index_type)
                 )
                 
                 if args.json:

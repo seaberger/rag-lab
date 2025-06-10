@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
 try:
-    from llama_index.core import Document, VectorStoreIndex
+    from llama_index.core import Document, VectorStoreIndex, StorageContext, Settings
     from llama_index.core.node_parser import SentenceSplitter
     from llama_index.core.schema import TextNode
     from llama_index.embeddings.openai import OpenAIEmbedding
@@ -117,6 +117,10 @@ class IndexManager:
                 model=self.config.openai.embedding_model,
                 dimensions=self.config.openai.dimensions
             )
+            
+            # Set the embedding model in global Settings
+            Settings.embed_model = self.embedding_model
+            
             logger.info(f"Embeddings initialized: {self.config.openai.embedding_model}")
             
         except Exception as e:
@@ -168,7 +172,11 @@ class IndexManager:
             # Add to vector index
             if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.vector_store:
                 try:
-                    self.vector_store.add(nodes)
+                    # Create storage context with the vector store
+                    storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
+                    
+                    # Index nodes - this generates embeddings and stores them
+                    index = VectorStoreIndex(nodes, storage_context=storage_context)
                     
                     # Register index entries
                     for i, node in enumerate(nodes):
