@@ -68,44 +68,53 @@ data/lmc_docs/datasheets/
 - **Registry:** `./document_registry_v3.db` - Document state tracking ✅
 - **Jobs:** `./jobs_v3.db` - Queue management ✅
 - **Fingerprints:** `./fingerprints_v3.db` - Change detection ✅
-- **Storage Artifacts:** `./storage_data_v3/` - JSONL artifacts ❌ **Issue #6**
+- **Storage Artifacts:** `./storage_data_v3/` - JSONL artifacts ✅
 
-## Current Status 🔄
+## Current Status 🎉
 
-**Active Issue:** #6 - Document storage artifacts not created  
-**Last Updated:** June 9, 2025
+**Phase:** Production-Ready with Optimization Opportunities  
+**Last Updated:** June 9, 2025  
+**Latest Commit:** `a05cc7c` - JSONL storage artifact creation
 
-### Recently Fixed Issues:
-- ✅ **Issue #3:** Vector embedding generation failure (LlamaIndex integration)
-- ✅ **Issue #4:** Document state update errors (shared registry pattern)
+### Core Functionality: ✅ COMPLETE
+- ✅ **Issue #3:** Vector embedding generation (LlamaIndex integration)
+- ✅ **Issue #4:** Document state update errors (shared registry pattern)  
+- ✅ **Issue #6:** Storage artifacts creation (OpenAI Vision API integration)
 
-### Issue #6 Details:
-**Problem:** Two CLI entry points with different behaviors:
-- `cli_v3.py` ✅ Creates JSONL artifacts correctly
-- `cli_main.py` ❌ Missing artifact creation logic (production CLI)
+### Active Optimization Issues:
+- 🔄 **Issue #9:** Duplicate CLI interfaces cleanup (Medium priority)
+- 🔄 **Issue #7:** Pair extraction JSON parsing (Low-Medium priority)
+- 🔄 **Issue #8:** Missing get_status() method (Low priority)
+- 🔄 **Issue #5:** Qdrant server upgrade for performance (Low priority)
 
-**Root Cause:** Enhanced Pipeline lacks JSONL artifact creation from original pipeline
-
-**Files to Fix:**
-1. `/src/pipeline_v3/pipeline/enhanced_core.py` - Add artifact creation
-2. Reference: `/src/pipeline_v3/core/pipeline.py` lines 290-307 (working implementation)
+### Production Readiness Status:
+- ✅ **Document Processing:** Full PDF→markdown pipeline working
+- ✅ **Storage System:** JSONL artifacts created in `storage_data_v3/`
+- ✅ **Indexing:** Both vector and keyword search operational
+- ✅ **Queue System:** Enterprise-grade processing with lifecycle management
+- ⚠️ **User Experience:** CLI interface needs cleanup (Issue #9)
 
 ## Essential Commands
 
 ### Document Operations
+
+**Primary CLI** (Production - Use This):
 ```bash
-# Add documents (currently has Issue #6)
+# Add documents with full OpenAI Vision parsing
 uv run python -m src.pipeline_v3.cli_main add data/sample_docs/labmax-touch-ds.pdf
 
-# Working alternative for testing artifacts
-uv run python src/pipeline_v3/cli_v3.py --src data/sample_docs/labmax-touch-ds.pdf --mode datasheet
-
-# Search documents
+# Search documents with hybrid vector+keyword search
 uv run python -m src.pipeline_v3.cli_main search "laser sensors" --type hybrid --top-k 5
 
 # Update/Remove documents  
 uv run python -m src.pipeline_v3.cli_main update document.pdf --force
 uv run python -m src.pipeline_v3.cli_main remove document.pdf
+```
+
+**Legacy CLI** (⚠️ **Issue #9** - Cleanup needed):
+```bash
+# Alternative entry point (consider deprecating)
+uv run python src/pipeline_v3/cli_v3.py --src document.pdf --mode datasheet
 ```
 
 ### Queue Management
@@ -141,33 +150,37 @@ uv run python src/pipeline_v3/utils/cache_manager.py --clear all --force
 uv run python src/pipeline_v3/utils/cache_manager.py --status
 ```
 
-## Debugging Issue #6
+## Development & Debugging
 
-### Problem Verification:
+### Verify System Status:
 ```bash
-# This should create artifacts but doesn't (Issue #6)
+# Test document processing end-to-end
 uv run python -m src.pipeline_v3.cli_main add data/sample_docs/labmax-touch-ds.pdf
 
-# Check if storage directory exists
-ls storage_data_v3/  # Currently returns "No such file or directory"
+# Verify storage artifacts created
+ls storage_data_v3/  # Should show JSONL files with full UUIDs
 
-# This working command creates artifacts correctly  
-uv run python src/pipeline_v3/cli_v3.py --src data/sample_docs/labmax-touch-ds.pdf --mode datasheet
-ls storage_data_v3/  # Should show JSONL files
+# Test search functionality
+uv run python -m src.pipeline_v3.cli_main search "laser power" --type hybrid
 ```
 
-### Development Workflow for Fix:
-1. **Compare implementations:** `enhanced_core.py` vs `pipeline.py` 
-2. **Add artifact creation:** Port JSONL logic to enhanced pipeline
-3. **Test storage creation:** Verify directory and files are created
-4. **Validate content:** Ensure artifacts contain proper datasheet metadata
+### Active Development Areas:
+1. **CLI Interface Cleanup** (Issue #9): Consolidate dual CLI approach - **MEDIUM PRIORITY**
+2. **Pair Extraction** (Issue #7): Fix JSON parsing for model/part pairs - **LOW-MEDIUM PRIORITY**
+3. **Status Monitoring** (Issue #8): Add system health reporting - **LOW PRIORITY**
+4. **Performance Optimization** (Issue #5): Qdrant server upgrade - **LOW PRIORITY**
+
+### Development Priorities:
+- 🎯 **Next Sprint**: Issue #9 (CLI consolidation) for better user experience
+- 🔧 **Data Quality**: Issue #7 (pair extraction) for complete metadata
+- 🏗️ **Infrastructure**: Issues #8, #5 (monitoring, performance) for scalability
 
 ## Key Configuration
 
 Configuration via `config.yaml`:
 - **OpenAI Models:** gpt-4o for vision, text-embedding-3-small for embeddings
 - **Qdrant Settings:** `./qdrant_data_v3`, collection: `datasheets_v3`, dimensions: 1536
-- **Storage:** `./storage_data_v3` (currently not created due to Issue #6)
+- **Storage:** `./storage_data_v3` (JSONL artifacts with full datasheet content)
 - **Cache:** LZ4 compression, configurable TTL
 - **Queue:** Configurable workers, async processing
 
@@ -207,10 +220,11 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 ## Important Notes ⚠️
 
 - **Use uv from project root:** Critical for proper environment and imports
-- **Two CLI interfaces:** `cli_main.py` (production, has Issue #6) vs `cli_v3.py` (working)
-- **37 PDFs available:** Mix of simple and complex datasheets for comprehensive testing
+- **Primary CLI:** Use `cli_main.py` for production (Issue #6 resolved)
+- **CLI Cleanup Needed:** Issue #9 - Two CLI interfaces need consolidation
+- **37 PDFs available:** Mix of simple and complex datasheets for comprehensive testing  
 - **Storage isolation:** All v3 components use v3-specific paths to avoid conflicts
-- **Issue #6 priority:** Artifact creation is critical for production deployment
+- **Production ready:** Core document processing fully operational
 
 ## Documentation References
 
@@ -219,4 +233,4 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **📋 Development Status:** [DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)
 
-**Focus:** Complete Issue #6 fix to enable proper JSONL artifact persistence in Pipeline v3's production CLI interface.
+**Current Focus:** Optimize user experience and system performance. Core functionality is production-ready. Next priorities: CLI consolidation (Issue #9) and enhanced data extraction (Issue #7).
