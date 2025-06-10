@@ -296,9 +296,14 @@ class DocumentRegistry:
         error_message: Optional[str] = None
     ) -> bool:
         """Update document processing state."""
+        logger.debug(f"Attempting to update state for doc_id: {doc_id}")
         doc = self.get_document(doc_id)
         if not doc:
             logger.error(f"Document {doc_id} not found for state update")
+            # Debug: List all stored doc_ids to help diagnose
+            cursor = self.conn.execute("SELECT doc_id FROM documents")
+            stored_ids = [row[0] for row in cursor.fetchall()]
+            logger.debug(f"Available doc_ids in registry: {stored_ids}")
             return False
         
         doc.state = state.value
@@ -319,9 +324,14 @@ class DocumentRegistry:
         chunk_count: int = 0
     ) -> bool:
         """Mark document as indexed in specified index type."""
+        logger.debug(f"Attempting to mark indexed for doc_id: {doc_id}")
         doc = self.get_document(doc_id)
         if not doc:
             logger.error(f"Document {doc_id} not found for indexing update")
+            # Debug: List all stored doc_ids to help diagnose
+            cursor = self.conn.execute("SELECT doc_id FROM documents")
+            stored_ids = [row[0] for row in cursor.fetchall()]
+            logger.debug(f"Available doc_ids in registry: {stored_ids}")
             return False
         
         if index_type in [IndexType.VECTOR, IndexType.BOTH]:

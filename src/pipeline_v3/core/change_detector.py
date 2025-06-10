@@ -71,13 +71,13 @@ class ChunkComparison:
 class ChangeDetector:
     """Intelligent document change detection and update optimization."""
     
-    def __init__(self, config: Optional[PipelineConfig] = None):
+    def __init__(self, config: Optional[PipelineConfig] = None, registry: Optional[DocumentRegistry] = None):
         """Initialize change detector with configuration."""
         self.config = config or PipelineConfig()
         
         # Initialize components
         self.fingerprint_manager = FingerprintManager(config)
-        self.registry = DocumentRegistry(config)
+        self.registry = registry or DocumentRegistry(config)
         
         # Configuration thresholds
         self.minor_change_threshold = 0.15      # 15% content change

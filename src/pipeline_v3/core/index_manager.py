@@ -34,12 +34,12 @@ from utils.config import PipelineConfig
 class IndexManager:
     """Advanced index lifecycle management for vector and keyword indexes."""
     
-    def __init__(self, config: Optional[PipelineConfig] = None):
+    def __init__(self, config: Optional[PipelineConfig] = None, registry: Optional[DocumentRegistry] = None):
         """Initialize index manager with configuration."""
         self.config = config or PipelineConfig()
         
-        # Initialize registry
-        self.registry = DocumentRegistry(config)
+        # Use provided registry or create new one
+        self.registry = registry or DocumentRegistry(config)
         
         # Storage paths
         self.qdrant_path = self.config.qdrant.path
@@ -180,6 +180,7 @@ class IndexManager:
                     
                     # Register index entries
                     for i, node in enumerate(nodes):
+                        logger.debug(f"Registering vector index entry: doc_id={doc_id}, node_id={node.node_id}")
                         self.registry.register_index_entry(
                             doc_id=doc_id,
                             index_type=IndexType.VECTOR,
@@ -305,12 +306,9 @@ class IndexManager:
                     logger.error(f"Failed to remove from keyword index: {e}")
                     success = False
             
-            # Update registry
+            # Update registry - only remove index entries, not the document itself
             if success:
-                if index_types == IndexType.BOTH:
-                    self.registry.remove_document(doc_id)
-                else:
-                    self.registry.remove_index_entries(doc_id, index_types)
+                self.registry.remove_index_entries(doc_id, index_types)
                 
                 logger.info(f"Removed document {doc_id[:8]} from {index_types.value} index(es)")
             

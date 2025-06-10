@@ -27,7 +27,7 @@ from utils.config import PipelineConfig
 class EnhancedPipeline:
     """Production-ready pipeline with intelligent document lifecycle management."""
     
-    def __init__(self, config: Optional[PipelineConfig] = None):
+    def __init__(self, config: Optional[PipelineConfig] = None, registry: Optional[DocumentRegistry] = None):
         """Initialize enhanced pipeline with all components."""
         self.config = config or PipelineConfig()
         
@@ -37,9 +37,9 @@ class EnhancedPipeline:
         self.fingerprint_manager = FingerprintManager(self.config)
         
         # Initialize Phase 2 components
-        self.index_manager = IndexManager(self.config)
-        self.registry = DocumentRegistry(self.config)
-        self.change_detector = ChangeDetector(self.config)
+        self.registry = registry or DocumentRegistry(self.config)
+        self.index_manager = IndexManager(self.config, registry=self.registry)
+        self.change_detector = ChangeDetector(self.config, registry=self.registry)
         
         # Processing state
         self.is_processing = False
