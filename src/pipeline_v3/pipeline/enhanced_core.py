@@ -8,7 +8,7 @@ with Phase 2 index lifecycle management for intelligent document operations.
 import asyncio
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Add parent directory to path for imports
 import sys
@@ -17,9 +17,12 @@ sys.path.append(str(Path(__file__).parent.parent))
 from core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
 from core.fingerprint import FingerprintManager
 from core.index_manager import IndexManager, IndexType
+from core.pipeline import DatasheetArtefact, DocumentClassifier, fetch_document
+from core.parsers import parse_document
 from core.registry import DocumentRegistry, DocumentState
 from job_queue.manager import DocumentQueue, JobPriority
 from job_queue.job import JobManager, JobType, JobStatus
+from storage.cache import CacheManager
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 
@@ -40,6 +43,9 @@ class EnhancedPipeline:
         self.registry = registry or DocumentRegistry(self.config)
         self.index_manager = IndexManager(self.config, registry=self.registry)
         self.change_detector = ChangeDetector(self.config, registry=self.registry)
+        
+        # Initialize cache for document parsing
+        self.cache = CacheManager(config=self.config) if self.config.cache.enabled else None
         
         # Processing state
         self.is_processing = False
@@ -69,14 +75,32 @@ class EnhancedPipeline:
         source_path = Path(source)
         
         try:
-            # Read content if not provided
+            # Parse document content if not provided
             if content is None:
                 if not source_path.exists():
                     raise FileNotFoundError(f"Source file not found: {source}")
                 
-                content = source_path.read_text(encoding='utf-8', errors='ignore')
+                try:
+                    # Parse the document using OpenAI APIs for PDFs
+                    content, pairs, parsed_metadata = await self._parse_document_with_openai(source, "temp_id")
+                    
+                    # Merge parsed metadata with provided metadata
+                    if metadata is None:
+                        metadata = {}
+                    metadata.update(parsed_metadata)
+                    
+                    # Store pairs for later artifact creation
+                    self._temp_pairs = pairs
+                    self._temp_parsed_metadata = parsed_metadata
+                    
+                except Exception as e:
+                    logger.error(f"Document parsing failed for {source}: {e}")
+                    # Fall back to reading as text if parsing fails
+                    content = source_path.read_text(encoding='utf-8', errors='ignore')
+                    self._temp_pairs = []
+                    self._temp_parsed_metadata = {}
             
-            # Analyze changes
+            # Analyze changes (use content hash for change detection)
             change_analysis = self.change_detector.analyze_changes(
                 source, content, metadata
             )
@@ -99,6 +123,21 @@ class EnhancedPipeline:
             
             # Register document in registry
             doc_id = self._register_document(source, content, metadata)
+            
+            # Create storage artifact if we have parsed content
+            if hasattr(self, '_temp_pairs'):
+                try:
+                    artifact_created = await self._create_storage_artifact(
+                        doc_id, source, content, self._temp_pairs, self._temp_parsed_metadata
+                    )
+                    if not artifact_created:
+                        logger.warning(f"Failed to create storage artifact for {doc_id}")
+                except Exception as e:
+                    logger.error(f"Artifact creation failed for {doc_id}: {e}")
+                finally:
+                    # Clean up temporary data
+                    delattr(self, '_temp_pairs')
+                    delattr(self, '_temp_parsed_metadata')
             
             # Update fingerprint
             fingerprint = change_analysis.new_fingerprint
@@ -173,6 +212,94 @@ class EnhancedPipeline:
         )
         
         return doc_id
+    
+    async def _parse_document_with_openai(
+        self,
+        source: Union[str, Path],
+        doc_id: str
+    ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
+        """Parse document using OpenAI APIs for PDFs or direct read for text."""
+        source_path = Path(source)
+        
+        # Classify document type
+        doc_type = DocumentClassifier.classify(source, is_datasheet_mode=True)
+        
+        # For PDFs, use fetch_document and parse_document
+        if doc_type.name.endswith('_PDF'):
+            # Get PDF path and bytes using fetch_document
+            pdf_path, _, raw_bytes = await fetch_document(source)
+            
+            # Load prompt for datasheet parsing
+            prompt_file = self.config.parser.datasheet_prompt_path
+            if prompt_file and Path(prompt_file).exists():
+                prompt_text = Path(prompt_file).read_text()
+            else:
+                # Use default prompt if file not found
+                prompt_text = """Please analyze this document and extract information in JSON format with:
+                1. "pairs": Array of [model, part_number] pairs found in the document
+                2. "markdown": Full document content converted to markdown
+                """
+            
+            # Parse using OpenAI
+            markdown, pairs, metadata = await parse_document(
+                pdf_path, doc_type, prompt_text, self.cache, self.config
+            )
+            
+            # Clean up temporary file if created
+            if pdf_path != source_path:
+                try:
+                    pdf_path.unlink()
+                except:
+                    pass
+                    
+            return markdown, pairs, metadata
+        
+        else:
+            # For markdown/text files, read directly
+            content = source_path.read_text(encoding='utf-8', errors='ignore')
+            metadata = {
+                "source_type": "markdown",
+                "file_name": source_path.name,
+                "file_size": source_path.stat().st_size,
+                "content_length": len(content),
+                "doc_type": doc_type.value
+            }
+            return content, [], metadata
+    
+    async def _create_storage_artifact(
+        self,
+        doc_id: str,
+        source: Union[str, Path],
+        markdown: str,
+        pairs: List[Tuple[str, str]],
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """Create JSONL storage artifact."""
+        try:
+            # Ensure storage directory exists
+            storage_dir = Path(self.config.storage.base_dir)
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create artifact
+            artifact = DatasheetArtefact(
+                doc_id=doc_id,
+                source=str(source),
+                pairs=pairs,
+                markdown=markdown,
+                parse_version=2,
+                metadata=metadata
+            )
+            
+            # Save to storage
+            artifact_path = storage_dir / f"{doc_id}.jsonl"
+            artifact_path.write_text(artifact.to_jsonl())
+            
+            logger.info(f"Created storage artifact: {artifact_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to create storage artifact for {doc_id}: {e}")
+            return False
     
     async def _execute_update_strategy(
         self,
