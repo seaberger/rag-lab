@@ -26,7 +26,10 @@ cd src/pipeline_v3
 - **Queue Management**: Scalable concurrent processing
 
 ### 🔄 **Active Optimization Areas**
-- **Issue #9**: CLI interface consolidation (Medium priority)
+- **Issue #9**: CLI interface consolidation (HIGH PRIORITY - IN PROGRESS)
+  - Feature branch: `feature/issue-9-cli-consolidation`
+  - Major refactoring to unify CLI capabilities
+  - [Detailed plan](src/pipeline_v3/docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)
 - **Issue #7**: Enhanced pair extraction (Low-medium priority)  
 - **Issue #8**: System status monitoring (Low priority)
 - **Issue #5**: Performance optimizations (Low priority)

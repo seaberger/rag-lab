@@ -141,10 +141,12 @@
 
 ## Active Optimization Issues 🔄
 
-### 🔄 Issue #9: CLI Interface Cleanup (MEDIUM PRIORITY)
-**Impact:** User experience and maintainability  
-**Problem:** Two CLI entry points create confusion  
-**Files:** `cli_main.py`, `cli_v3.py`
+### 🚧 Issue #9: CLI Interface Consolidation (IN PROGRESS - HIGH PRIORITY)
+**Status:** Feature branch created: `feature/issue-9-cli-consolidation`  
+**Impact:** Critical features missing from production CLI  
+**Problem:** Two CLI entry points with different capabilities; production CLI missing batch processing, document modes, and other v2.1 features  
+**Plan:** [Detailed plan](docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)  
+**Complexity:** High - Major refactoring of core pipeline functionality
 
 ### 🔄 Issue #7: Pair Extraction JSON Parsing (LOW-MEDIUM PRIORITY)
 **Impact:** Structured data extraction incomplete  

@@ -82,7 +82,9 @@ data/lmc_docs/datasheets/
 - ✅ **Issue #6:** Storage artifacts creation (OpenAI Vision API integration)
 
 ### Active Optimization Issues:
-- 🔄 **Issue #9:** Duplicate CLI interfaces cleanup (Medium priority)
+- 🚧 **Issue #9:** CLI Consolidation - IN PROGRESS on `feature/issue-9-cli-consolidation` branch
+  - Major refactoring to add batch processing, document modes, and v2.1 features to production CLI
+  - See [detailed plan](docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)
 - 🔄 **Issue #7:** Pair extraction JSON parsing (Low-Medium priority)
 - 🔄 **Issue #8:** Missing get_status() method (Low priority)
 - 🔄 **Issue #5:** Qdrant server upgrade for performance (Low priority)
