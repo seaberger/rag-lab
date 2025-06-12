@@ -1,12 +1,22 @@
 # Pipeline v3 Quick Reference 🚀
 
+## 🆕 NEW CLI Features (Issue #9)
+- **Document Modes**: `--mode datasheet|generic|auto`
+- **Batch Processing**: Glob patterns, directories, concurrent workers
+- **Custom Prompts**: `--prompt file.md` for specialized parsing
+- **URL Support**: Process documents from HTTP/HTTPS sources
+- **Rich Progress**: Emoji indicators and detailed batch reporting
+
 ## Essential Commands
 
 ### Document Operations
 ```bash
-# Add documents
-python cli_main.py add document.pdf
-python cli_main.py add *.pdf --metadata type=manual
+# Enhanced Add Commands (Issue #9 Features)
+python cli_main.py add document.pdf --mode datasheet
+python cli_main.py add "data/*.pdf" --mode auto --workers 3
+python cli_main.py add /docs --recursive --mode generic
+python cli_main.py add doc.pdf --prompt custom.md
+python cli_main.py add https://example.com/doc.pdf
 
 # Search documents  
 python cli_main.py search "keyword"
