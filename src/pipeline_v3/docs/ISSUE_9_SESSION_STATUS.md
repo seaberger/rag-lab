@@ -51,6 +51,33 @@ git status
 - Comprehensive testing required before merge
 - User expects batch processing that currently doesn't work
 
+### Key Decisions Made
+1. **Rejected maintaining two pipelines** - User emphasized that whether docs are added individually or in batch, they must ALL go through the same tracking/registry system
+2. **Cache preservation is critical** - Must ensure LLM isn't called repeatedly for same document
+3. **EnhancedPipeline is the target** - Don't create a separate batch pipeline; enhance the existing one
+4. **cli_v3.py uses different pipeline** - It calls `ingest_sources()` from `core/pipeline.py`, NOT EnhancedPipeline
+5. **Root cause of Issue #6** - cli_v3.py worked because it used the complete pipeline with artifact creation
+
+### Implementation Gotchas
+- **Two pipeline implementations exist**: `EnhancedPipeline` (incomplete) vs `ingest_sources()` (complete)
+- **Don't just wrap ingest_sources** - User wants unified tracking, so port features to EnhancedPipeline
+- **Document modes matter** - v2.1 has datasheet/generic/auto modes that affect parsing strategy
+- **Progress monitoring** - Must maintain detailed stage tracking, not just basic progress
+
+### User Expectations Not in Manual
+- Batch processing of entire directories
+- Glob pattern support (*.pdf, **/*.pdf)
+- Document classification modes
+- URL document fetching
+- Custom prompt files per document type
+- Processing reports with metrics
+
+### Testing Reminders
+- Test with both `data/sample_docs/` (7 files) and `data/lmc_docs/datasheets/` (30 files)
+- Verify cache hits on re-processing
+- Check that registry tracks ALL documents regardless of how added
+- Ensure storage_data_v3/ gets JSONL artifacts for every document
+
 ### Documentation Updated
 - ✅ DEVELOPMENT_STATUS.md - Marked Issue #9 as IN PROGRESS
 - ✅ Pipeline v3 CLAUDE.md - Added branch info
