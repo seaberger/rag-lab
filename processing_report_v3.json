@@ -1,0 +1,50 @@
+{
+  "summary": {
+    "total_docs": 2,
+    "processed_docs": 2,
+    "failed_docs": 0,
+    "total_chunks": 0,
+    "total_bytes": 0,
+    "cache_hits": 0,
+    "start_time": 1749704371.4932852,
+    "elapsed_time": 40.25986576080322,
+    "average_doc_time": 20.10629653930664,
+    "stage_averages": {
+      "parsing": 3.6954879760742188e-06,
+      "change_detection": 19.349619150161743,
+      "registration": 19.350348711013794,
+      "save_artifact": 19.351211190223694
+    }
+  },
+  "documents": [
+    {
+      "doc_id": "temp_1749704371540",
+      "source": "data/sample_docs/labmax-touch-ds.pdf",
+      "duration": 0.6907529830932617,
+      "chunks": 0,
+      "cached": false,
+      "error": null,
+      "stages": {
+        "parsing": 2.1457672119140625e-06,
+        "change_detection": 0.03394818305969238,
+        "registration": 0.03440713882446289,
+        "save_artifact": 0.03527712821960449
+      }
+    },
+    {
+      "doc_id": "temp_1749704372231",
+      "source": "data/sample_docs/pm10k-plus-ds.pdf",
+      "duration": 39.52184009552002,
+      "chunks": 0,
+      "cached": false,
+      "error": null,
+      "stages": {
+        "parsing": 5.245208740234375e-06,
+        "change_detection": 38.665290117263794,
+        "registration": 38.666290283203125,
+        "save_artifact": 38.66714525222778
+      }
+    }
+  ],
+  "timestamp": "2025-06-11T22:00:11.753168"
+}

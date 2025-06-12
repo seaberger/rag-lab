@@ -21,18 +21,25 @@ A comprehensive guide to using the Production Document Processing Pipeline v3 fo
 ### 5-Minute Setup
 
 ```bash
-# 1. Navigate to Pipeline v3
-cd src/pipeline_v3
+# 1. Navigate to project root
+cd /path/to/rag_lab
 
-# 2. Add your first document
-python cli_main.py add my_document.pdf --metadata type=manual
+# 2. Add your first document (with new Issue #9 features)
+uv run python -m src.pipeline_v3.cli_main add my_document.pdf --mode auto --metadata type=manual
 
 # 3. Search for content
-python cli_main.py search "important keyword" --top-k 5
+uv run python -m src.pipeline_v3.cli_main search "important keyword" --top-k 5
 
 # 4. Check system status
-python cli_main.py status
+uv run python -m src.pipeline_v3.cli_main status
 ```
+
+### 🆕 New CLI Features (Issue #9)
+- **Document Modes**: `--mode datasheet|generic|auto` for intelligent classification
+- **Batch Processing**: `"docs/*.pdf"` for multiple files at once
+- **Custom Prompts**: `--prompt custom.md` for specialized parsing
+- **Concurrent Workers**: `--workers N` for faster batch processing
+- **URL Support**: Process documents directly from HTTP/HTTPS sources
 
 **That's it!** Your document is now indexed and searchable.
 

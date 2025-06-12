@@ -1,0 +1,32 @@
+{
+  "summary": {
+    "total_docs": 1,
+    "processed_docs": 1,
+    "failed_docs": 0,
+    "total_chunks": 0,
+    "total_bytes": 466574,
+    "cache_hits": 1,
+    "start_time": 1749093615.112152,
+    "elapsed_time": 0.06780600547790527,
+    "average_doc_time": 7.796287536621094e-05,
+    "stage_averages": {
+      "classification": 0.05477094650268555,
+      "fetch": 0.054798126220703125
+    }
+  },
+  "documents": [
+    {
+      "doc_id": "labmax-touch-ds_4b36074e_a835a5a7",
+      "source": "data/sample_docs/labmax-touch-ds.pdf",
+      "duration": 7.796287536621094e-05,
+      "chunks": 0,
+      "cached": true,
+      "error": null,
+      "stages": {
+        "classification": 0.05477094650268555,
+        "fetch": 0.054798126220703125
+      }
+    }
+  ],
+  "timestamp": "2025-06-04T20:20:15.179965"
+}

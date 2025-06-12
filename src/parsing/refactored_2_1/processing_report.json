@@ -1,0 +1,44 @@
+{
+  "summary": {
+    "total_docs": 1,
+    "processed_docs": 1,
+    "failed_docs": 0,
+    "total_chunks": 4,
+    "total_bytes": 466574,
+    "cache_hits": 0,
+    "start_time": 1749075597.283821,
+    "elapsed_time": 78.08483791351318,
+    "average_doc_time": 78.03168487548828,
+    "stage_averages": {
+      "classification": 0.04446005821228027,
+      "fetch": 0.04449009895324707,
+      "parsing": 70.48245596885681,
+      "save_artifact": 0.0001690387725830078,
+      "chunking": 38.65630602836609,
+      "keywords": 70.48333978652954,
+      "vector_indexing": 0.7176041603088379,
+      "keyword_indexing": 0.0013401508331298828
+    }
+  },
+  "documents": [
+    {
+      "doc_id": "labmax-touch-ds_4b36074e_9dc9f032",
+      "source": "../../../data/sample_docs/labmax-touch-ds.pdf",
+      "duration": 78.03168487548828,
+      "chunks": 4,
+      "cached": false,
+      "error": null,
+      "stages": {
+        "classification": 0.04446005821228027,
+        "fetch": 0.04449009895324707,
+        "parsing": 70.48245596885681,
+        "save_artifact": 0.0001690387725830078,
+        "chunking": 6.829735040664673,
+        "keywords": 70.48333978652954,
+        "vector_indexing": 0.7176041603088379,
+        "keyword_indexing": 0.0013401508331298828
+      }
+    }
+  ],
+  "timestamp": "2025-06-04T15:21:15.368666"
+}

@@ -1,0 +1,42 @@
+{
+  "summary": {
+    "total_docs": 1,
+    "processed_docs": 1,
+    "failed_docs": 0,
+    "total_chunks": 22,
+    "total_bytes": 527192,
+    "cache_hits": 0,
+    "start_time": 1749530900.968257,
+    "elapsed_time": 68.59817600250244,
+    "average_doc_time": 68.45485591888428,
+    "stage_averages": {
+      "classification": 0.13285136222839355,
+      "fetch": 0.13288116455078125,
+      "parsing": 68.07989192008972,
+      "save_artifact": 0.0001747608184814453,
+      "chunking": 34.040839314460754,
+      "vector_indexing": 0.371661901473999,
+      "keyword_indexing": 0.0014281272888183594
+    }
+  },
+  "documents": [
+    {
+      "doc_id": "COHR_Air-CooledThermopileSensors_DB25_DS_1119_3_906b8e7c_a560b301",
+      "source": "../../data/sample_docs/COHR_Air-CooledThermopileSensors_DB25_DS_1119_3.pdf",
+      "duration": 68.45485591888428,
+      "chunks": 22,
+      "cached": false,
+      "error": null,
+      "stages": {
+        "classification": 0.13285136222839355,
+        "fetch": 0.13288116455078125,
+        "parsing": 68.07989192008972,
+        "save_artifact": 0.0001747608184814453,
+        "chunking": 0.001361846923828125,
+        "vector_indexing": 0.371661901473999,
+        "keyword_indexing": 0.0014281272888183594
+      }
+    }
+  ],
+  "timestamp": "2025-06-09T21:49:29.566446"
+}
