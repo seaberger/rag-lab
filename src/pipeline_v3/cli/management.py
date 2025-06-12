@@ -24,6 +24,7 @@ import argparse
 import asyncio
 import json
 import sys
+import glob
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import logging
@@ -146,7 +147,7 @@ Examples:
         """Add document-related commands."""
         # Add command
         add_parser = subparsers.add_parser('add', help='Add documents to pipeline')
-        add_parser.add_argument('paths', nargs='+', help='Document paths to add')
+        add_parser.add_argument('sources', nargs='+', help='Document paths, URLs, directories, or glob patterns')
         add_parser.add_argument(
             '--metadata', 
             action='append', 
@@ -162,6 +163,26 @@ Examples:
             choices=['vector', 'keyword', 'both'],
             default='both',
             help='Type of index to create'
+        )
+        add_parser.add_argument(
+            '--mode',
+            choices=['datasheet', 'generic', 'auto'],
+            default='auto',
+            help='Document classification mode (datasheet, generic, auto)'
+        )
+        add_parser.add_argument(
+            '--prompt',
+            help='Path to custom prompt file for parsing'
+        )
+        add_parser.add_argument(
+            '--workers',
+            type=int,
+            help='Number of concurrent workers for batch processing'
+        )
+        add_parser.add_argument(
+            '--recursive',
+            action='store_true',
+            help='Recursively process directories'
         )
         
         # Update command
@@ -325,6 +346,75 @@ Examples:
             print("No command specified. Use --help for usage information.")
             sys.exit(1)
 
+    def _resolve_sources(self, sources: List[str], recursive: bool = False) -> List[str]:
+        """Resolve sources to actual file paths.
+        
+        Supports:
+        - Individual files
+        - URLs (http/https)
+        - Directories (with optional recursion)
+        - Glob patterns
+        
+        Args:
+            sources: List of source patterns/paths/URLs
+            recursive: Whether to recursively search directories
+            
+        Returns:
+            List of resolved file paths and URLs
+        """
+        resolved = []
+        
+        for source in sources:
+            # Handle URLs directly
+            if source.startswith(('http://', 'https://')):
+                resolved.append(source)
+                continue
+                
+            source_path = Path(source)
+            
+            # Handle existing files
+            if source_path.is_file():
+                resolved.append(str(source_path))
+                continue
+                
+            # Handle directories
+            if source_path.is_dir():
+                if recursive:
+                    # Recursively find all PDF and text files
+                    patterns = ['**/*.pdf', '**/*.txt', '**/*.md']
+                    for pattern in patterns:
+                        resolved.extend(str(p) for p in source_path.glob(pattern))
+                else:
+                    # Just immediate children
+                    patterns = ['*.pdf', '*.txt', '*.md']
+                    for pattern in patterns:
+                        resolved.extend(str(p) for p in source_path.glob(pattern))
+                continue
+                
+            # Handle glob patterns
+            try:
+                matches = glob.glob(source, recursive=recursive)
+                if matches:
+                    # Filter to supported file types
+                    for match in matches:
+                        match_path = Path(match)
+                        if match_path.is_file() and match_path.suffix.lower() in ['.pdf', '.txt', '.md']:
+                            resolved.append(match)
+                else:
+                    print(f"Warning: No files found matching pattern: {source}")
+            except Exception as e:
+                print(f"Warning: Invalid glob pattern '{source}': {e}")
+                
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_resolved = []
+        for path in resolved:
+            if path not in seen:
+                seen.add(path)
+                unique_resolved.append(path)
+                
+        return unique_resolved
+
     def _parse_metadata(self, metadata_list: Optional[List[str]]) -> Dict[str, Any]:
         """Parse metadata key=value pairs."""
         metadata = {}
@@ -361,25 +451,101 @@ Examples:
             return str(data)
 
     async def handle_add(self, args):
-        """Handle document addition."""
+        """Handle document addition with enhanced features."""
+        # Resolve all sources (files, URLs, directories, globs)
+        resolved_sources = self._resolve_sources(args.sources, args.recursive)
+        
+        if not resolved_sources:
+            print("No documents found to process.")
+            return
+            
+        print(f"Found {len(resolved_sources)} document(s) to process")
+        
+        # Parse metadata
         metadata = self._parse_metadata(args.metadata)
         
-        for path in args.paths:
+        # Determine processing mode
+        if len(resolved_sources) == 1:
+            # Single document processing
+            source = resolved_sources[0]
             try:
+                print(f"Processing: {source}")
                 result = await self.pipeline.process_document(
-                    path, 
+                    source,
                     metadata=metadata,
                     force_reprocess=args.force,
-                    index_types=self._parse_index_type(args.index_type)
+                    index_types=self._parse_index_type(args.index_type),
+                    mode=args.mode,
+                    prompt_file=args.prompt
                 )
                 
                 if args.json:
                     print(self._format_output(result, True))
                 else:
-                    print(f"Added: {path} -> {result.get('status', 'unknown')}")
+                    status = result.get('status', 'unknown')
+                    doc_id = result.get('doc_id', 'N/A')
+                    processing_time = result.get('processing_time', 0)
+                    print(f"✅ {source} -> {status} (doc_id: {doc_id}, time: {processing_time:.2f}s)")
                     
             except Exception as e:
-                print(f"Error adding {path}: {e}")
+                print(f"❌ Error processing {source}: {e}")
+                
+        else:
+            # Batch processing
+            print(f"Starting batch processing with mode: {args.mode}")
+            
+            # Prepare document info for batch processing
+            document_infos = []
+            for source in resolved_sources:
+                doc_info = {
+                    "source": source,
+                    "metadata": metadata.copy(),
+                    "force_reprocess": args.force,
+                    "mode": args.mode,
+                    "prompt_file": args.prompt
+                }
+                document_infos.append(doc_info)
+            
+            # Determine concurrent workers
+            max_concurrent = args.workers
+            if max_concurrent is None:
+                max_concurrent = min(len(resolved_sources), self.config.pipeline.max_concurrent)
+            
+            print(f"Using {max_concurrent} concurrent workers")
+            
+            try:
+                # Use batch processing
+                batch_result = await self.pipeline.process_document_batch(
+                    document_infos,
+                    use_queue=False,  # Direct processing for CLI
+                    max_concurrent=max_concurrent
+                )
+                
+                if args.json:
+                    print(self._format_output(batch_result, True))
+                else:
+                    # Print summary
+                    total = batch_result.get('total_documents', 0)
+                    successful = batch_result.get('successful', 0)
+                    errors = batch_result.get('errors', 0)
+                    skipped = batch_result.get('skipped', 0)
+                    processing_time = batch_result.get('processing_time', 0)
+                    
+                    print(f"\n📊 Batch Processing Complete:")
+                    print(f"   Total: {total} documents")
+                    print(f"   ✅ Successful: {successful}")
+                    print(f"   ⏭️  Skipped: {skipped}")
+                    print(f"   ❌ Errors: {errors}")
+                    print(f"   ⏱️  Total time: {processing_time:.2f}s")
+                    
+                    # Save processing report
+                    if hasattr(self.pipeline, 'save_processing_report'):
+                        report_saved = self.pipeline.save_processing_report()
+                        if report_saved:
+                            print(f"   📄 Report saved: processing_report_v3.json")
+                    
+            except Exception as e:
+                print(f"❌ Batch processing error: {e}")
 
     async def handle_update(self, args):
         """Handle document updates."""

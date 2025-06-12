@@ -104,12 +104,13 @@ class EnhancedPipeline:
         is_url = str(source).startswith(('http://', 'https://'))
         
         try:
-            # Start progress monitoring for this document
-            self.progress_monitor.start_document(str(source))
+            # Start progress monitoring for this document  
+            temp_doc_id = f"temp_{int(time.time()*1000)}"
+            self.progress_monitor.start_document(temp_doc_id, str(source))
             
             # Parse document content if not provided
             if content is None:
-                self.progress_monitor.update_stage(str(source), "parsing")
+                self.progress_monitor.update_stage(temp_doc_id, "parsing")
                 if not is_url:
                     source_path = Path(source)
                     if not source_path.exists():
@@ -138,7 +139,7 @@ class EnhancedPipeline:
                     self._temp_parsed_metadata = {}
             
             # Update progress to change detection stage
-            self.progress_monitor.update_stage(str(source), "change_detection")
+            self.progress_monitor.update_stage(temp_doc_id, "change_detection")
             
             # Analyze changes (use content hash for change detection)
             change_analysis = self.change_detector.analyze_changes(
@@ -154,7 +155,7 @@ class EnhancedPipeline:
             if (change_analysis.update_strategy == UpdateStrategy.SKIP and 
                 not force_reprocess):
                 self.processing_stats["documents_skipped"] += 1
-                self.progress_monitor.complete_document(str(source), "skipped")
+                self.progress_monitor.complete_document(temp_doc_id, 0, False)
                 return {
                     "status": "skipped",
                     "reason": "no_changes_detected",
@@ -163,7 +164,7 @@ class EnhancedPipeline:
                 }
             
             # Update progress to registration stage
-            self.progress_monitor.update_stage(str(source), "registration")
+            self.progress_monitor.update_stage(temp_doc_id, "registration")
             
             # Register document in registry
             doc_id = self._register_document(source, content, metadata)
@@ -171,7 +172,7 @@ class EnhancedPipeline:
             # Create storage artifact if we have parsed content
             if hasattr(self, '_temp_pairs'):
                 try:
-                    self.progress_monitor.update_stage(str(source), "save_artifact")
+                    self.progress_monitor.update_stage(temp_doc_id, "save_artifact")
                     artifact_created = await self._create_storage_artifact(
                         doc_id, source, content, self._temp_pairs, self._temp_parsed_metadata
                     )
@@ -211,7 +212,8 @@ class EnhancedPipeline:
                     )
                 
                 # Mark document as completed
-                self.progress_monitor.complete_document(str(source), "success")
+                # Note: chunk count would be available from index manager if needed
+                self.progress_monitor.complete_document(temp_doc_id, 0, False)
             else:
                 self.processing_stats["processing_errors"] += 1
                 
@@ -222,7 +224,7 @@ class EnhancedPipeline:
                     )
                 
                 # Mark document as failed
-                self.progress_monitor.fail_document(str(source), result.get("error", "Unknown error"))
+                self.progress_monitor.fail_document(temp_doc_id, result.get("error", "Unknown error"))
             
             self.processing_stats["documents_processed"] += 1
             result["processing_time"] = time.time() - start_time
@@ -234,7 +236,9 @@ class EnhancedPipeline:
             self.processing_stats["processing_errors"] += 1
             
             # Mark document as failed in progress monitor
-            self.progress_monitor.fail_document(str(source), str(e))
+            # Use temp_doc_id if available, otherwise generate new one
+            fail_doc_id = temp_doc_id if 'temp_doc_id' in locals() else f"temp_{int(time.time()*1000)}"
+            self.progress_monitor.fail_document(fail_doc_id, str(e))
             
             return {
                 "status": "error",
@@ -470,18 +474,14 @@ class EnhancedPipeline:
             # Remove existing entries if they exist
             self.index_manager.remove_document(doc_id, index_types)
             
-            # Update progress for indexing stages
-            if source and index_types in [IndexType.VECTOR, IndexType.BOTH]:
-                self.progress_monitor.update_stage(str(source), "vector_indexing")
+            # Note: Progress monitoring for indexing handled at higher level
             
             # Add document to indexes
             success = self.index_manager.add_document(
                 doc_id, content, metadata, index_types
             )
             
-            # Update progress for keyword indexing if applicable
-            if source and index_types in [IndexType.KEYWORD, IndexType.BOTH]:
-                self.progress_monitor.update_stage(str(source), "keyword_indexing")
+            # Note: Progress monitoring for indexing handled at higher level
             
             if success:
                 self.registry.update_document_state(doc_id, DocumentState.INDEXED)
