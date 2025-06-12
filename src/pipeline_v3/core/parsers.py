@@ -174,13 +174,20 @@ async def parse_document(
 
     # Check cache first
     if cache:
-        # FIXME: doc_hash was undefined. Assuming it's derived from pdf_path.
-        # Consider a more robust way to generate this, e.g., hash of file content or path + mtime
-        doc_hash_str = hashlib.sha256(str(pdf_path).encode()).hexdigest()
-        cache_key = (
-            f"{doc_type.value}_{hashlib.sha256(prompt_text.encode()).hexdigest()[:8]}"
-        )
-        cached = cache.get(doc_hash_str, cache_key) # Use doc_hash_str
+        # Generate robust content-based hash for cache key
+        try:
+            # Read file content for hashing
+            file_content = pdf_path.read_bytes()
+            content_hash = hashlib.sha256(file_content).hexdigest()
+        except Exception:
+            # Fallback to path-based hash if content read fails
+            content_hash = hashlib.sha256(str(pdf_path).encode()).hexdigest()
+        
+        # Create cache key that includes content + prompt + doc_type
+        prompt_hash = hashlib.sha256(prompt_text.encode()).hexdigest()[:12]
+        cache_key = f"{doc_type.value}_{content_hash[:12]}_{prompt_hash}"
+        
+        cached = cache.get(content_hash, cache_key)
         if cached:
             return cached["markdown"], cached["pairs"], cached["metadata"]
 
@@ -222,10 +229,18 @@ async def parse_document(
 
     # Cache result
     if cache:
-        # FIXME: doc_hash was undefined (see above). Using doc_hash_str.
-        doc_hash_str = hashlib.sha256(str(pdf_path).encode()).hexdigest()
+        # Use the same content hash and cache key generated earlier
+        try:
+            file_content = pdf_path.read_bytes()
+            content_hash = hashlib.sha256(file_content).hexdigest()
+        except Exception:
+            content_hash = hashlib.sha256(str(pdf_path).encode()).hexdigest()
+        
+        prompt_hash = hashlib.sha256(prompt_text.encode()).hexdigest()[:12]
+        cache_key = f"{doc_type.value}_{content_hash[:12]}_{prompt_hash}"
+        
         cache.put(
-            doc_hash_str, # Use doc_hash_str
+            content_hash,
             cache_key,
             {"markdown": markdown, "pairs": pairs, "metadata": metadata},
         )
