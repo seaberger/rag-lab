@@ -25,6 +25,7 @@ from job_queue.job import JobManager, JobType, JobStatus
 from storage.cache import CacheManager
 from utils.common_utils import logger
 from utils.config import PipelineConfig
+from utils.monitoring import ProgressMonitor
 
 
 class EnhancedPipeline:
@@ -47,6 +48,9 @@ class EnhancedPipeline:
         # Initialize cache for document parsing
         self.cache = CacheManager(config=self.config) if self.config.cache.enabled else None
         
+        # Initialize progress monitoring
+        self.progress_monitor = ProgressMonitor()
+        
         # Processing state
         self.is_processing = False
         self.processing_stats = {
@@ -62,27 +66,60 @@ class EnhancedPipeline:
         
         logger.info("EnhancedPipeline initialized with full lifecycle management")
     
+    def save_processing_report(self, output_file: str = "processing_report_v3.json") -> bool:
+        """Save detailed processing report from progress monitor."""
+        try:
+            return self.progress_monitor.save_report(output_file)
+        except Exception as e:
+            logger.error(f"Failed to save processing report: {e}")
+            return False
+    
     async def process_document(
         self,
         source: Union[str, Path],
         content: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         force_reprocess: bool = False,
-        index_types: IndexType = IndexType.BOTH
+        index_types: IndexType = IndexType.BOTH,
+        mode: str = "auto",
+        prompt_file: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Process a single document with intelligent change detection."""
+        """Process a single document with intelligent change detection.
+        
+        Args:
+            source: Path to document file or URL
+            content: Pre-loaded content (optional)
+            metadata: Additional metadata for the document
+            force_reprocess: Force reprocessing even if no changes detected
+            index_types: Which indexes to update (vector, keyword, or both)
+            mode: Document classification mode ('datasheet', 'generic', 'auto')
+            prompt_file: Path to custom prompt file for parsing
+        
+        Returns:
+            Processing result dictionary with status and details
+        """
         start_time = time.time()
-        source_path = Path(source)
+        
+        # Check if source is a URL
+        is_url = str(source).startswith(('http://', 'https://'))
         
         try:
+            # Start progress monitoring for this document
+            self.progress_monitor.start_document(str(source))
+            
             # Parse document content if not provided
             if content is None:
-                if not source_path.exists():
-                    raise FileNotFoundError(f"Source file not found: {source}")
+                self.progress_monitor.update_stage(str(source), "parsing")
+                if not is_url:
+                    source_path = Path(source)
+                    if not source_path.exists():
+                        raise FileNotFoundError(f"Source file not found: {source}")
                 
                 try:
                     # Parse the document using OpenAI APIs for PDFs
-                    content, pairs, parsed_metadata = await self._parse_document_with_openai(source, "temp_id")
+                    content, pairs, parsed_metadata = await self._parse_document_with_openai(
+                        source, "temp_id", mode=mode, prompt_file=prompt_file
+                    )
                     
                     # Merge parsed metadata with provided metadata
                     if metadata is None:
@@ -100,6 +137,9 @@ class EnhancedPipeline:
                     self._temp_pairs = []
                     self._temp_parsed_metadata = {}
             
+            # Update progress to change detection stage
+            self.progress_monitor.update_stage(str(source), "change_detection")
+            
             # Analyze changes (use content hash for change detection)
             change_analysis = self.change_detector.analyze_changes(
                 source, content, metadata
@@ -114,6 +154,7 @@ class EnhancedPipeline:
             if (change_analysis.update_strategy == UpdateStrategy.SKIP and 
                 not force_reprocess):
                 self.processing_stats["documents_skipped"] += 1
+                self.progress_monitor.complete_document(str(source), "skipped")
                 return {
                     "status": "skipped",
                     "reason": "no_changes_detected",
@@ -121,12 +162,16 @@ class EnhancedPipeline:
                     "processing_time": time.time() - start_time
                 }
             
+            # Update progress to registration stage
+            self.progress_monitor.update_stage(str(source), "registration")
+            
             # Register document in registry
             doc_id = self._register_document(source, content, metadata)
             
             # Create storage artifact if we have parsed content
             if hasattr(self, '_temp_pairs'):
                 try:
+                    self.progress_monitor.update_stage(str(source), "save_artifact")
                     artifact_created = await self._create_storage_artifact(
                         doc_id, source, content, self._temp_pairs, self._temp_parsed_metadata
                     )
@@ -152,7 +197,7 @@ class EnhancedPipeline:
                 change_analysis.update_strategy, index_types
             )
             
-            # Update processing stats
+            # Update processing stats and progress monitoring
             if result["status"] == "success":
                 if change_analysis.change_type == ChangeType.NEW_DOCUMENT:
                     self.processing_stats["documents_added"] += 1
@@ -164,6 +209,9 @@ class EnhancedPipeline:
                     self.fingerprint_manager.update_fingerprint(
                         fingerprint, doc_id, "processed"
                     )
+                
+                # Mark document as completed
+                self.progress_monitor.complete_document(str(source), "success")
             else:
                 self.processing_stats["processing_errors"] += 1
                 
@@ -172,6 +220,9 @@ class EnhancedPipeline:
                     self.fingerprint_manager.update_fingerprint(
                         fingerprint, doc_id, "failed"
                     )
+                
+                # Mark document as failed
+                self.progress_monitor.fail_document(str(source), result.get("error", "Unknown error"))
             
             self.processing_stats["documents_processed"] += 1
             result["processing_time"] = time.time() - start_time
@@ -181,6 +232,9 @@ class EnhancedPipeline:
         except Exception as e:
             logger.error(f"Failed to process document {source}: {e}")
             self.processing_stats["processing_errors"] += 1
+            
+            # Mark document as failed in progress monitor
+            self.progress_monitor.fail_document(str(source), str(e))
             
             return {
                 "status": "error",
@@ -196,45 +250,96 @@ class EnhancedPipeline:
         metadata: Optional[Dict[str, Any]]
     ) -> str:
         """Register document in the registry."""
-        source_path = Path(source)
-        stat = source_path.stat()
+        # Check if source is a URL
+        is_url = str(source).startswith(('http://', 'https://'))
         
         # Compute content hash
         import hashlib
         content_hash = hashlib.sha256(content.encode()).hexdigest()
         
-        doc_id = self.registry.register_document(
-            source=source,
-            content_hash=content_hash,
-            size=stat.st_size,
-            modified_time=stat.st_mtime,
-            metadata=metadata
-        )
+        if is_url:
+            # For URLs, use content-based metadata
+            doc_id = self.registry.register_document(
+                source=source,
+                content_hash=content_hash,
+                size=len(content.encode()),
+                modified_time=time.time(),
+                metadata=metadata
+            )
+        else:
+            # For local files, use file stats
+            source_path = Path(source)
+            stat = source_path.stat()
+            doc_id = self.registry.register_document(
+                source=source,
+                content_hash=content_hash,
+                size=stat.st_size,
+                modified_time=stat.st_mtime,
+                metadata=metadata
+            )
         
         return doc_id
     
     async def _parse_document_with_openai(
         self,
         source: Union[str, Path],
-        doc_id: str
+        doc_id: str,
+        mode: str = "auto",
+        prompt_file: Optional[str] = None
     ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
-        """Parse document using OpenAI APIs for PDFs or direct read for text."""
-        source_path = Path(source)
+        """Parse document using OpenAI APIs for PDFs or direct read for text.
         
-        # Classify document type
-        doc_type = DocumentClassifier.classify(source, is_datasheet_mode=True)
+        Args:
+            source: Document path or URL
+            doc_id: Document ID for tracking
+            mode: Classification mode ('datasheet', 'generic', 'auto')
+            prompt_file: Optional custom prompt file path
+        """
+        # Check if source is a URL
+        is_url = str(source).startswith(('http://', 'https://'))
+        
+        if is_url:
+            # Fetch document from URL
+            try:
+                source_path, _, content_bytes = await fetch_document(source)
+                # source_path is now a temporary file
+            except Exception as e:
+                logger.error(f"Failed to fetch document from URL {source}: {e}")
+                raise
+        else:
+            source_path = Path(source)
+            if not source_path.exists():
+                raise FileNotFoundError(f"Source file not found: {source}")
+        
+        # Classify document type based on mode
+        is_datasheet_mode = mode == "datasheet" or (mode == "auto" and "datasheet" in str(source).lower())
+        doc_type = DocumentClassifier.classify(source, is_datasheet_mode=is_datasheet_mode)
         
         # For PDFs, use fetch_document and parse_document
         if doc_type.name.endswith('_PDF'):
             # Get PDF path and bytes using fetch_document
             pdf_path, _, raw_bytes = await fetch_document(source)
             
-            # Load prompt for datasheet parsing
-            prompt_file = self.config.parser.datasheet_prompt_path
+            # Load prompt from file or use appropriate default
             if prompt_file and Path(prompt_file).exists():
                 prompt_text = Path(prompt_file).read_text()
+            elif mode == "generic" and self.config.parser.generic_prompt_path:
+                generic_prompt = Path(self.config.parser.generic_prompt_path)
+                if generic_prompt.exists():
+                    prompt_text = generic_prompt.read_text()
+                else:
+                    prompt_text = """Please convert this document to clean markdown format."""
+            elif is_datasheet_mode and self.config.parser.datasheet_prompt_path:
+                datasheet_prompt = Path(self.config.parser.datasheet_prompt_path)
+                if datasheet_prompt.exists():
+                    prompt_text = datasheet_prompt.read_text()
+                else:
+                    prompt_text = """Please analyze this technical datasheet and extract information in JSON format with:
+                    1. "pairs": Array of [model, part_number] pairs found in the document
+                    2. "markdown": Full document content converted to markdown
+                    """
             else:
-                # Use default prompt if file not found
+                # Default prompt
                 prompt_text = """Please analyze this document and extract information in JSON format with:
                 1. "pairs": Array of [model, part_number] pairs found in the document
                 2. "markdown": Full document content converted to markdown
@@ -264,6 +369,14 @@ class EnhancedPipeline:
                 "content_length": len(content),
                 "doc_type": doc_type.value
             }
+            
+            # Clean up temporary file if from URL
+            if is_url:
+                try:
+                    source_path.unlink()
+                except:
+                    pass
+            
             return content, [], metadata
     
     async def _create_storage_artifact(
@@ -326,10 +439,10 @@ class EnhancedPipeline:
             elif strategy == UpdateStrategy.INCREMENTAL:
                 # For now, incremental updates are treated as full reindex
                 # In a more sophisticated implementation, this would update only changed chunks
-                return await self._full_reindex(doc_id, content, metadata, index_types)
+                return await self._full_reindex(doc_id, content, metadata, index_types, source)
             
             elif strategy == UpdateStrategy.FULL_REINDEX:
-                return await self._full_reindex(doc_id, content, metadata, index_types)
+                return await self._full_reindex(doc_id, content, metadata, index_types, source)
             
             else:
                 raise ValueError(f"Unknown update strategy: {strategy}")
@@ -346,7 +459,8 @@ class EnhancedPipeline:
         doc_id: str,
         content: str,
         metadata: Optional[Dict[str, Any]],
-        index_types: IndexType
+        index_types: IndexType,
+        source: Optional[Union[str, Path]] = None
     ) -> Dict[str, Any]:
         """Perform full reindexing of document."""
         try:
@@ -356,10 +470,18 @@ class EnhancedPipeline:
             # Remove existing entries if they exist
             self.index_manager.remove_document(doc_id, index_types)
             
+            # Update progress for indexing stages
+            if source and index_types in [IndexType.VECTOR, IndexType.BOTH]:
+                self.progress_monitor.update_stage(str(source), "vector_indexing")
+            
             # Add document to indexes
             success = self.index_manager.add_document(
                 doc_id, content, metadata, index_types
             )
+            
+            # Update progress for keyword indexing if applicable
+            if source and index_types in [IndexType.KEYWORD, IndexType.BOTH]:
+                self.progress_monitor.update_stage(str(source), "keyword_indexing")
             
             if success:
                 self.registry.update_document_state(doc_id, DocumentState.INDEXED)
@@ -468,7 +590,9 @@ class EnhancedPipeline:
                     source=doc_info["source"],
                     content=doc_info.get("content"),
                     metadata=doc_info.get("metadata", {}),
-                    force_reprocess=doc_info.get("force_reprocess", False)
+                    force_reprocess=doc_info.get("force_reprocess", False),
+                    mode=doc_info.get("mode", "auto"),
+                    prompt_file=doc_info.get("prompt_file")
                 )
         
         start_time = time.time()
