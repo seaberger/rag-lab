@@ -81,10 +81,18 @@ data/lmc_docs/datasheets/
 - ✅ **Issue #4:** Document state update errors (shared registry pattern)  
 - ✅ **Issue #6:** Storage artifacts creation (OpenAI Vision API integration)
 
-### Active Optimization Issues:
-- 🚧 **Issue #9:** CLI Consolidation - IN PROGRESS on `feature/issue-9-cli-consolidation` branch
-  - Major refactoring to add batch processing, document modes, and v2.1 features to production CLI
-  - See [detailed plan](docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)
+### ✅ Major Completed Features:
+- ✅ **Issue #9:** CLI Consolidation (**COMPLETED & MERGED**)
+  - Single production CLI with full v2.1 feature parity
+  - Document classification modes: `--mode datasheet|generic|auto`
+  - Batch processing: `"docs/*.pdf" --workers 3`
+  - Custom prompts: `--prompt custom.md`
+  - URL support: Process HTTP/HTTPS documents
+  - See [implementation docs](docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)
+
+### 🔄 Active Optimization Issues:
+- 🆕 **Issue #11:** Configurable timeout handling (Medium priority)
+- 🆕 **Issue #12:** Page-level content classification (Medium-high priority)
 - 🔄 **Issue #7:** Pair extraction JSON parsing (Low-Medium priority)
 - 🔄 **Issue #8:** Missing get_status() method (Low priority)
 - 🔄 **Issue #5:** Qdrant server upgrade for performance (Low priority)
@@ -94,18 +102,24 @@ data/lmc_docs/datasheets/
 - ✅ **Storage System:** JSONL artifacts created in `storage_data_v3/`
 - ✅ **Indexing:** Both vector and keyword search operational
 - ✅ **Queue System:** Enterprise-grade processing with lifecycle management
-- ⚠️ **User Experience:** CLI interface needs cleanup (Issue #9)
+- ✅ **User Experience:** Consolidated CLI with full v2.1 feature parity
 
 ## Essential Commands
 
 ### Document Operations
 
-**Primary CLI** (Production - Use This):
+**Production CLI** (Enhanced with Issue #9 features):
 ```bash
-# Add documents with full OpenAI Vision parsing
-uv run python -m src.pipeline_v3.cli_main add data/sample_docs/labmax-touch-ds.pdf
+# Enhanced document processing with modes
+uv run python -m src.pipeline_v3.cli_main add document.pdf --mode datasheet
+uv run python -m src.pipeline_v3.cli_main add "docs/*.pdf" --mode auto --workers 3
+uv run python -m src.pipeline_v3.cli_main add /docs --recursive --mode generic
 
-# Search documents with hybrid vector+keyword search
+# Custom prompts and URL support
+uv run python -m src.pipeline_v3.cli_main add doc.pdf --prompt custom.md
+uv run python -m src.pipeline_v3.cli_main add https://example.com/doc.pdf
+
+# Search with hybrid vector+keyword search
 uv run python -m src.pipeline_v3.cli_main search "laser sensors" --type hybrid --top-k 5
 
 # Update/Remove documents  
@@ -113,10 +127,10 @@ uv run python -m src.pipeline_v3.cli_main update document.pdf --force
 uv run python -m src.pipeline_v3.cli_main remove document.pdf
 ```
 
-**Legacy CLI** (⚠️ **Issue #9** - Cleanup needed):
+**Legacy CLI** (Deprecated - moved to `legacy_backup/`):
 ```bash
-# Alternative entry point (consider deprecating)
-uv run python src/pipeline_v3/cli_v3.py --src document.pdf --mode datasheet
+# ⚠️ DEPRECATED: Use main CLI instead
+# Legacy interface archived in legacy_backup/cli_v3.py
 ```
 
 ### Queue Management
