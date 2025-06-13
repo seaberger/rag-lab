@@ -1,6 +1,8 @@
-# Production Document Pipeline v3 🚀
+# Production Document Pipeline v3 ⚠️
 
-A production-ready document processing pipeline with advanced queue management, intelligent document lifecycle operations, comprehensive CLI tools, and enterprise-grade reliability.
+A production-ready document processing pipeline with advanced features, but **CRITICAL REGRESSIONS** vs V2.1 affecting retrieval quality:
+- **Issue #16 (CRITICAL)**: Missing keyword enhancement - documents lack contextual keywords  
+- **Issue #7 (HIGH)**: Broken pair extraction - model/part numbers not extracted
 
 [![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-brightgreen)](./test_cli_simple.py)
 [![Integration](https://img.shields.io/badge/integration-verified-brightgreen)](./quick_integration_test.py)

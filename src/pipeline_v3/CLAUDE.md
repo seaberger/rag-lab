@@ -90,10 +90,27 @@ data/lmc_docs/datasheets/
   - URL support: Process HTTP/HTTPS documents
   - See [implementation docs](docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)
 
-### 🔄 Active Optimization Issues:
-- 🆕 **Issue #11:** Configurable timeout handling (Medium priority)
-- 🆕 **Issue #12:** Page-level content classification (Medium-high priority)
-- 🔄 **Issue #7:** Pair extraction JSON parsing (Low-Medium priority)
+### ⚠️ CRITICAL Issues Requiring Immediate Attention:
+
+- 🚨 **Issue #16:** Restore chunking_metadata.py integration (CRITICAL)
+  - V3 pipeline completely bypasses keyword enhancement from V2.1
+  - Missing --with-keywords CLI parameter
+  - All documents missing contextual keywords that improve retrieval
+  - **ROOT CAUSE**: V3 uses basic SentenceSplitter instead of process_and_index_document()
+  - **BLOCKS**: All other chunking improvements until resolved
+
+- 🔥 **Issue #7:** Fix model/part number pair extraction (HIGH)
+  - Multi-line JSON metadata not parsed correctly in both V2.1 & V3
+  - Current logic only reads first line: `"Metadata: {"` instead of full JSON
+  - **IDENTIFIED FIX**: Parse complete JSON block from "Metadata:" to "---" separator
+  - All datasheet pair extraction currently broken
+
+### 🔄 Active Enhancement Issues:
+- ✅ **Issue #11:** Configurable timeout handling (**COMPLETED & MERGED**)
+- 🆕 **Issue #14:** Document-type aware chunking strategies (High priority)
+- 🆕 **Issue #13:** Hybrid PDF parsing: VLM for datasheets, Docling for regular docs (Medium priority)
+- 🆕 **Issue #15:** Proper table extraction and LlamaIndex node handling (Medium priority)
+- 🔄 **Issue #12:** Page-level content classification (Medium priority)
 - 🔄 **Issue #8:** Missing get_status() method (Low priority)
 - 🔄 **Issue #5:** Qdrant server upgrade for performance (Low priority)
 
@@ -180,16 +197,22 @@ ls storage_data_v3/  # Should show JSONL files with full UUIDs
 uv run python -m src.pipeline_v3.cli_main search "laser power" --type hybrid
 ```
 
-### Active Development Areas:
-1. **CLI Interface Cleanup** (Issue #9): Consolidate dual CLI approach - **MEDIUM PRIORITY**
-2. **Pair Extraction** (Issue #7): Fix JSON parsing for model/part pairs - **LOW-MEDIUM PRIORITY**
-3. **Status Monitoring** (Issue #8): Add system health reporting - **LOW PRIORITY**
-4. **Performance Optimization** (Issue #5): Qdrant server upgrade - **LOW PRIORITY**
+### Development Priorities (Updated):
 
-### Development Priorities:
-- 🎯 **Next Sprint**: Issue #9 (CLI consolidation) for better user experience
-- 🔧 **Data Quality**: Issue #7 (pair extraction) for complete metadata
-- 🏗️ **Infrastructure**: Issues #8, #5 (monitoring, performance) for scalability
+#### **URGENT: Critical Regressions** 🚨
+1. **Issue #16**: Restore chunking_metadata.py integration (CRITICAL)
+   - Replace direct index_manager.add_document() calls with process_and_index_document()
+   - Restore --with-keywords CLI parameter
+   - Re-integrate MarkdownNodeParser for structure-aware chunking
+
+2. **Issue #7**: Fix pair extraction parsing (HIGH)
+   - Update parsers.py to extract complete JSON block, not just first line
+   - Parse from "Metadata:" through closing "}" before "---" separator
+
+#### **Next Development Cycle**
+- 🔧 **Data Quality**: Document-type aware chunking and table extraction
+- 🚀 **Performance**: Hybrid parsing approach (VLM + Docling)
+- 🏗️ **Infrastructure**: System monitoring and performance optimization
 
 ## Key Configuration
 
@@ -236,11 +259,12 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 ## Important Notes ⚠️
 
 - **Use uv from project root:** Critical for proper environment and imports
-- **Primary CLI:** Use `cli_main.py` for production (Issue #6 resolved)
-- **CLI Cleanup Needed:** Issue #9 - Two CLI interfaces need consolidation
+- **Primary CLI:** Use `cli_main.py` for production with full v2.1 feature parity
+- **CRITICAL REGRESSION:** V3 missing keyword enhancement from chunking_metadata.py (Issue #16)
+- **BROKEN FEATURE:** Pair extraction fails due to multi-line JSON parsing (Issue #7)
 - **37 PDFs available:** Mix of simple and complex datasheets for comprehensive testing  
 - **Storage isolation:** All v3 components use v3-specific paths to avoid conflicts
-- **Production ready:** Core document processing fully operational
+- **Production status:** Core processing works but retrieval quality degraded vs V2.1
 
 ## Documentation References
 
@@ -249,4 +273,4 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **📋 Development Status:** [DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)
 
-**Current Focus:** Optimize user experience and system performance. Core functionality is production-ready. Next priorities: CLI consolidation (Issue #9) and enhanced data extraction (Issue #7).
+**Current Focus:** **URGENT** - Fix critical regressions in V3. Priority 1: Restore keyword enhancement (Issue #16). Priority 2: Fix pair extraction (Issue #7). These block all other improvements and degrade retrieval quality vs V2.1.

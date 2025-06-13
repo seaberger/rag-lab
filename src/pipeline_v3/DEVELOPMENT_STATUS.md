@@ -1,11 +1,25 @@
 # Production Pipeline v3 - Development Status
 
-## Current State: Production Ready with Optimizations ✅
+## Current State: Critical Regressions Identified ⚠️
 
-**Date:** June 9, 2025  
+**Date:** December 12, 2025  
 **Branch:** `main`  
-**Last Commit:** `a05cc7c` - JSONL storage artifact creation  
-**Status:** Core functionality complete, ready for production use with optimization opportunities
+**Last Commit:** `3a966ce` - Configurable timeout handling (Issue #11)  
+**Status:** Core functionality works but critical regressions affect retrieval quality vs V2.1
+
+## 🚨 URGENT: Critical Issues Requiring Immediate Fix
+
+### Issue #16: Missing Keyword Enhancement (CRITICAL)
+- **Impact:** ALL documents in V3 missing contextual keywords that were standard in V2.1
+- **Root Cause:** V3 bypasses `chunking_metadata.py` and `process_and_index_document()`
+- **Fix Required:** Restore integration with keyword enhancement pipeline
+- **Blocks:** All chunking improvements until resolved
+
+### Issue #7: Broken Pair Extraction (HIGH)
+- **Impact:** Model/part number pairs not extracted from datasheets in BOTH V2.1 & V3
+- **Root Cause:** Multi-line JSON metadata parsing only reads first line
+- **Fix Required:** Parse complete JSON block from "Metadata:" to "---"
+- **Evidence:** All JSONL artifacts show `"pairs": []` despite metadata being present
 
 ## Completed Phases
 
@@ -139,25 +153,54 @@
 ### ✅ Issue #4: Document state update errors (RESOLVED)
 **Solution:** Shared registry pattern across components
 
-## Active Optimization Issues 🔄
+## Recent Achievements ✅
 
-### 🚧 Issue #9: CLI Interface Consolidation (IN PROGRESS - HIGH PRIORITY)
-**Status:** Feature branch created: `feature/issue-9-cli-consolidation`  
-**Impact:** Critical features missing from production CLI  
-**Problem:** Two CLI entry points with different capabilities; production CLI missing batch processing, document modes, and other v2.1 features  
-**Plan:** [Detailed plan](docs/ISSUE_9_CLI_CONSOLIDATION_PLAN.md)  
-**Complexity:** High - Major refactoring of core pipeline functionality
+### ✅ Issue #11: Configurable Timeout Handling (COMPLETED & MERGED)
+**Solution:** Page-based timeout calculation (30s per page + 60s base)  
+**Features:** CLI parameters --timeout and --timeout-per-page  
+**Commit:** `3a966ce` - Dynamic timeout handling for large documents  
+**Result:** Large documents (100+ pages) can now be processed successfully
 
-### 🔄 Issue #7: Pair Extraction JSON Parsing (LOW-MEDIUM PRIORITY)
-**Impact:** Structured data extraction incomplete  
-**Problem:** Model/part pairs in markdown but not JSON field
+### ✅ Issue #9: CLI Interface Consolidation (COMPLETED & MERGED)
+**Solution:** Single production CLI with full v2.1 feature parity  
+**Features:** Batch processing, document modes, URL support, concurrent workers  
+**Result:** Consolidated CLI with --mode, --workers, --recursive, and glob pattern support
 
-### 🔄 Issue #8: Missing get_status() Method (LOW PRIORITY)
+## 🚨 CRITICAL Issues Requiring Immediate Attention
+
+### Issue #16: Missing Keyword Enhancement (CRITICAL)
+**Problem:** V3 pipeline completely bypasses chunking_metadata.py keyword enhancement  
+**Impact:** ALL documents missing contextual keywords that were standard in V2.1  
+**Root Cause:** V3 uses basic SentenceSplitter instead of process_and_index_document()  
+**Fix Required:** Replace index_manager.add_document() calls with process_and_index_document()  
+**Blocks:** All chunking improvements until resolved
+
+### Issue #7: Broken Pair Extraction (HIGH)  
+**Problem:** Multi-line JSON metadata parsing only reads first line: "Metadata: {"  
+**Impact:** Model/part number pairs not extracted from datasheets in BOTH V2.1 & V3  
+**Root Cause:** Current logic splits on first newline, misses complete JSON block  
+**Fix Required:** Parse complete JSON from "Metadata:" through closing "}" before "---"  
+**Evidence:** All JSONL artifacts show "pairs": [] despite metadata being present
+
+## Active Enhancement Issues
+
+### Issue #14: Document-Type Aware Chunking (HIGH)
+**Enhancement:** Page-based chunking for datasheets, semantic chunking for regular docs  
+**Benefits:** Better context preservation for technical specifications
+
+### Issue #13: Hybrid PDF Parsing (MEDIUM)
+**Enhancement:** Use Docling for regular PDFs, VLM only for datasheets  
+**Benefits:** Cost savings and performance improvements
+
+### Issue #15: Table Extraction and LlamaIndex Nodes (MEDIUM)
+**Enhancement:** Proper TableNode creation and table-aware chunking
+
+### Issue #8: Missing get_status() Method (LOW)
 **Impact:** Status command doesn't work  
 **Solution:** Add status reporting to Enhanced Pipeline
 
-### 🔄 Issue #5: Qdrant Server Upgrade (LOW PRIORITY)
+### Issue #5: Qdrant Server Upgrade (LOW)
 **Impact:** Performance optimization opportunity  
 **Solution:** Upgrade from local storage to Qdrant server
 
-**Pipeline v3 is production-ready for enterprise document processing!** 🎉
+**Pipeline v3 status: Core works but critical regressions affect retrieval quality** ⚠️

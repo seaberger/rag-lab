@@ -1,11 +1,16 @@
 # Pipeline v3 Quick Reference 🚀
 
-## 🆕 NEW CLI Features (Issue #9)
+## ⚠️ CRITICAL ISSUES - READ FIRST
+- **Issue #16 (CRITICAL)**: V3 missing keyword enhancement from V2.1 - retrieval quality degraded
+- **Issue #7 (HIGH)**: Pair extraction broken - model/part numbers not extracted
+
+## ✅ Recent Features Added
+- **Issue #11**: Configurable timeout handling with `--timeout` and `--timeout-per-page`
+- **Issue #9**: Consolidated CLI with full v2.1 feature parity
 - **Document Modes**: `--mode datasheet|generic|auto`
 - **Batch Processing**: Glob patterns, directories, concurrent workers
 - **Custom Prompts**: `--prompt file.md` for specialized parsing
 - **URL Support**: Process documents from HTTP/HTTPS sources
-- **Rich Progress**: Emoji indicators and detailed batch reporting
 
 ## Essential Commands
 

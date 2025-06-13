@@ -33,10 +33,35 @@ cd src/pipeline_v3
   - URL support and custom prompt files
   - Rich progress reporting with emoji indicators
 
-### 🔄 **Active Optimization Areas**
-- **Issue #11**: Configurable timeout handling (Medium priority)
-- **Issue #12**: Page-level content classification (Medium-high priority)  
-- **Issue #7**: Enhanced pair extraction (Low-medium priority)  
+### 🔄 **Active Issues and Priorities**
+
+#### **CRITICAL Issues** 🚨
+- **Issue #16**: Restore chunking_metadata.py integration lost in V3 migration
+  - V3 completely bypasses keyword enhancement from V2.1
+  - Missing --with-keywords CLI parameter
+  - Retrieval quality significantly degraded vs V2.1
+  - **BLOCKING**: Core feature regression affecting all documents
+
+#### **HIGH Priority Issues** 🔥  
+- **Issue #7**: Fix model/part number pair extraction (BOTH V2.1 & V3)
+  - Multi-line JSON metadata not parsed correctly
+  - Only extracts first line: `"Metadata: {"` instead of full JSON block
+  - All datasheet pair extraction currently broken
+- **Issue #14**: Document-type aware chunking strategies
+  - Page-based chunking for datasheets (1 page = 1 chunk)
+  - Semantic chunking for regular documents
+  - Better context preservation for technical specs
+
+#### **MEDIUM Priority Issues** ⚡
+- **Issue #13**: Hybrid PDF parsing (VLM for datasheets, Docling for regular docs)
+  - Cost savings by using Docling for non-technical documents
+  - Performance improvements for simple text extraction
+- **Issue #15**: Proper table extraction and LlamaIndex node handling
+  - TableNode creation for structured data
+  - Table-aware chunking strategies
+- **Issue #12**: Page-level content classification for mixed documents
+
+#### **LOW Priority Issues** 📋
 - **Issue #8**: System status monitoring (Low priority)
 - **Issue #5**: Performance optimizations (Low priority)
 
@@ -45,6 +70,7 @@ cd src/pipeline_v3
 - ✅ **Issue #6 Resolved**: Storage artifacts now created correctly
 - ✅ **Issue #4 Resolved**: Document state management fixed
 - ✅ **Issue #3 Resolved**: Vector embedding generation working
+- ✅ **Issue #11 Resolved**: Configurable timeout handling implemented (merged to main)
 
 ## 🗂️ Repository Architecture
 
@@ -113,14 +139,24 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 ## 🎯 Development Priorities
 
+### **URGENT: Critical Regressions** 🚨
+1. **Issue #16**: Restore chunking_metadata.py integration (CRITICAL)
+   - V3 pipeline missing keyword enhancement from V2.1
+   - Significant retrieval quality degradation
+   - Blocks all other improvements until resolved
+
+2. **Issue #7**: Fix pair extraction parsing (HIGH)
+   - Multi-line JSON metadata parsing broken in both V2.1 & V3
+   - All datasheet model/part extraction currently failing
+
 ### **Next Sprint Focus**
-1. **CLI Consolidation** (Issue #9): Remove dual CLI confusion
-2. **User Experience**: Streamline documentation and workflows
-3. **Data Quality**: Enhanced pair extraction (Issue #7)
+1. **Data Quality**: Fix pair extraction and restore keyword enhancement
+2. **Chunking Strategy**: Implement document-type aware chunking
+3. **Performance**: Hybrid parsing approach (VLM + Docling)
 
 ### **Infrastructure Backlog**
+- Table extraction and structured data handling
 - System monitoring and health checks
-- Performance optimizations
 - Qdrant server upgrade for scalability
 
 ## 📚 Documentation Hierarchy
