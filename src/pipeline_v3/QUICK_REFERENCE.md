@@ -27,8 +27,8 @@ python cli_main.py add https://example.com/doc.pdf
 python cli_main.py search "keyword"
 python cli_main.py search "query" --type hybrid --top-k 5
 
-# Update/Remove documents
-python cli_main.py update document.pdf --force
+# Update documents (re-add with change detection)
+python cli_main.py add document.pdf --force  # Force reprocess
 python cli_main.py remove document.pdf
 ```
 

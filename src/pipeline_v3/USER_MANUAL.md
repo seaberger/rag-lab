@@ -142,13 +142,14 @@ python cli_main.py search "sensor" --top-k 10 --detailed
 
 ### Managing Documents
 
-#### Updating Documents
+#### Document Updates
+Documents are automatically updated when re-added if changes are detected:
 ```bash
-# Update existing document
-python cli_main.py update document.pdf --metadata version=2.0
+# Re-add document - automatically detects and updates if changed
+python cli_main.py add document.pdf --metadata version=2.0
 
-# Force update even if no changes detected
-python cli_main.py update document.pdf --force
+# Force reprocessing even if no changes detected
+python cli_main.py add document.pdf --force
 ```
 
 #### Removing Documents
@@ -265,8 +266,7 @@ python cli_main.py [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS] [ARGUMENTS]
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `add` | Add documents to pipeline | `add doc.pdf --metadata type=manual` |
-| `update` | Update existing documents | `update doc.pdf --force` |
+| `add` | Add/update documents in pipeline | `add doc.pdf --metadata type=manual` |
 | `remove` | Remove documents from indexes | `remove doc.pdf` |
 | `search` | Search through documents | `search "keyword" --type hybrid` |
 | `queue` | Manage processing queue | `queue start --workers 4` |
@@ -282,13 +282,18 @@ python cli_main.py add [OPTIONS] PATHS...
 
 Options:
   --metadata KEY=VALUE    Add metadata (can be used multiple times)
-  --force                 Force processing even if document exists
+  --force                 Force processing even if document exists/unchanged
   --index-type TYPE       Index type: vector, keyword, both (default: both)
+  --with-keywords         Enable keyword generation for enhanced search
+  --mode TYPE             Document type: datasheet, generic, auto (default: auto)
+  --prompt PATH           Custom prompt file for parsing
+  --workers NUMBER        Concurrent workers for batch processing
 
 Examples:
   python cli_main.py add document.pdf
   python cli_main.py add manual.pdf --metadata type=guide version=1.0
-  python cli_main.py add doc.pdf --force --index-type keyword
+  python cli_main.py add doc.pdf --force --with-keywords
+  python cli_main.py add "docs/*.pdf" --mode datasheet --workers 4
 ```
 
 #### `search` Command

@@ -199,19 +199,6 @@ Examples:
             help='Enable keyword generation for enhanced search (improves retrieval quality significantly)'
         )
         
-        # Update command
-        update_parser = subparsers.add_parser('update', help='Update existing documents')
-        update_parser.add_argument('paths', nargs='+', help='Document paths to update')
-        update_parser.add_argument(
-            '--metadata', 
-            action='append',
-            help='Metadata key=value pairs'
-        )
-        update_parser.add_argument(
-            '--force', 
-            action='store_true',
-            help='Force update even if no changes detected'
-        )
         
         # Remove command
         remove_parser = subparsers.add_parser('remove', help='Remove documents')
@@ -342,8 +329,6 @@ Examples:
         
         if args.command == 'add':
             await self.handle_add(args)
-        elif args.command == 'update':
-            await self.handle_update(args)
         elif args.command == 'remove':
             await self.handle_remove(args)
         elif args.command == 'search':
@@ -571,25 +556,6 @@ Examples:
             except Exception as e:
                 print(f"❌ Batch processing error: {e}")
 
-    async def handle_update(self, args):
-        """Handle document updates."""
-        metadata = self._parse_metadata(args.metadata)
-        
-        for path in args.paths:
-            try:
-                result = await self.pipeline.update_document(
-                    path,
-                    metadata=metadata,
-                    force=args.force
-                )
-                
-                if args.json:
-                    print(self._format_output(result, True))
-                else:
-                    print(f"Updated: {path} -> {result.get('status', 'unknown')}")
-                    
-            except Exception as e:
-                print(f"Error updating {path}: {e}")
 
     async def handle_remove(self, args):
         """Handle document removal."""
