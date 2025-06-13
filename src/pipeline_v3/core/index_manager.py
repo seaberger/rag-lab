@@ -385,9 +385,9 @@ class IndexManager:
                 try:
                     vector_entries = [e for e in entries if e.index_type == IndexType.VECTOR.value]
                     if vector_entries:
-                        node_ids = [e.node_id for e in vector_entries]
-                        self.vector_store.delete(node_ids)
-                        logger.info(f"Removed {len(node_ids)} vector entries for document {doc_id[:8]}")
+                        # QdrantVectorStore.delete() expects ref_doc_id (document ID), not node IDs
+                        self.vector_store.delete(doc_id)
+                        logger.info(f"Removed {len(vector_entries)} vector entries for document {doc_id[:8]}")
                     
                 except Exception as e:
                     logger.error(f"Failed to remove from vector index: {e}")
