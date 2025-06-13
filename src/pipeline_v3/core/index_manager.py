@@ -15,6 +15,7 @@ try:
     from llama_index.core import Document, VectorStoreIndex, StorageContext, Settings
     from llama_index.core.node_parser import SentenceSplitter
     from llama_index.core.schema import TextNode
+    from llama_index.core.vector_stores import VectorStoreQuery
     from llama_index.embeddings.openai import OpenAIEmbedding
     from llama_index.vector_stores.qdrant import QdrantVectorStore
     import qdrant_client
@@ -29,6 +30,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from core.registry import DocumentRegistry, DocumentState, IndexType, IndexRecord
 from utils.common_utils import logger
 from utils.config import PipelineConfig
+from utils.filter_utils import FilterBuilder
 
 
 class IndexManager:
@@ -480,27 +482,48 @@ class IndexManager:
             return []
         
         try:
+            # Parse unified filters and build LlamaIndex metadata filters
+            parsed_filters = FilterBuilder.parse_unified_filters(filters)
+            llamaindex_filters = FilterBuilder.build_vector_metadata_filters(parsed_filters)
+            
             # Create query embedding
             query_embedding = self.embedding_model.get_text_embedding(query)
             
-            # Search vector store
-            results = self.vector_store.query(
-                query_embedding,
-                similarity_top_k=top_k,
-                filters=filters
+            # Create VectorStoreQuery object (simplified for basic functionality)
+            vector_query = VectorStoreQuery(
+                query_embedding=query_embedding,
+                similarity_top_k=top_k * 2  # Get more for post-filtering
+                # TODO: Implement proper MetadataFilters for llamaindex_filters in Issue #23
             )
             
+            # Search vector store with enhanced filters
+            results = self.vector_store.query(vector_query)
+            
             search_results = []
-            for result in results.nodes:
+            # Handle different result structures from QdrantVectorStore
+            if hasattr(results, 'nodes'):
+                result_nodes = results.nodes
+            elif isinstance(results, list):
+                result_nodes = results
+            else:
+                logger.error(f"Unexpected vector search result type: {type(results)}")
+                return []
+            
+            for result in result_nodes:
                 search_results.append({
-                    "node_id": result.node_id,
+                    "node_id": getattr(result, 'node_id', getattr(result, 'id_', 'unknown')),
                     "score": getattr(result, 'score', 0.0),
-                    "content": result.text,
-                    "metadata": result.metadata,
-                    "doc_id": result.metadata.get('doc_id')
+                    "content": getattr(result, 'text', getattr(result, 'content', '')),
+                    "metadata": getattr(result, 'metadata', {}),
+                    "doc_id": getattr(result, 'metadata', {}).get('doc_id', 'unknown')
                 })
             
-            return search_results
+            # Apply post-filters that can't be handled by LlamaIndex
+            if parsed_filters:
+                search_results = FilterBuilder.apply_post_vector_filters(search_results, parsed_filters)
+            
+            # Return top_k results after filtering
+            return search_results[:top_k]
             
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
@@ -510,7 +533,8 @@ class IndexManager:
         self,
         query: str,
         top_k: int = 10,
-        doc_filter: Optional[List[str]] = None
+        filters: Optional[Dict[str, Any]] = None,
+        doc_filter: Optional[List[str]] = None  # Backward compatibility
     ) -> List[Dict[str, Any]]:
         """Search keyword index."""
         if not self.keyword_conn:
@@ -518,7 +542,14 @@ class IndexManager:
             return []
         
         try:
-            # Build query
+            # Handle backward compatibility
+            if doc_filter and not filters:
+                filters = {'doc_ids': doc_filter}
+            
+            # Parse unified filters
+            parsed_filters = FilterBuilder.parse_unified_filters(filters)
+            
+            # Build basic query (simplified for initial implementation)
             sql_query = """
                 SELECT doc_id, node_id, chunk_index, content, metadata, 
                        bm25(keyword_index) as score
@@ -527,11 +558,13 @@ class IndexManager:
             """
             params = [query]
             
-            # Add document filter if provided
-            if doc_filter:
-                placeholders = ",".join("?" * len(doc_filter))
-                sql_query += f" AND doc_id IN ({placeholders})"
-                params.extend(doc_filter)
+            # Add basic doc_ids filter for now (simplified implementation)
+            if parsed_filters and 'doc_ids' in parsed_filters:
+                doc_ids = parsed_filters['doc_ids']
+                if doc_ids:
+                    placeholders = ",".join("?" * len(doc_ids))
+                    sql_query += f" AND doc_id IN ({placeholders})"
+                    params.extend(doc_ids)
             
             sql_query += " ORDER BY score LIMIT ?"
             params.append(top_k)
@@ -560,55 +593,228 @@ class IndexManager:
         query: str,
         top_k: int = 10,
         vector_weight: float = 0.7,
-        keyword_weight: float = 0.3
+        keyword_weight: float = 0.3,
+        filters: Optional[Dict[str, Any]] = None,
+        fusion_method: str = "rrf"  # "rrf", "weighted", "adaptive"
     ) -> List[Dict[str, Any]]:
-        """Perform hybrid search combining vector and keyword results."""
+        """
+        Perform advanced hybrid search with multiple fusion algorithms.
+        
+        Args:
+            fusion_method: "rrf" (Reciprocal Rank Fusion), "weighted" (score-based), 
+                          "adaptive" (query-dependent weighting)
+        """
         try:
-            # Get results from both indexes
-            vector_results = self.search_vector(query, top_k * 2)
-            keyword_results = self.search_keyword(query, top_k * 2)
+            # Get more results for better fusion quality
+            search_multiplier = max(3, top_k // 5)  # Adaptive multiplier
+            vector_results = self.search_vector(query, top_k * search_multiplier, filters=filters)
+            keyword_results = self.search_keyword(query, top_k * search_multiplier, filters=filters)
             
-            # Normalize scores
-            if vector_results:
-                max_vector_score = max(r.get('score', 0) for r in vector_results)
-                for result in vector_results:
-                    result['normalized_score'] = (result.get('score', 0) / max_vector_score) * vector_weight
-            
-            if keyword_results:
-                max_keyword_score = max(r.get('score', 0) for r in keyword_results)
-                for result in keyword_results:
-                    result['normalized_score'] = (result.get('score', 0) / max_keyword_score) * keyword_weight
-            
-            # Combine and deduplicate by node_id
-            combined = {}
-            
-            for result in vector_results:
-                node_id = result['node_id']
-                combined[node_id] = result
-                combined[node_id]['search_type'] = 'vector'
-            
-            for result in keyword_results:
-                node_id = result['node_id']
-                if node_id in combined:
-                    # Combine scores
-                    combined[node_id]['normalized_score'] += result['normalized_score']
-                    combined[node_id]['search_type'] = 'hybrid'
-                else:
-                    combined[node_id] = result
-                    combined[node_id]['search_type'] = 'keyword'
-            
-            # Sort by combined score and return top_k
-            sorted_results = sorted(
-                combined.values(),
-                key=lambda x: x['normalized_score'],
-                reverse=True
-            )[:top_k]
-            
-            return sorted_results
-            
+            # Choose fusion method
+            if fusion_method == "rrf":
+                return self._reciprocal_rank_fusion(vector_results, keyword_results, top_k, query)
+            elif fusion_method == "adaptive":
+                return self._adaptive_fusion(vector_results, keyword_results, top_k, query)
+            else:
+                return self._enhanced_weighted_fusion(
+                    vector_results, keyword_results, top_k, vector_weight, keyword_weight
+                )
+                
         except Exception as e:
             logger.error(f"Hybrid search failed: {e}")
             return []
+    
+    def _reciprocal_rank_fusion(
+        self, 
+        vector_results: List[Dict], 
+        keyword_results: List[Dict], 
+        top_k: int,
+        query: str,
+        k: int = 60  # RRF constant
+    ) -> List[Dict[str, Any]]:
+        """
+        Reciprocal Rank Fusion - industry standard for hybrid search.
+        More robust than score-based fusion as it only uses ranking order.
+        """
+        combined_scores = {}
+        
+        # Add vector rankings - RRF formula: 1 / (k + rank)
+        for rank, result in enumerate(vector_results, 1):
+            node_id = result['node_id']
+            rrf_score = 1.0 / (k + rank)
+            combined_scores[node_id] = {
+                'result': result,
+                'rrf_score': rrf_score,
+                'vector_rank': rank,
+                'keyword_rank': None,
+                'search_type': 'vector'
+            }
+        
+        # Add keyword rankings
+        for rank, result in enumerate(keyword_results, 1):
+            node_id = result['node_id']
+            rrf_score = 1.0 / (k + rank)
+            
+            if node_id in combined_scores:
+                # Found in both - combine RRF scores
+                combined_scores[node_id]['rrf_score'] += rrf_score
+                combined_scores[node_id]['keyword_rank'] = rank
+                combined_scores[node_id]['search_type'] = 'hybrid'
+            else:
+                combined_scores[node_id] = {
+                    'result': result,
+                    'rrf_score': rrf_score,
+                    'vector_rank': None,
+                    'keyword_rank': rank,
+                    'search_type': 'keyword'
+                }
+        
+        # Sort by RRF score and prepare results
+        sorted_items = sorted(
+            combined_scores.items(),
+            key=lambda x: x[1]['rrf_score'],
+            reverse=True
+        )[:top_k]
+        
+        results = []
+        for node_id, data in sorted_items:
+            result = data['result'].copy()
+            result['normalized_score'] = data['rrf_score']
+            result['fusion_score'] = data['rrf_score']
+            result['search_type'] = data['search_type']
+            result['vector_rank'] = data['vector_rank']
+            result['keyword_rank'] = data['keyword_rank']
+            results.append(result)
+        
+        return results
+    
+    def _adaptive_fusion(
+        self,
+        vector_results: List[Dict],
+        keyword_results: List[Dict], 
+        top_k: int,
+        query: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Adaptive fusion that adjusts weights based on query characteristics and result overlap.
+        """
+        # Analyze query characteristics
+        query_length = len(query.split())
+        has_technical_terms = any(term in query.lower() for term in [
+            'sensor', 'laser', 'power', 'wavelength', 'calibration', 'measurement'
+        ])
+        has_model_numbers = any(char.isdigit() for char in query)
+        
+        # Calculate result overlap
+        vector_nodes = {r['node_id'] for r in vector_results}
+        keyword_nodes = {r['node_id'] for r in keyword_results}
+        overlap_ratio = len(vector_nodes & keyword_nodes) / len(vector_nodes | keyword_nodes) if vector_nodes or keyword_nodes else 0
+        
+        # Adaptive weight calculation
+        if has_model_numbers or len(query.split()) <= 2:
+            # Short queries or model numbers - favor keyword search
+            vector_weight = 0.3 + (overlap_ratio * 0.2)
+            keyword_weight = 0.7 - (overlap_ratio * 0.2)
+        elif has_technical_terms and query_length > 3:
+            # Technical concept queries - favor vector search
+            vector_weight = 0.8 - (overlap_ratio * 0.1)
+            keyword_weight = 0.2 + (overlap_ratio * 0.1)
+        else:
+            # Balanced approach
+            vector_weight = 0.6
+            keyword_weight = 0.4
+        
+        logger.info(f"Adaptive weights: vector={vector_weight:.2f}, keyword={keyword_weight:.2f}, overlap={overlap_ratio:.2f}")
+        
+        return self._enhanced_weighted_fusion(vector_results, keyword_results, top_k, vector_weight, keyword_weight)
+    
+    def _enhanced_weighted_fusion(
+        self,
+        vector_results: List[Dict],
+        keyword_results: List[Dict],
+        top_k: int,
+        vector_weight: float,
+        keyword_weight: float
+    ) -> List[Dict[str, Any]]:
+        """Enhanced weighted fusion with better normalization and score distribution awareness."""
+        
+        # Enhanced normalization using z-score for better distribution handling
+        def normalize_scores_enhanced(results: List[Dict], score_key: str = 'score') -> List[Dict]:
+            if not results:
+                return results
+                
+            scores = [r.get(score_key, 0) for r in results]
+            
+            # Handle BM25 negative scores
+            if score_key == 'score' and any(s < 0 for s in scores):
+                # Convert BM25 scores to positive range [0, 1]
+                min_score = min(scores)
+                max_score = max(scores)
+                if max_score > min_score:
+                    for i, result in enumerate(results):
+                        original_score = result.get(score_key, 0)
+                        normalized = (original_score - min_score) / (max_score - min_score)
+                        result['normalized_score'] = normalized
+                else:
+                    for result in results:
+                        result['normalized_score'] = 0.5
+            else:
+                # Standard min-max normalization for vector scores
+                max_score = max(scores) if scores else 1
+                if max_score > 0:
+                    for result in results:
+                        result['normalized_score'] = result.get(score_key, 0) / max_score
+                else:
+                    for result in results:
+                        result['normalized_score'] = 0
+            
+            return results
+        
+        # Normalize both result sets
+        vector_results = normalize_scores_enhanced(vector_results)
+        keyword_results = normalize_scores_enhanced(keyword_results)
+        
+        # Apply weights and combine
+        combined = {}
+        
+        for result in vector_results:
+            node_id = result['node_id']
+            weighted_score = result['normalized_score'] * vector_weight
+            combined[node_id] = result.copy()
+            combined[node_id]['fusion_score'] = weighted_score
+            combined[node_id]['vector_score'] = result['normalized_score']
+            combined[node_id]['keyword_score'] = 0
+            combined[node_id]['search_type'] = 'vector'
+        
+        for result in keyword_results:
+            node_id = result['node_id']
+            weighted_score = result['normalized_score'] * keyword_weight
+            
+            if node_id in combined:
+                # Boost for appearing in both indexes
+                boost_factor = 1.1  # 10% boost for consensus
+                combined[node_id]['fusion_score'] = (combined[node_id]['fusion_score'] + weighted_score) * boost_factor
+                combined[node_id]['keyword_score'] = result['normalized_score']
+                combined[node_id]['search_type'] = 'hybrid'
+            else:
+                combined[node_id] = result.copy()
+                combined[node_id]['fusion_score'] = weighted_score
+                combined[node_id]['vector_score'] = 0
+                combined[node_id]['keyword_score'] = result['normalized_score']
+                combined[node_id]['search_type'] = 'keyword'
+        
+        # Sort by fusion score
+        sorted_results = sorted(
+            combined.values(),
+            key=lambda x: x['fusion_score'],
+            reverse=True
+        )[:top_k]
+        
+        # Set final normalized_score for compatibility
+        for result in sorted_results:
+            result['normalized_score'] = result['fusion_score']
+        
+        return sorted_results
     
     def verify_consistency(self) -> Dict[str, Any]:
         """Verify consistency between indexes and registry."""

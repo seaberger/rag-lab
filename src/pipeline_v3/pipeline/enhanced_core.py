@@ -717,16 +717,17 @@ class EnhancedPipeline:
         query: str,
         search_type: str = "hybrid",
         top_k: int = 10,
+        filters: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> List[Dict[str, Any]]:
         """Search documents using specified method."""
         try:
             if search_type == "vector":
-                return self.index_manager.search_vector(query, top_k, **kwargs)
+                return self.index_manager.search_vector(query, top_k, filters=filters, **kwargs)
             elif search_type == "keyword":
-                return self.index_manager.search_keyword(query, top_k, **kwargs)
+                return self.index_manager.search_keyword(query, top_k, filters=filters, **kwargs)
             elif search_type == "hybrid":
-                return self.index_manager.hybrid_search(query, top_k, **kwargs)
+                return self.index_manager.hybrid_search(query, top_k, filters=filters, **kwargs)
             else:
                 raise ValueError(f"Unknown search type: {search_type}")
                 

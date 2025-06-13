@@ -9,10 +9,11 @@ A comprehensive guide to using the Production Document Processing Pipeline v3 fo
 3. [Basic Operations](#basic-operations)
 4. [Advanced Features](#advanced-features)
 5. [CLI Reference](#cli-reference)
-6. [Configuration](#configuration)
-7. [Troubleshooting](#troubleshooting)
-8. [Best Practices](#best-practices)
-9. [Examples & Use Cases](#examples--use-cases)
+6. [Advanced Search Capabilities](#advanced-search-capabilities)
+7. [Configuration](#configuration)
+8. [Troubleshooting](#troubleshooting)
+9. [Best Practices](#best-practices)
+10. [Examples & Use Cases](#examples--use-cases)
 
 ---
 
@@ -27,8 +28,9 @@ cd /path/to/rag_lab
 # 2. Add your first document (with new Issue #9 features)
 uv run python -m src.pipeline_v3.cli_main add my_document.pdf --mode auto --metadata type=manual
 
-# 3. Search for content
-uv run python -m src.pipeline_v3.cli_main search "important keyword" --top-k 5
+# 3. Search for content (Enhanced with Issue #22)
+uv run python -m src.pipeline_v3.cli_main search "important keyword" --top-k 5          # Hybrid RRF (best)
+uv run python -m src.pipeline_v3.cli_main search "PM10K specs" --fusion-method adaptive # Smart search
 
 # 4. Check system status
 uv run python -m src.pipeline_v3.cli_main status
@@ -304,11 +306,21 @@ Options:
   --type TYPE            Search type: vector, keyword, hybrid (default: hybrid)
   --top-k NUMBER         Number of results (default: 10)
   --filter FILTER        Filter expression in JSON format
+  --fusion-method METHOD Hybrid fusion algorithm: rrf, weighted, adaptive (default: rrf)
 
 Examples:
+  # Basic search with different types
   python cli_main.py search "laser measurement"
   python cli_main.py search "calibration" --type keyword --top-k 5
-  python cli_main.py search "sensor" --filter '{"type": "manual"}'
+  python cli_main.py search "PM10K sensor specs" --type vector
+  
+  # Advanced hybrid search with fusion methods
+  python cli_main.py search "thermopile calibration" --type hybrid --fusion-method rrf
+  python cli_main.py search "PM10K specifications" --fusion-method adaptive
+  python cli_main.py search "laser power measurement" --fusion-method weighted
+  
+  # Filtering examples (basic doc_ids filtering available)
+  python cli_main.py search "sensor" --filter '{"doc_ids": ["abc123", "def456"]}'
 ```
 
 #### `queue` Subcommands
@@ -340,6 +352,189 @@ python cli_main.py config set KEY VALUE
 # Reset configuration
 python cli_main.py config reset [--confirm]
 ```
+
+---
+
+## Advanced Search Capabilities
+
+### Search Types
+
+Pipeline v3 provides three powerful search modes optimized for technical document retrieval:
+
+#### 1. Vector Search (Semantic)
+Uses OpenAI embeddings to find conceptually similar content, even with different terminology.
+
+```bash
+# Best for: Conceptual queries, related topics, synonyms
+python cli_main.py search "power measurement techniques" --type vector
+python cli_main.py search "optical sensor calibration" --type vector
+```
+
+**Advantages:**
+- Finds conceptually related content
+- Works with synonyms and related terms
+- Good for exploratory search
+
+**Use Cases:**
+- "What are different types of laser sensors?"
+- "How to calibrate measurement devices?"
+- "Power measurement methodologies"
+
+#### 2. Keyword Search (Exact)
+Uses SQLite FTS5 with BM25 ranking for precise term matching and model numbers.
+
+```bash
+# Best for: Exact terms, model numbers, specific technical terms
+python cli_main.py search "PM10K specifications" --type keyword
+python cli_main.py search "thermopile detector" --type keyword
+```
+
+**Advantages:**
+- Exact term matching
+- Excellent for model numbers and part numbers
+- Fast performance
+- Works with technical abbreviations
+
+**Use Cases:**
+- "PM10K datasheet"
+- "LabMax Touch specifications" 
+- "USB interface requirements"
+
+#### 3. Hybrid Search (Recommended)
+Combines vector and keyword search using advanced fusion algorithms for optimal results.
+
+```bash
+# Best for: General use, balanced results, comprehensive search
+python cli_main.py search "laser power sensor calibration" --type hybrid
+```
+
+### Hybrid Fusion Methods
+
+Pipeline v3 offers three sophisticated fusion algorithms:
+
+#### Reciprocal Rank Fusion (RRF) - Default
+Industry-standard algorithm that combines rankings rather than scores for robust results.
+
+```bash
+python cli_main.py search "thermopile sensor" --fusion-method rrf
+```
+
+**Best for:**
+- General-purpose search
+- Most reliable results
+- Handles score normalization issues well
+
+#### Adaptive Fusion
+Automatically adjusts search weights based on query characteristics.
+
+```bash
+python cli_main.py search "PM10K calibration" --fusion-method adaptive
+```
+
+**Intelligence:**
+- **Model Numbers** (PM10K, LabMax): Favors keyword search (60% keyword, 40% vector)
+- **Technical Concepts** (calibration methods): Favors vector search (80% vector, 20% keyword)
+- **Mixed Queries**: Balanced approach based on content overlap
+
+**Best for:**
+- Varied query types
+- Automatic optimization
+- Users who want "smart" search behavior
+
+#### Enhanced Weighted Fusion
+Advanced score-based combination with consensus boosting.
+
+```bash
+python cli_main.py search "laser measurement" --fusion-method weighted
+```
+
+**Features:**
+- Improved BM25 score normalization
+- 10% boost for results appearing in both indexes
+- Preserves score distribution information
+
+**Best for:**
+- When you want control over vector/keyword balance
+- Score-sensitive applications
+- Fine-tuned search behavior
+
+### Search Filtering
+
+#### Basic Document Filtering
+Filter results by specific document IDs:
+
+```bash
+# Only search within specific documents
+python cli_main.py search "calibration" --filter '{"doc_ids": ["abc123", "def456"]}'
+```
+
+#### Advanced Filtering (Issue #23)
+Enhanced filtering capabilities are planned for comprehensive document management:
+
+```json
+{
+  "metadata": {
+    "source_type": "datasheet_pdf",
+    "file_size": {"min": 1000, "max": 5000000}
+  },
+  "pairs": {
+    "model_contains": "LabMax",
+    "part_contains": "PN 2256"
+  },
+  "content": {
+    "keywords_contain": "laser",
+    "text_contains": "thermopile"
+  },
+  "dates": {
+    "created_after": "2024-01-01"
+  }
+}
+```
+
+### Search Best Practices
+
+#### Query Optimization
+
+**For Model Numbers and Part Numbers:**
+```bash
+# Use exact model numbers with keyword or adaptive search
+python cli_main.py search "PM10K" --type keyword
+python cli_main.py search "LabMax Touch PN 2256258" --fusion-method adaptive
+```
+
+**For Technical Concepts:**
+```bash
+# Use descriptive terms with vector or adaptive search
+python cli_main.py search "thermopile detector calibration methodology" --type vector
+python cli_main.py search "laser power measurement accuracy" --fusion-method adaptive
+```
+
+**For Comprehensive Search:**
+```bash
+# Use hybrid with RRF for balanced results
+python cli_main.py search "sensor specifications accuracy" --type hybrid --fusion-method rrf
+```
+
+#### Performance Tips
+
+1. **Start with hybrid search** - Usually provides the best results
+2. **Use adaptive fusion** - Automatically optimizes for your query type
+3. **Try different search types** - If one doesn't work, try another
+4. **Use specific terms** - More specific queries generally return better results
+5. **Include context** - "PM10K calibration procedure" vs just "PM10K"
+
+### Search Result Interpretation
+
+#### Score Meanings
+- **RRF Scores**: Higher values indicate better ranking consensus
+- **Vector Scores**: Similarity scores (0.0-1.0, higher is more similar)
+- **Keyword Scores**: BM25 relevance scores (negative values are normal)
+
+#### Search Type Indicators
+Results show which index(es) found the content:
+- `vector`: Found only in vector search
+- `keyword`: Found only in keyword search  
+- `hybrid`: Found in both indexes (usually higher quality)
 
 ---
 

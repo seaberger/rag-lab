@@ -229,6 +229,12 @@ Examples:
             '--filter',
             help='Filter expression (JSON format)'
         )
+        search_parser.add_argument(
+            '--fusion-method',
+            choices=['rrf', 'weighted', 'adaptive'],
+            default='rrf',
+            help='Hybrid search fusion method (default: rrf)'
+        )
     
     def _add_queue_commands(self, subparsers):
         """Add queue management commands."""
@@ -581,11 +587,17 @@ Examples:
             if args.filter:
                 filter_dict = json.loads(args.filter)
             
-            results = await self.pipeline.search(
+            # Pass fusion method for hybrid search
+            search_kwargs = {}
+            if args.type == 'hybrid' and hasattr(args, 'fusion_method'):
+                search_kwargs['fusion_method'] = args.fusion_method.replace('-', '_')  # Convert kebab-case to snake_case
+            
+            results = self.pipeline.search(
                 args.query,
                 search_type=args.type,
                 top_k=args.top_k,
-                filter_dict=filter_dict
+                filters=filter_dict,
+                **search_kwargs
             )
             
             if args.json:
