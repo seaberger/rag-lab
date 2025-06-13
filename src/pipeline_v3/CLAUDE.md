@@ -110,14 +110,14 @@ data/lmc_docs/datasheets/
   - Fixed Qdrant storage conflicts from multiple IndexManager instances
   - Vector indexing now works correctly with keyword enhancement
 
+- ✅ **Issue #17:** Keyword generation JSON parsing failure (**COMPLETED & MERGED**)
+  - Fixed OpenAI API response parsing (markdown code blocks around JSON)
+  - Keyword generation now works perfectly with all OpenAI models
+  - Enhanced search quality through proper keyword augmentation
+
 ### 🔄 Current Active Issues:
 
 #### **Medium Priority Issues** ⚡
-
-- **Issue #17:** Keyword generation JSON parsing failure
-  - AI keyword generation fails with "Expecting value: line 1 column 1" error
-  - Keyword enhancement framework works, but generation needs debugging
-  - Documents still get enhanced chunking without AI-generated keywords
 
 #### **Enhancement Issues** 🆕
 - **Issue #21:** doc_id mismatch between keyword and vector indexes (Low priority)
