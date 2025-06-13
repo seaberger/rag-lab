@@ -310,21 +310,37 @@ async def vision_parse_datasheet(
     response = await call_api()
     md = response.output[0].content[0].text
 
-    # Extract pairs from metadata line
-    first_line, *rest = md.split("\n", 1)
+    # Extract pairs from metadata block (handles multi-line JSON)
     try:
-        if first_line.startswith("Metadata:"):
-            metadata_text = first_line.replace("Metadata:", "").strip()
-            # Handle single quotes in the response by converting to double quotes
-            metadata_text = metadata_text.replace("'", '"')
-            meta = json.loads(metadata_text)
-            pairs = [tuple(p) for p in meta.get("pairs", [])]
-            # Remove metadata line from markdown
-            md = "\n".join(rest) if rest else md
+        if md.startswith("Metadata:"):
+            # Find the end of metadata block (marked by "---" separator)
+            if "\n---\n" in md:
+                metadata_section, markdown_content = md.split("\n---\n", 1)
+                # Extract JSON from metadata section
+                json_text = metadata_section.replace("Metadata:", "").strip()
+                # Handle single quotes in the response by converting to double quotes
+                json_text = json_text.replace("'", '"')
+                meta = json.loads(json_text)
+                pairs = [tuple(p) for p in meta.get("pairs", [])]
+                # Use content after the separator as markdown
+                md = markdown_content.strip()
+                logger.info(f"Successfully extracted {len(pairs)} pairs from metadata")
+            else:
+                # Fallback: try to parse first line only (backward compatibility)
+                first_line, *rest = md.split("\n", 1)
+                if first_line.startswith("Metadata:"):
+                    metadata_text = first_line.replace("Metadata:", "").strip()
+                    metadata_text = metadata_text.replace("'", '"')
+                    meta = json.loads(metadata_text)
+                    pairs = [tuple(p) for p in meta.get("pairs", [])]
+                    md = "\n".join(rest) if rest else md
+                else:
+                    pairs = []
         else:
             pairs = []
     except Exception as e:
-        logger.warning(f"Failed to extract pairs: {e}")
+        logger.warning(f"Failed to extract pairs from metadata: {e}")
+        logger.debug(f"Metadata section being parsed: {md[:200]}...")
         pairs = []
 
     return md, pairs
