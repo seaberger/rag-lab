@@ -194,6 +194,11 @@ Examples:
             type=int,
             help='Override timeout per page in seconds (default: 30)'
         )
+        add_parser.add_argument(
+            '--with-keywords',
+            action='store_true',
+            help='Enable keyword generation for enhanced search (improves retrieval quality significantly)'
+        )
         
         # Update command
         update_parser = subparsers.add_parser('update', help='Update existing documents')
@@ -494,7 +499,8 @@ Examples:
                     force_reprocess=args.force,
                     index_types=self._parse_index_type(args.index_type),
                     mode=args.mode,
-                    prompt_file=args.prompt
+                    prompt_file=args.prompt,
+                    with_keywords=getattr(args, 'with_keywords', False)
                 )
                 
                 if args.json:
@@ -520,7 +526,8 @@ Examples:
                     "metadata": metadata.copy(),
                     "force_reprocess": args.force,
                     "mode": args.mode,
-                    "prompt_file": args.prompt
+                    "prompt_file": args.prompt,
+                    "with_keywords": getattr(args, 'with_keywords', False)
                 }
                 document_infos.append(doc_info)
             

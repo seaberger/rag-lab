@@ -82,7 +82,8 @@ class EnhancedPipeline:
         force_reprocess: bool = False,
         index_types: IndexType = IndexType.BOTH,
         mode: str = "auto",
-        prompt_file: Optional[str] = None
+        prompt_file: Optional[str] = None,
+        with_keywords: bool = False
     ) -> Dict[str, Any]:
         """Process a single document with intelligent change detection.
         
@@ -94,6 +95,7 @@ class EnhancedPipeline:
             index_types: Which indexes to update (vector, keyword, or both)
             mode: Document classification mode ('datasheet', 'generic', 'auto')
             prompt_file: Path to custom prompt file for parsing
+            with_keywords: Enable keyword generation for enhanced search retrieval
         
         Returns:
             Processing result dictionary with status and details
@@ -208,7 +210,7 @@ class EnhancedPipeline:
             # Process based on update strategy
             result = await self._execute_update_strategy(
                 doc_id, source, content, metadata, 
-                change_analysis.update_strategy, index_types
+                change_analysis.update_strategy, index_types, with_keywords
             )
             
             # Update processing stats and progress monitoring
@@ -438,7 +440,8 @@ class EnhancedPipeline:
         content: str,
         metadata: Optional[Dict[str, Any]],
         strategy: UpdateStrategy,
-        index_types: IndexType
+        index_types: IndexType,
+        with_keywords: bool = False
     ) -> Dict[str, Any]:
         """Execute the determined update strategy."""
         try:
@@ -456,10 +459,10 @@ class EnhancedPipeline:
             elif strategy == UpdateStrategy.INCREMENTAL:
                 # For now, incremental updates are treated as full reindex
                 # In a more sophisticated implementation, this would update only changed chunks
-                return await self._full_reindex(doc_id, content, metadata, index_types, source)
+                return await self._full_reindex(doc_id, content, metadata, index_types, source, with_keywords)
             
             elif strategy == UpdateStrategy.FULL_REINDEX:
-                return await self._full_reindex(doc_id, content, metadata, index_types, source)
+                return await self._full_reindex(doc_id, content, metadata, index_types, source, with_keywords)
             
             else:
                 raise ValueError(f"Unknown update strategy: {strategy}")
@@ -477,7 +480,8 @@ class EnhancedPipeline:
         content: str,
         metadata: Optional[Dict[str, Any]],
         index_types: IndexType,
-        source: Optional[Union[str, Path]] = None
+        source: Optional[Union[str, Path]] = None,
+        with_keywords: bool = False
     ) -> Dict[str, Any]:
         """Perform full reindexing of document."""
         try:
@@ -489,10 +493,34 @@ class EnhancedPipeline:
             
             # Note: Progress monitoring for indexing handled at higher level
             
-            # Add document to indexes
-            success = self.index_manager.add_document(
-                doc_id, content, metadata, index_types
-            )
+            # Add document to indexes - use keyword enhancement if enabled
+            if with_keywords:
+                # Import chunking_metadata here to avoid circular imports
+                from utils.chunking_metadata import process_and_index_document
+                
+                # Extract pairs from metadata for enhanced processing
+                pairs = metadata.get('pairs', []) if metadata else []
+                
+                # Process with keyword enhancement
+                nodes = await process_and_index_document(
+                    doc_id=doc_id,
+                    source=source or "unknown",
+                    markdown=content,
+                    pairs=pairs,
+                    metadata=metadata or {},
+                    with_keywords=True,
+                    progress=None,  # Progress monitoring handled at higher level
+                    config=self.config
+                )
+                
+                # Add enhanced nodes to indexes
+                success = self.index_manager.add_nodes(doc_id, nodes, index_types)
+                logger.info(f"Added document {doc_id[:8]} with keyword enhancement ({len(nodes)} chunks)")
+            else:
+                # Use direct indexing without keyword enhancement
+                success = self.index_manager.add_document(
+                    doc_id, content, metadata, index_types
+                )
             
             # Note: Progress monitoring for indexing handled at higher level
             
@@ -606,7 +634,8 @@ class EnhancedPipeline:
                     metadata=doc_info.get("metadata", {}),
                     force_reprocess=doc_info.get("force_reprocess", False),
                     mode=doc_info.get("mode", "auto"),
-                    prompt_file=doc_info.get("prompt_file")
+                    prompt_file=doc_info.get("prompt_file"),
+                    with_keywords=doc_info.get("with_keywords", False)
                 )
         
         start_time = time.time()

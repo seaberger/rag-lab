@@ -243,6 +243,110 @@ class IndexManager:
             self.registry.update_document_state(doc_id, DocumentState.CORRUPTED, str(e))
             return False
     
+    def add_nodes(
+        self,
+        doc_id: str,
+        nodes: List[TextNode],
+        index_types: IndexType = IndexType.BOTH
+    ) -> bool:
+        """Add pre-processed nodes to specified indexes.
+        
+        This method is used when nodes have already been processed with
+        keyword enhancement or other transformations.
+        
+        Args:
+            doc_id: Document identifier
+            nodes: Pre-processed TextNode objects
+            index_types: Which indexes to update
+            
+        Returns:
+            Success status
+        """
+        try:
+            if not LLAMA_INDEX_AVAILABLE:
+                logger.error("LlamaIndex not available - cannot add nodes")
+                return False
+            
+            if not nodes:
+                logger.warning(f"No nodes provided for document {doc_id}")
+                return False
+            
+            success = True
+            
+            # Add to vector index
+            if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.vector_store:
+                try:
+                    # Create storage context with the vector store
+                    storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
+                    
+                    # Index nodes - this generates embeddings and stores them
+                    index = VectorStoreIndex(nodes, storage_context=storage_context)
+                    
+                    # Register index entries
+                    for i, node in enumerate(nodes):
+                        logger.debug(f"Registering vector index entry: doc_id={doc_id}, node_id={node.node_id}")
+                        self.registry.register_index_entry(
+                            doc_id=doc_id,
+                            index_type=IndexType.VECTOR,
+                            node_id=node.node_id,
+                            chunk_index=i,
+                            content_hash=node.hash,
+                            metadata=node.metadata
+                        )
+                    
+                    logger.info(f"Added document {doc_id[:8]} to vector index ({len(nodes)} chunks)")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to add nodes to vector index: {e}")
+                    success = False
+            
+            # Add to keyword index
+            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+                try:
+                    for i, node in enumerate(nodes):
+                        self.keyword_conn.execute("""
+                            INSERT INTO keyword_index 
+                            (doc_id, node_id, chunk_index, content, metadata, content_hash)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (
+                            doc_id,
+                            node.node_id,
+                            i,
+                            node.text,
+                            str(node.metadata),
+                            node.hash
+                        ))
+                        
+                        # Register index entry
+                        self.registry.register_index_entry(
+                            doc_id=doc_id,
+                            index_type=IndexType.KEYWORD,
+                            node_id=node.node_id,
+                            chunk_index=i,
+                            content_hash=node.hash,
+                            metadata=node.metadata
+                        )
+                    
+                    self.keyword_conn.commit()
+                    logger.info(f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to add nodes to keyword index: {e}")
+                    success = False
+            
+            # Update registry if successful
+            if success:
+                self.registry.mark_indexed(doc_id, index_types, len(nodes))
+            else:
+                self.registry.update_document_state(doc_id, DocumentState.CORRUPTED, "Failed to index nodes")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Failed to add nodes for document {doc_id}: {e}")
+            self.registry.update_document_state(doc_id, DocumentState.CORRUPTED, str(e))
+            return False
+    
     def update_document(
         self,
         doc_id: str,
