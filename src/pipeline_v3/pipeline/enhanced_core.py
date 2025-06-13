@@ -31,7 +31,7 @@ from utils.monitoring import ProgressMonitor
 class EnhancedPipeline:
     """Production-ready pipeline with intelligent document lifecycle management."""
     
-    def __init__(self, config: Optional[PipelineConfig] = None, registry: Optional[DocumentRegistry] = None):
+    def __init__(self, config: Optional[PipelineConfig] = None, registry: Optional[DocumentRegistry] = None, index_manager: Optional[IndexManager] = None):
         """Initialize enhanced pipeline with all components."""
         self.config = config or PipelineConfig()
         
@@ -42,7 +42,7 @@ class EnhancedPipeline:
         
         # Initialize Phase 2 components
         self.registry = registry or DocumentRegistry(self.config)
-        self.index_manager = IndexManager(self.config, registry=self.registry)
+        self.index_manager = index_manager or IndexManager(self.config, registry=self.registry)
         self.change_detector = ChangeDetector(self.config, registry=self.registry)
         
         # Initialize cache for document parsing

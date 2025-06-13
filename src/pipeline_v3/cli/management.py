@@ -82,13 +82,12 @@ class PipelineCLI:
         """Initialize pipeline components."""
         try:
             self.registry = DocumentRegistry(self.config)
+            self.index_manager = IndexManager(self.config, registry=self.registry)
             
             if PIPELINE_AVAILABLE:
-                self.pipeline = EnhancedPipeline(self.config, registry=self.registry)
+                self.pipeline = EnhancedPipeline(self.config, registry=self.registry, index_manager=self.index_manager)
             
             self.queue = DocumentQueue(self.config)
-            
-            self.index_manager = IndexManager(self.config, registry=self.registry)
             
         except Exception as e:
             print(f"Error initializing pipeline: {e}")
