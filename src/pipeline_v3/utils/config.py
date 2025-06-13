@@ -12,6 +12,8 @@ except ImportError:
 class PipelineSettings:
     max_concurrent: int = 5
     timeout_seconds: int = 300
+    timeout_per_page: int = 30  # Seconds per PDF page for vision parsing
+    timeout_base: int = 60  # Base timeout in seconds
     version: str = "3.0.0-dev"
 
 @dataclass
@@ -46,6 +48,8 @@ class OpenAISettings:
     embedding_model: str = "text-embedding-3-small"
     dimensions: int = 1536
     max_retries: int = 3
+    timeout_per_page: int = 30  # Seconds per page for vision API calls
+    timeout_base: int = 60  # Base timeout for API calls
 
 @dataclass
 class LoggingSettings:

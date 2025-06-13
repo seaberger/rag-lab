@@ -26,8 +26,12 @@ def _find_poppler() -> Optional[str]:
     exe = shutil.which("pdfinfo")
     return None if exe is None else str(Path(exe).parent)
 
-def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str] = None) -> List[str]:
-    """Convert PDF pages to base64 data URIs for OpenAI Vision API."""
+def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str] = None) -> Tuple[List[str], int]:
+    """Convert PDF pages to base64 data URIs for OpenAI Vision API.
+    
+    Returns:
+        Tuple of (data_uris, page_count)
+    """
     import base64
     import io
     from pdf2image import convert_from_path
@@ -47,6 +51,7 @@ def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str
             poppler_path=poppler_path
         )
         
+        page_count = len(images)
         data_uris = []
         for i, image in enumerate(images):
             # Convert PIL Image to base64 data URI
@@ -59,10 +64,10 @@ def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str
             data_uri = f"data:image/jpeg;base64,{base64_string}"
             data_uris.append(data_uri)
             
-            logger.debug(f"Converted page {i+1}/{len(images)} of {pdf_path.name}")
+            logger.debug(f"Converted page {i+1}/{page_count} of {pdf_path.name}")
         
-        logger.info(f"Converted {len(data_uris)} pages from {pdf_path.name}")
-        return data_uris
+        logger.info(f"Converted {page_count} pages from {pdf_path.name}")
+        return data_uris, page_count
         
     except Exception as e:
         logger.error(f"Failed to convert PDF {pdf_path} to data URIs: {e}")
@@ -284,10 +289,17 @@ async def vision_parse_datasheet(
 
     # Add PDF pages as images (Responses API format) 
     dpi = config.pdf.dpi if config and hasattr(config, 'pdf') else 150
-    parts += [{"type": "input_image", "image_url": uri} for uri in _pdf_to_data_uris(pdf, dpi=dpi)]
+    data_uris, page_count = _pdf_to_data_uris(pdf, dpi=dpi)
+    parts += [{"type": "input_image", "image_url": uri} for uri in data_uris]
+    
+    # Calculate timeout based on page count
+    timeout_per_page = config.openai.timeout_per_page if config else 30
+    timeout_base = config.openai.timeout_base if config else 60
+    api_timeout = timeout_base + (page_count * timeout_per_page)
+    logger.info(f"Using timeout of {api_timeout}s for {page_count} pages")
 
     # Make API call with retry using Responses API
-    @retry_api_call(max_attempts=max_retries)
+    @retry_api_call(max_attempts=max_retries, timeout=api_timeout)
     async def call_api():
         return client.responses.create(
             model=model,
@@ -345,9 +357,16 @@ async def vision_parse_generic(
 
     # Add PDF pages as images with configurable DPI
     dpi = config.pdf.dpi if config and hasattr(config, 'pdf') else 150
-    parts += [{"type": "input_image", "image_url": uri} for uri in _pdf_to_data_uris(pdf, dpi=dpi)]
+    data_uris, page_count = _pdf_to_data_uris(pdf, dpi=dpi)
+    parts += [{"type": "input_image", "image_url": uri} for uri in data_uris]
+    
+    # Calculate timeout based on page count
+    timeout_per_page = config.openai.timeout_per_page if config else 30
+    timeout_base = config.openai.timeout_base if config else 60
+    api_timeout = timeout_base + (page_count * timeout_per_page)
+    logger.info(f"Using timeout of {api_timeout}s for {page_count} pages")
 
-    @retry_api_call(max_attempts=max_retries)
+    @retry_api_call(max_attempts=max_retries, timeout=api_timeout)
     async def call_api():
         return client.responses.create(
             model=model,

@@ -184,6 +184,16 @@ Examples:
             action='store_true',
             help='Recursively process directories'
         )
+        add_parser.add_argument(
+            '--timeout',
+            type=int,
+            help='Override timeout in seconds (default: calculated based on page count)'
+        )
+        add_parser.add_argument(
+            '--timeout-per-page',
+            type=int,
+            help='Override timeout per page in seconds (default: 30)'
+        )
         
         # Update command
         update_parser = subparsers.add_parser('update', help='Update existing documents')
@@ -463,6 +473,14 @@ Examples:
         
         # Parse metadata
         metadata = self._parse_metadata(args.metadata)
+        
+        # Apply timeout overrides if provided
+        if args.timeout:
+            self.config.pipeline.timeout_seconds = args.timeout
+            print(f"Using custom timeout: {args.timeout}s")
+        if args.timeout_per_page:
+            self.config.openai.timeout_per_page = args.timeout_per_page
+            print(f"Using custom timeout per page: {args.timeout_per_page}s")
         
         # Determine processing mode
         if len(resolved_sources) == 1:

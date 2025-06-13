@@ -131,9 +131,22 @@ class EnhancedPipeline:
                     self._temp_pairs = pairs
                     self._temp_parsed_metadata = parsed_metadata
                     
+                except TimeoutError as e:
+                    logger.error(f"Document parsing timed out for {source}: {e}")
+                    # Get page count for helpful error message
+                    try:
+                        from pdf2image import pdfinfo_from_path
+                        info = pdfinfo_from_path(str(source_path))
+                        page_count = info.get('Pages', 'unknown')
+                        logger.error(f"Document has {page_count} pages. Consider using --timeout or --timeout-per-page to increase limits.")
+                    except:
+                        pass
+                    raise
                 except Exception as e:
                     logger.error(f"Document parsing failed for {source}: {e}")
                     # Fall back to reading as text if parsing fails
+                    if str(source_path).endswith('.pdf'):
+                        raise  # Don't fall back for PDFs
                     content = source_path.read_text(encoding='utf-8', errors='ignore')
                     self._temp_pairs = []
                     self._temp_parsed_metadata = {}
@@ -559,9 +572,10 @@ class EnhancedPipeline:
             
             # Wait for completion or timeout
             try:
-                await asyncio.wait_for(processing_task, timeout=300.0)  # 5 minute timeout
+                batch_timeout = self.config.pipeline.timeout_seconds
+                await asyncio.wait_for(processing_task, timeout=batch_timeout)
             except asyncio.TimeoutError:
-                logger.warning("Batch processing timeout - some jobs may still be running")
+                logger.warning(f"Batch processing timeout after {batch_timeout}s - some jobs may still be running")
         
         # Get final status
         queue_status = self.document_queue.get_status()

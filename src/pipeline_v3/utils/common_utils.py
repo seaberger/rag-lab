@@ -19,11 +19,35 @@ class NetworkError(PipelineError):
     pass
 
 # Retry decorator for API calls (simplified without tenacity)
-def retry_api_call(max_attempts=3):
-    """Simple retry decorator for API calls."""
+def retry_api_call(max_attempts=3, timeout=None):
+    """Simple retry decorator for API calls with timeout support.
+    
+    Args:
+        max_attempts: Maximum number of retry attempts
+        timeout: Optional timeout in seconds for each attempt
+    """
     def decorator(func):
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs):
+            import asyncio
+            for attempt in range(max_attempts):
+                try:
+                    if timeout:
+                        return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout)
+                    else:
+                        return await func(*args, **kwargs)
+                except asyncio.TimeoutError:
+                    if attempt == max_attempts - 1:
+                        raise TimeoutError(f"API call timed out after {timeout}s on attempt {attempt + 1}")
+                    logger.warning(f"Attempt {attempt + 1} timed out after {timeout}s")
+                except Exception as e:
+                    if attempt == max_attempts - 1:
+                        raise
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
+            return None
+        
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
             for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
@@ -32,7 +56,13 @@ def retry_api_call(max_attempts=3):
                         raise
                     logger.warning(f"Attempt {attempt + 1} failed: {e}")
             return None
-        return wrapper
+        
+        # Return appropriate wrapper based on function type
+        import asyncio
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
     return decorator
 
 # Structured logging setup
