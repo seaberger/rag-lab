@@ -70,6 +70,13 @@ Return only a JSON list of keywords, like: ["keyword1", "keyword2", ...]"""
             
             # Parse JSON response
             import json
+            
+            # Remove markdown code blocks if present
+            if keywords_text.startswith('```json'):
+                keywords_text = keywords_text.replace('```json\n', '').replace('\n```', '')
+            elif keywords_text.startswith('```'):
+                keywords_text = keywords_text.replace('```\n', '').replace('\n```', '')
+            
             # Handle single quotes in the response by converting to double quotes
             keywords_text = keywords_text.replace("'", '"')
             keywords = json.loads(keywords_text)
@@ -139,6 +146,13 @@ Return JSON format:
             
             # Parse batch results
             import json
+            
+            # Remove markdown code blocks if present
+            if result_text.startswith('```json'):
+                result_text = result_text.replace('```json\n', '').replace('\n```', '')
+            elif result_text.startswith('```'):
+                result_text = result_text.replace('```\n', '').replace('\n```', '')
+            
             # Handle single quotes in the response by converting to double quotes
             result_text = result_text.replace("'", '"')
             batch_keywords = json.loads(result_text)

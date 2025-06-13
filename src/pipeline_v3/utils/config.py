@@ -70,6 +70,7 @@ class QdrantSettings:
 @dataclass
 class ParserSettings:
     datasheet_prompt_path: str = "datasheet_parsing_prompt.md"
+    generic_prompt_path: str = "generic_parsing_prompt.md"
 
 @dataclass
 class ChunkingSettings:
