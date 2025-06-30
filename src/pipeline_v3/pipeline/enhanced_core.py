@@ -184,21 +184,9 @@ class EnhancedPipeline:
             # Register document in registry
             doc_id = self._register_document(source, content, metadata)
             
-            # Create storage artifact if we have parsed content
-            if hasattr(self, '_temp_pairs'):
-                try:
-                    self.progress_monitor.update_stage(temp_doc_id, "save_artifact")
-                    artifact_created = await self._create_storage_artifact(
-                        doc_id, source, content, self._temp_pairs, self._temp_parsed_metadata
-                    )
-                    if not artifact_created:
-                        logger.warning(f"Failed to create storage artifact for {doc_id}")
-                except Exception as e:
-                    logger.error(f"Artifact creation failed for {doc_id}: {e}")
-                finally:
-                    # Clean up temporary data
-                    delattr(self, '_temp_pairs')
-                    delattr(self, '_temp_parsed_metadata')
+            # Store pairs and metadata for later use
+            pairs = getattr(self, '_temp_pairs', [])
+            parsed_metadata = getattr(self, '_temp_parsed_metadata', {})
             
             # Update fingerprint
             fingerprint = change_analysis.new_fingerprint
@@ -212,6 +200,24 @@ class EnhancedPipeline:
                 doc_id, source, content, metadata, 
                 change_analysis.update_strategy, index_types, with_keywords
             )
+            
+            # Create storage artifact after processing (with enhanced content if available)
+            if hasattr(self, '_temp_pairs'):
+                try:
+                    self.progress_monitor.update_stage(temp_doc_id, "save_artifact")
+                    # Use enhanced markdown if available from keyword processing
+                    final_markdown = result.get('enhanced_markdown', content)
+                    artifact_created = await self._create_storage_artifact(
+                        doc_id, source, final_markdown, pairs, parsed_metadata
+                    )
+                    if not artifact_created:
+                        logger.warning(f"Failed to create storage artifact for {doc_id}")
+                except Exception as e:
+                    logger.error(f"Artifact creation failed for {doc_id}: {e}")
+                finally:
+                    # Clean up temporary data
+                    delattr(self, '_temp_pairs')
+                    delattr(self, '_temp_parsed_metadata')
             
             # Update processing stats and progress monitoring
             if result["status"] == "success":
@@ -508,7 +514,7 @@ class EnhancedPipeline:
                     markdown=content,
                     pairs=pairs,
                     metadata=metadata or {},
-                    with_keywords=True,
+                    with_keywords=with_keywords,
                     progress=None,  # Progress monitoring handled at higher level
                     config=self.config
                 )
@@ -516,11 +522,15 @@ class EnhancedPipeline:
                 # Add enhanced nodes to indexes
                 success = self.index_manager.add_nodes(doc_id, nodes, index_types)
                 logger.info(f"Added document {doc_id[:8]} with keyword enhancement ({len(nodes)} chunks)")
+                
+                # Extract enhanced markdown from nodes
+                enhanced_markdown = "\n\n".join(node.text for node in nodes) if nodes else content
             else:
                 # Use direct indexing without keyword enhancement
                 success = self.index_manager.add_document(
                     doc_id, content, metadata, index_types
                 )
+                enhanced_markdown = content  # No enhancement, use original
             
             # Note: Progress monitoring for indexing handled at higher level
             
@@ -530,7 +540,8 @@ class EnhancedPipeline:
                     "status": "success",
                     "action": "indexed",
                     "doc_id": doc_id,
-                    "index_types": index_types.value
+                    "index_types": index_types.value,
+                    "enhanced_markdown": enhanced_markdown  # Include enhanced content
                 }
             else:
                 self.registry.update_document_state(
