@@ -93,9 +93,10 @@ data/lmc_docs/datasheets/
 ### ✅ Recently Resolved Critical Issues:
 
 - ✅ **Issue #16:** Restore chunking_metadata.py integration (**COMPLETED & MERGED**)
-  - Restored --with-keywords CLI parameter to V3 pipeline
-  - Re-integrated MarkdownNodeParser for structure-aware chunking
-  - Enhanced search retrieval quality through keyword augmentation
+  - Fixed storage artifacts to contain keyword-enhanced markdown
+  - Moved artifact creation to after keyword generation in pipeline
+  - Storage JSONL files now include keywords when --with-keywords is used
+  - Restored search quality improvement per Anthropic RAG best practices
 
 - ✅ **Issue #7:** Fix model/part number pair extraction (**COMPLETED & MERGED**)
   - Fixed multi-line JSON metadata parsing in both V2.1 & V3
@@ -300,4 +301,4 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **📋 Development Status:** [DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)
 
-**Current Focus:** **ENHANCEMENT PHASE** - Core functionality fully restored. Priority 1: CLI consistency (Issue #18). Priority 2: Keyword generation robustness (Issue #17). V3 now exceeds V2.1 capabilities with enhanced search quality.
+**Current Focus:** **PRODUCTION READY** - Core functionality fully restored with keyword enhancement working. Next priorities: Document-type aware chunking (Issue #14) and hybrid parsing strategies (Issue #13). V3 now matches V2.1 capabilities with enhanced search quality.

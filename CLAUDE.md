@@ -35,13 +35,6 @@ cd src/pipeline_v3
 
 ### 🔄 **Active Issues and Priorities**
 
-#### **CRITICAL Issues** 🚨
-- **Issue #16**: Restore chunking_metadata.py integration lost in V3 migration
-  - V3 completely bypasses keyword enhancement from V2.1
-  - Missing --with-keywords CLI parameter
-  - Retrieval quality significantly degraded vs V2.1
-  - **BLOCKING**: Core feature regression affecting all documents
-
 #### **HIGH Priority Issues** 🔥  
 - **Issue #7**: Fix model/part number pair extraction (BOTH V2.1 & V3)
   - Multi-line JSON metadata not parsed correctly
@@ -66,6 +59,7 @@ cd src/pipeline_v3
 - **Issue #5**: Performance optimizations (Low priority)
 
 ### 📋 **Recent Achievements**
+- ✅ **Issue #16 Resolved**: Keyword enhancement restored - storage artifacts now contain keyword-enhanced markdown
 - ✅ **Issue #9 Resolved**: CLI consolidation complete - single production interface
 - ✅ **Issue #6 Resolved**: Storage artifacts now created correctly
 - ✅ **Issue #4 Resolved**: Document state management fixed
@@ -139,18 +133,13 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 ## 🎯 Development Priorities
 
-### **URGENT: Critical Regressions** 🚨
-1. **Issue #16**: Restore chunking_metadata.py integration (CRITICAL)
-   - V3 pipeline missing keyword enhancement from V2.1
-   - Significant retrieval quality degradation
-   - Blocks all other improvements until resolved
-
-2. **Issue #7**: Fix pair extraction parsing (HIGH)
+### **Current High Priority Issues** 🔥
+1. **Issue #7**: Fix pair extraction parsing (HIGH)
    - Multi-line JSON metadata parsing broken in both V2.1 & V3
    - All datasheet model/part extraction currently failing
 
 ### **Next Sprint Focus**
-1. **Data Quality**: Fix pair extraction and restore keyword enhancement
+1. **Data Quality**: Fix pair extraction for model/part numbers
 2. **Chunking Strategy**: Implement document-type aware chunking
 3. **Performance**: Hybrid parsing approach (VLM + Docling)
 
@@ -202,5 +191,5 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 **🎯 For Pipeline v3 work, go directly to:** [src/pipeline_v3/CLAUDE.md](src/pipeline_v3/CLAUDE.md)
 
-**📊 Current Status**: Production-ready core with optimization opportunities  
-**🔄 Active Focus**: User experience and data quality improvements
+**📊 Current Status**: Production-ready with keyword enhancement restored  
+**🔄 Active Focus**: Data quality (pair extraction) and chunking strategies

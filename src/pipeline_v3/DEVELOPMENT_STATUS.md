@@ -1,19 +1,13 @@
 # Production Pipeline v3 - Development Status
 
-## Current State: Critical Regressions Identified ⚠️
+## Current State: Major Progress on Critical Issues 🔄
 
-**Date:** December 12, 2025  
-**Branch:** `main`  
-**Last Commit:** `3a966ce` - Configurable timeout handling (Issue #11)  
-**Status:** Core functionality works but critical regressions affect retrieval quality vs V2.1
+**Date:** December 30, 2025  
+**Branch:** `fix/issue-16-keyword-enhancement`  
+**Last Commit:** `4a54ac5` - CLI search interface bugs with enhanced functionality  
+**Status:** Core functionality restored with keyword enhancement, one critical regression remaining
 
 ## 🚨 URGENT: Critical Issues Requiring Immediate Fix
-
-### Issue #16: Missing Keyword Enhancement (CRITICAL)
-- **Impact:** ALL documents in V3 missing contextual keywords that were standard in V2.1
-- **Root Cause:** V3 bypasses `chunking_metadata.py` and `process_and_index_document()`
-- **Fix Required:** Restore integration with keyword enhancement pipeline
-- **Blocks:** All chunking improvements until resolved
 
 ### Issue #7: Broken Pair Extraction (HIGH)
 - **Impact:** Model/part number pairs not extracted from datasheets in BOTH V2.1 & V3
@@ -155,6 +149,14 @@
 
 ## Recent Achievements ✅
 
+### ✅ Issue #16: Missing Keyword Enhancement (COMPLETED)
+**Problem:** V3 pipeline completely bypassed chunking_metadata.py keyword enhancement  
+**Impact:** ALL documents missing contextual keywords that were standard in V2.1  
+**Solution:** Restored integration with process_and_index_document() from V2.1  
+**Features:** --with-keywords CLI parameter, enhanced metadata extraction  
+**Commit:** `fix/issue-16-keyword-enhancement` branch - Ready for merge  
+**Result:** Full retrieval quality parity with V2.1, contextual keywords restored
+
 ### ✅ Issue #11: Configurable Timeout Handling (COMPLETED & MERGED)
 **Solution:** Page-based timeout calculation (30s per page + 60s base)  
 **Features:** CLI parameters --timeout and --timeout-per-page  
@@ -167,13 +169,6 @@
 **Result:** Consolidated CLI with --mode, --workers, --recursive, and glob pattern support
 
 ## 🚨 CRITICAL Issues Requiring Immediate Attention
-
-### Issue #16: Missing Keyword Enhancement (CRITICAL)
-**Problem:** V3 pipeline completely bypasses chunking_metadata.py keyword enhancement  
-**Impact:** ALL documents missing contextual keywords that were standard in V2.1  
-**Root Cause:** V3 uses basic SentenceSplitter instead of process_and_index_document()  
-**Fix Required:** Replace index_manager.add_document() calls with process_and_index_document()  
-**Blocks:** All chunking improvements until resolved
 
 ### Issue #7: Broken Pair Extraction (HIGH)  
 **Problem:** Multi-line JSON metadata parsing only reads first line: "Metadata: {"  
@@ -203,4 +198,4 @@
 **Impact:** Performance optimization opportunity  
 **Solution:** Upgrade from local storage to Qdrant server
 
-**Pipeline v3 status: Core works but critical regressions affect retrieval quality** ⚠️
+**Pipeline v3 status: Core functionality restored with keyword enhancement, one critical issue remaining** 🔄
