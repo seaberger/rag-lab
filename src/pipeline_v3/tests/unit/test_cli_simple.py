@@ -8,6 +8,9 @@ import sys
 import subprocess
 from pathlib import Path
 
+# Add parent directory for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 def test_cli_help():
     """Test that CLI help works."""
     try:

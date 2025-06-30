@@ -18,12 +18,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     from core.pipeline import ingest_sources
     from utils.config import PipelineConfig
-    from utils.common_utils import logger
+    from utils.common_utils import logger, DependencyError, CLIArgumentError, ConfigLoadError
     from utils.env_utils import setup_environment
 except ImportError as e:
-    print(f"Import error: {e}")
-    print("Make sure you're running from the pipeline_v3 directory")
-    sys.exit(1)
+    raise DependencyError(f"Import error: {e}. Make sure you're running from the pipeline_v3 directory")
 
 
 def main():
@@ -92,7 +90,7 @@ Note: This is the development CLI for Pipeline v3. Full queue management
         logger.info(f"🚀 Pipeline v3 starting with mode: {args.mode}")
     except Exception as e:
         logger.error(f"❌ Failed to load configuration: {e}")
-        sys.exit(1)
+        raise ConfigLoadError(f"Failed to load configuration: {e}")
     
     # Determine sources
     sources = []
@@ -113,7 +111,7 @@ Note: This is the development CLI for Pipeline v3. Full queue management
     
     if not sources:
         logger.error(f"❌ No valid sources found for: {args.src}")
-        sys.exit(1)
+        raise CLIArgumentError(f"No valid sources found for: {args.src}")
     
     logger.info(f"📁 Found {len(sources)} source(s) to process")
     
@@ -129,10 +127,10 @@ Note: This is the development CLI for Pipeline v3. Full queue management
         ))
     except KeyboardInterrupt:
         logger.info("🛑 Processing interrupted by user")
-        sys.exit(1)
+        raise DependencyError("Processing interrupted by user")
     except Exception as e:
         logger.error(f"❌ Pipeline failed: {e}")
-        sys.exit(1)
+        raise DependencyError(f"Pipeline failed: {e}")
 
 
 async def run_pipeline(

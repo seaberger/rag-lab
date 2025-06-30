@@ -31,7 +31,7 @@ from typing import Dict, List, Optional, Tuple
 import pytest
 
 # Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from cli.management import PipelineCLI, main
 from utils.common_utils import CLIArgumentError, ConfigLoadError, DependencyError, init_cli_logging
@@ -81,7 +81,7 @@ class TestCLIBackwardCompatibility:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=str(Path(__file__).parent)
+                cwd=str(Path(__file__).parent.parent.parent)
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -123,7 +123,7 @@ class TestCLIBackwardCompatibility:
         test_script = f"""
 import sys
 import os
-sys.path.insert(0, '{Path(__file__).parent}')
+sys.path.insert(0, '{Path(__file__).parent.parent.parent}')
 
 # Mock the import to fail
 import unittest.mock
@@ -199,7 +199,7 @@ import sys
 import time
 import signal
 import os
-sys.path.insert(0, '{Path(__file__).parent}')
+sys.path.insert(0, '{Path(__file__).parent.parent.parent}')
 
 def handler(signum, frame):
     raise KeyboardInterrupt()
@@ -283,7 +283,7 @@ run_cli()
         # Create a script that fails on import
         test_script = f"""
 import sys
-sys.path.insert(0, '{Path(__file__).parent}')
+sys.path.insert(0, '{Path(__file__).parent.parent.parent}')
 
 # Mock to cause ImportError in initialization
 import unittest.mock
@@ -356,7 +356,7 @@ with unittest.mock.patch('builtins.__import__', side_effect=ImportError("Missing
 import sys
 import logging
 import tempfile
-sys.path.insert(0, '{Path(__file__).parent}')
+sys.path.insert(0, '{Path(__file__).parent.parent.parent}')
 
 # Setup file logging
 log_file = tempfile.mktemp(suffix='.log')
@@ -508,7 +508,7 @@ class TestCLIRegressionSubprocess:
     def test_cli_main_executable(self):
         """Test that cli_main.py can be executed directly."""
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent / "cli_main.py"), "--help"],
+            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), "--help"],
             capture_output=True,
             text=True,
             timeout=10
@@ -541,7 +541,7 @@ class TestCLIRegressionSubprocess:
         
         for cmd_args in commands_to_test:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent / "cli_main.py")] + cmd_args,
+                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py")] + cmd_args,
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -565,7 +565,7 @@ class TestCLIRegressionSubprocess:
         
         for cmd_args, check_func in error_scenarios:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent / "cli_main.py")] + cmd_args,
+                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py")] + cmd_args,
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -613,7 +613,7 @@ def run_simple_tests():
     total_count += 1
     try:
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent / "cli_main.py"), "--help"],
+            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), "--help"],
             capture_output=True,
             text=True,
             timeout=10
@@ -632,7 +632,7 @@ def run_simple_tests():
     total_count += 1
     try:
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent / "cli_main.py"), "invalid_command"],
+            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), "invalid_command"],
             capture_output=True,
             text=True,
             timeout=10
@@ -651,7 +651,7 @@ def run_simple_tests():
     total_count += 1
     try:
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent / "cli_main.py"), 
+            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), 
              "--config", "nonexistent.yaml", "--help"],
             capture_output=True,
             text=True,
@@ -680,7 +680,7 @@ def run_simple_tests():
     for cmd in help_commands:
         try:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent / "cli_main.py")] + cmd,
+                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py")] + cmd,
                 capture_output=True,
                 text=True,
                 timeout=10
