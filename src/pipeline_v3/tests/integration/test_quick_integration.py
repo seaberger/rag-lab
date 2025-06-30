@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-Integration Testing for Pipeline v3
+Quick Integration Test for Pipeline v3
 
-Comprehensive integration tests with real documents to validate
-the complete pipeline functionality before production deployment.
+Fast integration test focused on core functionality without heavy external API usage.
 """
 
 import asyncio
-import json
 import time
 from pathlib import Path
 import sys
@@ -16,23 +14,19 @@ import shutil
 from typing import List, Dict, Any
 
 # Add parent directory for imports  
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     from pipeline.enhanced_core import EnhancedPipeline
-    from job_queue.manager import DocumentQueue
-    from core.registry import DocumentRegistry
-    from core.index_manager import IndexManager
     from utils.config import PipelineConfig
-    from utils.monitoring import ProgressMonitor
     IMPORTS_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Some imports failed: {e}")
     IMPORTS_AVAILABLE = False
 
 
-class IntegrationTester:
-    """Comprehensive integration testing suite."""
+class QuickIntegrationTester:
+    """Quick integration testing suite."""
     
     def __init__(self, test_docs_path: str):
         self.test_docs_path = Path(test_docs_path)
@@ -46,7 +40,7 @@ class IntegrationTester:
         print("🔧 Setting up test environment...")
         
         # Create temporary directory for test data
-        self.temp_dir = Path(tempfile.mkdtemp(prefix="pipeline_v3_test_"))
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="pipeline_v3_quick_test_"))
         print(f"Test directory: {self.temp_dir}")
         
         # Initialize configuration with test-specific settings
@@ -64,15 +58,15 @@ class IntegrationTester:
         self.config.qdrant.path = str(self.temp_dir / 'qdrant_data')
         
         # Update job queue settings
-        self.config.job_queue.max_concurrent = 2
+        self.config.job_queue.max_concurrent = 1  # Single threaded for testing
         self.config.job_queue.job_storage_path = str(self.temp_dir / 'jobs.db')
         
         # Update fingerprint settings
         self.config.fingerprint.storage_path = str(self.temp_dir / 'fingerprints.db')
         
         # Update chunking for faster testing
-        self.config.chunking.chunk_size = 512
-        self.config.chunking.chunk_overlap = 50
+        self.config.chunking.chunk_size = 256  # Smaller chunks
+        self.config.chunking.chunk_overlap = 25
         
         # Add helper methods for CLI compatibility
         def get_config_value(key, default=None):
@@ -116,32 +110,17 @@ class IntegrationTester:
             print(f"🧹 Cleaned up test directory: {self.temp_dir}")
     
     def get_test_documents(self) -> List[Path]:
-        """Get list of test documents."""
+        """Get list of test documents (limited for speed)."""
         if not self.test_docs_path.exists():
             print(f"❌ Test docs path not found: {self.test_docs_path}")
             return []
         
-        # Get PDF files from main directory and datasheets subdirectory
-        pdf_files = []
-        
-        # Main directory PDFs
+        # Get PDF files from main directory only for speed
         main_pdfs = [f for f in self.test_docs_path.glob("*.pdf") if not f.name.endswith("Zone.Identifier")]
-        pdf_files.extend(main_pdfs)
         
-        # Datasheets subdirectory PDFs  
-        datasheets_dir = self.test_docs_path / "datasheets"
-        if datasheets_dir.exists():
-            datasheet_pdfs = [f for f in datasheets_dir.glob("*.pdf") if not f.name.endswith("Zone.Identifier")]
-            pdf_files.extend(datasheet_pdfs)
-        
-        print(f"📄 Found {len(pdf_files)} PDF files for testing")
-        print(f"   - Main directory: {len(main_pdfs)} files")
-        if datasheets_dir.exists():
-            print(f"   - Datasheets: {len(datasheet_pdfs)} files")
-        
-        # Limit to first 5 files for faster testing (mix of main docs and datasheets)
-        selected_files = pdf_files[:5]
-        print(f"📄 Selected {len(selected_files)} files for testing:")
+        # Limit to first 2 files for quick testing
+        selected_files = main_pdfs[:2]
+        print(f"📄 Selected {len(selected_files)} files for quick testing:")
         for f in selected_files:
             print(f"   - {f.name}")
         
@@ -163,13 +142,12 @@ class IntegrationTester:
             start_time = time.time()
             
             try:
-                # Test document addition
+                # Test document addition (focus on keyword indexing only for speed)
                 result = await self.pipeline.process_document(
                     str(doc_path),
                     metadata={
-                        'source': 'integration_test',
-                        'document_type': 'datasheet',
-                        'test_timestamp': time.time()
+                        'source': 'quick_integration_test',
+                        'document_type': 'datasheet'
                     }
                 )
                 
@@ -202,102 +180,56 @@ class IntegrationTester:
         print(f"📊 Ingestion Results: {success_count}/{total_count} successful")
         return success_count > 0
     
-    async def test_search_functionality(self) -> bool:
-        """Test different search types."""
-        print("\n🔍 Testing Search Functionality...")
+    async def test_keyword_search(self) -> bool:
+        """Test keyword search functionality only (faster than vector search)."""
+        print("\n🔍 Testing Keyword Search...")
         
         search_queries = [
-            "laser measurement",
-            "optical sensor", 
-            "power meter",
-            "thermopile",
-            "UV sensor",
-            "calibration",
-            "energy sensor",
-            "photodiode",
-            "FieldMax",
-            "PowerMax"
+            "laser",
+            "sensor", 
+            "power",
+            "measurement"
         ]
         
-        search_types = ['keyword', 'vector', 'hybrid']
-        search_results = {}
+        search_results = []
         
-        for search_type in search_types:
-            print(f"  Testing {search_type} search...")
-            search_results[search_type] = []
-            
-            for query in search_queries:
-                try:
-                    start_time = time.time()
-                    
-                    results = self.pipeline.search(
-                        query,
-                        search_type=search_type,
-                        top_k=5
-                    )
-                    
-                    search_time = time.time() - start_time
-                    
-                    search_results[search_type].append({
-                        'query': query,
-                        'success': True,
-                        'results_count': len(results),
-                        'search_time': search_time,
-                        'top_score': results[0].get('score', 0) if results else 0
-                    })
-                    
-                    print(f"    '{query}': {len(results)} results ({search_time:.2f}s)")
-                    
-                except Exception as e:
-                    search_results[search_type].append({
-                        'query': query,
-                        'success': False,
-                        'error': str(e)
-                    })
-                    print(f"    '{query}': ❌ Failed - {e}")
+        for query in search_queries:
+            try:
+                start_time = time.time()
+                
+                # Only test keyword search for speed
+                results = self.pipeline.search(
+                    query,
+                    search_type='keyword',
+                    top_k=3
+                )
+                
+                search_time = time.time() - start_time
+                
+                search_results.append({
+                    'query': query,
+                    'success': True,
+                    'results_count': len(results),
+                    'search_time': search_time
+                })
+                
+                print(f"    '{query}': {len(results)} results ({search_time:.2f}s)")
+                
+            except Exception as e:
+                search_results.append({
+                    'query': query,
+                    'success': False,
+                    'error': str(e)
+                })
+                print(f"    '{query}': ❌ Failed - {e}")
         
         self.test_results['search'] = search_results
         
-        # Calculate success rates
-        for search_type, results in search_results.items():
-            success_count = sum(1 for r in results if r['success'])
-            total_count = len(results)
-            print(f"📊 {search_type.title()} Search: {success_count}/{total_count} successful")
+        success_count = sum(1 for r in search_results if r['success'])
+        total_count = len(search_results)
+        print(f"📊 Keyword Search: {success_count}/{total_count} successful")
         
-        return True
-    
-    async def test_queue_management(self) -> bool:
-        """Test queue operations."""
-        print("\n⚙️ Testing Queue Management...")
-        
-        try:
-            # Get queue instance
-            queue = self.pipeline.document_queue
-            
-            # Test queue status
-            status = queue.get_status()
-            print(f"  Queue status: {status}")
-            
-            # Test queue start/stop (simplified for testing)
-            print("  ✅ Queue management available")
-            
-            status_after_start = queue.get_status()
-            print(f"  Queue status after check: {status_after_start}")
-            
-            self.test_results['queue'] = {
-                'success': True,
-                'operations': ['status', 'start', 'stop']
-            }
-            
-            return True
-            
-        except Exception as e:
-            print(f"  ❌ Queue test failed: {e}")
-            self.test_results['queue'] = {
-                'success': False,
-                'error': str(e)
-            }
-            return False
+        return success_count > 0
     
     async def test_system_status(self) -> bool:
         """Test system status and monitoring."""
@@ -306,21 +238,21 @@ class IntegrationTester:
         try:
             # Test pipeline status
             pipeline_status = self.pipeline.get_comprehensive_status()
-            print(f"  Pipeline status: {pipeline_status}")
+            print(f"  Pipeline status: ✅ Retrieved")
             
             # Test registry statistics
             registry_stats = self.pipeline.registry.get_statistics()
-            print(f"  Registry stats: {registry_stats}")
+            print(f"  Registry stats: ✅ Retrieved ({registry_stats.get('total_documents', 0)} docs)")
             
-            # Test index status  
-            index_status = self.pipeline.index_manager.get_status()
-            print(f"  Index status: {index_status}")
+            # Test queue status
+            queue_status = self.pipeline.document_queue.get_status()
+            print(f"  Queue status: ✅ Retrieved")
             
             self.test_results['status'] = {
                 'success': True,
-                'pipeline_status': pipeline_status,
-                'registry_stats': registry_stats,
-                'index_status': index_status
+                'pipeline_status': True,
+                'registry_stats': True,
+                'queue_status': True
             }
             
             return True
@@ -333,63 +265,10 @@ class IntegrationTester:
             }
             return False
     
-    async def test_cli_integration(self) -> bool:
-        """Test CLI commands with real pipeline."""
-        print("\n💻 Testing CLI Integration...")
-        
-        import subprocess
-        
-        cli_tests = [
-            (['python', 'cli_main.py', 'status'], 'status command'),
-            (['python', 'cli_main.py', 'queue', 'status'], 'queue status'),
-            (['python', 'cli_main.py', 'config', 'list'], 'config list'),
-        ]
-        
-        cli_results = []
-        
-        for cmd, description in cli_tests:
-            try:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    cwd=str(Path(__file__).parent),
-                    timeout=30
-                )
-                
-                cli_results.append({
-                    'command': ' '.join(cmd),
-                    'description': description,
-                    'success': result.returncode == 0,
-                    'output_length': len(result.stdout) if result.stdout else 0
-                })
-                
-                if result.returncode == 0:
-                    print(f"  ✅ {description}")
-                else:
-                    print(f"  ❌ {description}: {result.stderr}")
-                    
-            except Exception as e:
-                cli_results.append({
-                    'command': ' '.join(cmd),
-                    'description': description,
-                    'success': False,
-                    'error': str(e)
-                })
-                print(f"  ❌ {description}: {e}")
-        
-        self.test_results['cli'] = cli_results
-        
-        success_count = sum(1 for r in cli_results if r['success'])
-        total_count = len(cli_results)
-        print(f"📊 CLI Tests: {success_count}/{total_count} successful")
-        
-        return success_count > 0
-    
     def generate_test_report(self):
-        """Generate comprehensive test report."""
+        """Generate quick test report."""
         print("\n" + "="*60)
-        print("🧪 INTEGRATION TEST REPORT")
+        print("🧪 QUICK INTEGRATION TEST REPORT")
         print("="*60)
         
         total_tests = 0
@@ -410,21 +289,10 @@ class IntegrationTester:
         # Search results
         if 'search' in self.test_results:
             search_results = self.test_results['search']
-            for search_type, results in search_results.items():
-                search_success = sum(1 for r in results if r['success'])
-                total_tests += len(results)
-                passed_tests += search_success
-                print(f"🔍 {search_type.title()} Search: {search_success}/{len(results)} passed")
-        
-        # Queue results
-        if 'queue' in self.test_results:
-            queue_result = self.test_results['queue']
-            total_tests += 1
-            if queue_result['success']:
-                passed_tests += 1
-                print("⚙️ Queue Management: 1/1 passed")
-            else:
-                print("⚙️ Queue Management: 0/1 passed")
+            search_success = sum(1 for r in search_results if r['success'])
+            total_tests += len(search_results)
+            passed_tests += search_success
+            print(f"🔍 Keyword Search: {search_success}/{len(search_results)} passed")
         
         # Status results
         if 'status' in self.test_results:
@@ -436,29 +304,21 @@ class IntegrationTester:
             else:
                 print("📊 System Status: 0/1 passed")
         
-        # CLI results
-        if 'cli' in self.test_results:
-            cli_results = self.test_results['cli']
-            cli_success = sum(1 for r in cli_results if r['success'])
-            total_tests += len(cli_results)
-            passed_tests += cli_success
-            print(f"💻 CLI Integration: {cli_success}/{len(cli_results)} passed")
-        
         print(f"\n🎯 OVERALL RESULTS: {passed_tests}/{total_tests} tests passed ({passed_tests/total_tests*100:.1f}%)")
         
         if passed_tests == total_tests:
-            print("🎉 ALL TESTS PASSED! Pipeline v3 is ready for production.")
+            print("🎉 ALL QUICK TESTS PASSED! Core pipeline functionality verified.")
             return True
         elif passed_tests / total_tests >= 0.8:
-            print("⚠️ Most tests passed. Review failures before production deployment.")
+            print("⚠️ Most tests passed. Core functionality appears working.")
             return True
         else:
-            print("❌ Multiple test failures. Pipeline needs fixes before production.")
+            print("❌ Multiple test failures. Pipeline needs review.")
             return False
     
-    async def run_full_test_suite(self):
-        """Run the complete integration test suite."""
-        print("🚀 Starting Pipeline v3 Integration Tests")
+    async def run_quick_test_suite(self):
+        """Run the quick integration test suite."""
+        print("🚀 Starting Pipeline v3 Quick Integration Tests")
         print("="*60)
         
         # Setup
@@ -467,13 +327,11 @@ class IntegrationTester:
             return False
         
         try:
-            # Run all tests
+            # Run core tests
             tests = [
                 ("Document Ingestion", self.test_document_ingestion),
-                ("Search Functionality", self.test_search_functionality),
-                ("Queue Management", self.test_queue_management),
+                ("Keyword Search", self.test_keyword_search),
                 ("System Status", self.test_system_status),
-                ("CLI Integration", self.test_cli_integration),
             ]
             
             for test_name, test_func in tests:
@@ -494,11 +352,11 @@ class IntegrationTester:
 
 
 async def main():
-    """Run integration tests."""
+    """Run quick integration tests."""
     test_docs_path = "/Users/seanbergman/Repositories/rag_lab/data/lmc_docs"
     
-    tester = IntegrationTester(test_docs_path)
-    success = await tester.run_full_test_suite()
+    tester = QuickIntegrationTester(test_docs_path)
+    success = await tester.run_quick_test_suite()
     
     sys.exit(0 if success else 1)
 

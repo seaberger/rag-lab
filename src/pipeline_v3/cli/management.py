@@ -29,6 +29,9 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 import logging
 
+# Import custom exceptions
+from utils.common_utils import CLIArgumentError, DependencyError, ConfigLoadError
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -62,21 +65,82 @@ except ImportError as e:
 class PipelineCLI:
     """Main CLI interface for pipeline management."""
     
-    def __init__(self):
+    def __init__(self, config_path: Optional[str] = None):
         if not CORE_AVAILABLE:
-            print("Error: Core pipeline components not available")
-            print("Please install dependencies: uv add llama-index llama-index-vector-stores-qdrant")
-            sys.exit(1)
+            command_string = ' '.join(sys.argv[1:])
+            raise DependencyError("Core pipeline components not available. Please install dependencies: uv add llama-index llama-index-vector-stores-qdrant", command_string=command_string)
         
         # Setup environment (load .env file)
         setup_environment()
+        
+        # Load configuration with error handling
+        # Since PipelineConfig.from_yaml handles errors internally and returns defaults,
+        # we need to wrap it and detect when errors occurred
+        import io
+        import contextlib
+        
+        # Capture any warning/error messages printed by from_yaml
+        output_capture = io.StringIO()
+        
+        try:
+            # Capture stdout to detect error messages from PipelineConfig.from_yaml
+            with contextlib.redirect_stdout(output_capture):
+                if config_path:
+                    self.config = PipelineConfig.from_yaml(config_path)
+                else:
+                    self.config = PipelineConfig.from_yaml()
+                    
+            # Check if any error/warning messages were captured
+            captured_output = output_capture.getvalue()
+            if "Warning:" in captured_output or "Error" in captured_output:
+                # Config loading had issues, create ConfigLoadError
+                logger = logging.getLogger(__name__)
+                command_string = ' '.join(sys.argv[1:])
+                path_info = f" (config path: {config_path})" if config_path else " (default config path)"
+                error_msg = f"Failed to load configuration{path_info}: {captured_output.strip()}"
+                
+                # Create and store the ConfigLoadError with path info
+                config_error = ConfigLoadError(error_msg, command_string=command_string)
+                logger.warning(f"Configuration load error: {error_msg}")
+                
+                # Print user-friendly message
+                print("⚠️  Using default settings")
+                
+                # Store the error for potential later access
+                self._config_load_error = config_error
+                
+        except Exception as e:
+            # This catches any unexpected exceptions during config loading
+            logger = logging.getLogger(__name__)
+            command_string = ' '.join(sys.argv[1:])
+            path_info = f" (config path: {config_path})" if config_path else " (default config path)"
+            error_msg = f"Failed to load configuration{path_info}: {e}"
             
-        self.config = PipelineConfig()
+            # Create ConfigLoadError with path info and continue with defaults
+            config_error = ConfigLoadError(error_msg, command_string=command_string)
+            logger.warning(f"Configuration load error: {error_msg}")
+            logger.debug(f"Config error details: {e}", exc_info=True)
+            
+            # Print user-friendly message and use defaults
+            print("⚠️  Using default settings")
+            self.config = PipelineConfig()  # Fallback to defaults
+            
+            # Store the error for potential later access
+            self._config_load_error = config_error
+            
         self.pipeline = None
         self.queue = None
         self.registry = None
         self.index_manager = None
         self.monitor = ProgressMonitor()
+        
+    def get_config_load_error(self) -> Optional[ConfigLoadError]:
+        """Get the configuration load error if any occurred during initialization.
+        
+        Returns:
+            ConfigLoadError if config loading failed, None otherwise
+        """
+        return getattr(self, '_config_load_error', None)
         
     async def initialize(self):
         """Initialize pipeline components."""
@@ -89,10 +153,15 @@ class PipelineCLI:
             
             self.queue = DocumentQueue(self.config)
             
+        except ImportError as e:
+            command_string = ' '.join(sys.argv[1:])
+            raise DependencyError(f"Failed to initialize pipeline: missing dependency: {e}", command_string=command_string)
         except Exception as e:
-            print(f"Error initializing pipeline: {e}")
-            print("Make sure all dependencies are installed and configured properly")
-            sys.exit(1)
+            command_string = ' '.join(sys.argv[1:])
+            if "config" in str(e).lower():
+                raise ConfigLoadError(f"Configuration error during initialization: {e}", command_string=command_string)
+            else:
+                raise DependencyError(f"Error initializing pipeline: {e}. Make sure all dependencies are installed and configured properly", command_string=command_string)
     
     def create_parser(self) -> argparse.ArgumentParser:
         """Create the main argument parser."""
@@ -348,8 +417,8 @@ Examples:
         elif args.command == 'config':
             await self.handle_config(args)
         else:
-            print("No command specified. Use --help for usage information.")
-            sys.exit(1)
+            command_string = ' '.join(sys.argv[1:])
+            raise CLIArgumentError("Unknown command. Use --help for usage information.", command_string=command_string)
 
     def _resolve_sources(self, sources: List[str], recursive: bool = False) -> List[str]:
         """Resolve sources to actual file paths.
@@ -714,22 +783,44 @@ Examples:
 
 async def main():
     """Main entry point."""
-    cli = PipelineCLI()
+    command_string = ' '.join(sys.argv[1:])
+    logger = logging.getLogger(__name__)
+    
+    # Parse arguments first to get config path
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--config', type=str, help='Path to configuration file')
+    parser.add_argument('--help', '-h', action='store_true')
+    
+    # Parse known args to extract config path without failing on unknown args
+    config_args, _ = parser.parse_known_args()
+    
+    # Create CLI with potential config path
+    # ConfigLoadError will be handled at the top level in cli_main.py
+    cli = PipelineCLI(config_path=config_args.config)
+    
+    # Create the full parser
     parser = cli.create_parser()
-    args = parser.parse_args()
+    
+    # Wrap only argument parsing in try/except for CLI argument errors
+    try:
+        args = parser.parse_args()
+    except SystemExit as e:
+        # SystemExit(0) is normal for --help, don't treat as error
+        if e.code == 0:
+            sys.exit(0)
+        else:
+            logger.error(f"Argument parsing failed: {e} | Command: {command_string}")
+            raise CLIArgumentError(f"Invalid command line arguments: {e}", command_string=command_string)
+    except argparse.ArgumentError as e:
+        logger.error(f"Argument parsing failed: {e} | Command: {command_string}")
+        raise CLIArgumentError(f"Invalid command line arguments: {e}", command_string=command_string)
     
     if not args.command:
-        parser.print_help()
-        sys.exit(1)
+        logger.error(f"No command specified | Command: {command_string}")
+        raise CLIArgumentError("No command specified. Use --help for usage information.", command_string=command_string)
     
-    try:
-        await cli.run(args)
-    except KeyboardInterrupt:
-        print("\nOperation cancelled")
-        sys.exit(130)
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+    # Run the CLI - let exceptions propagate up to top-level handler
+    await cli.run(args)
 
 
 if __name__ == "__main__":

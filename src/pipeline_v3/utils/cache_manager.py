@@ -15,11 +15,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     from utils.config import PipelineConfig
-    from utils.common_utils import logger
+    from utils.common_utils import logger, DependencyError
 except ImportError as e:
-    print(f"Import error: {e}")
-    print("Make sure you're running from the correct directory")
-    sys.exit(1)
+    raise DependencyError(f"Import error: {e}. Make sure you're running from the correct directory")
 
 
 class CacheCleaner:
@@ -323,7 +321,8 @@ Available components for selective clearing:
                 return
         
         success = cleaner.clear_all()
-        sys.exit(0 if success else 1)
+        if not success:
+            raise DependencyError("Failed to clear all cache components")
     
     if args.clear:
         if not args.force:
@@ -334,7 +333,8 @@ Available components for selective clearing:
                 return
         
         success = cleaner.selective_clear(args.clear)
-        sys.exit(0 if success else 1)
+        if not success:
+            raise DependencyError(f"Failed to clear specified cache components: {', '.join(args.clear)}")
     
     # If no action specified, show help
     parser.print_help()

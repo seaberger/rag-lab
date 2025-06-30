@@ -353,6 +353,113 @@ python cli_main.py config set KEY VALUE
 python cli_main.py config reset [--confirm]
 ```
 
+### Error Handling & Exit Codes
+
+Pipeline v3 provides comprehensive error handling with standardized exit codes for automation and monitoring purposes.
+
+#### Exit Code Reference
+
+| Exit Code | Error Type | Description | Example Cause |
+|-----------|------------|-------------|--------------|
+| **0** | Success | Command completed successfully | Normal operation |
+| **1** | General Error | Unexpected error or network issues | API connection failure, unexpected exception |
+| **126** | Dependency Error | Missing or failed dependencies | llama-index not installed, OpenAI key invalid |
+| **127** | File/Config Error | File not found or configuration issues | Missing PDF file, invalid config.yaml |
+| **128** | Argument Error | Invalid command-line arguments | Wrong parameter values, missing required args |
+| **130** | User Interruption | Process cancelled by user (Ctrl+C) | Keyboard interrupt during processing |
+
+#### Error Categories
+
+**Dependency Errors (Exit 126):**
+```bash
+# Missing dependencies
+❌ Required dependency not installed. See log for details.
+# Install with: uv sync
+
+# Invalid API credentials  
+❌ Dependency error: OpenAI API key validation failed
+# Fix: Check OPENAI_API_KEY in .env file
+```
+
+**Configuration Errors (Exit 127):**
+```bash
+# Missing configuration file
+❌ Configuration error: config.yaml not found
+# Fix: Create config.yaml or use default settings
+
+# File not found
+❌ File not found: document.pdf
+# Fix: Check file path and permissions
+```
+
+**Argument Errors (Exit 128):**
+```bash
+# Invalid search type
+❌ Invalid arguments: search type must be vector, keyword, or hybrid
+# Fix: python cli_main.py search "query" --type hybrid
+
+# Invalid parameter value
+❌ Invalid argument: top-k must be a positive integer
+# Fix: python cli_main.py search "query" --top-k 10
+```
+
+#### Logging & Verbosity
+
+**Log File Location:**
+Pipeline v3 logs are saved to `pipeline_v3.log` in the current directory by default. The log file path can be customized in `config.yaml`:
+
+```yaml
+logging:
+  level: INFO
+  file: pipeline_v3.log  # Custom log file path
+  detailed_progress: true
+  performance_metrics: true
+```
+
+**Increasing Verbosity:**
+```bash
+# Enable verbose output for debugging
+python cli_main.py --verbose search "query"
+python cli_main.py -v status --detailed
+
+# JSON output for automation/monitoring
+python cli_main.py --json status
+python cli_main.py --json search "query" --type hybrid
+```
+
+**Logging Levels:**
+- **INFO** (default): General operation messages
+- **DEBUG**: Detailed debugging information
+- **WARNING**: Non-fatal issues and fallbacks
+- **ERROR**: Error conditions requiring attention
+- **CRITICAL**: Severe errors preventing operation
+
+#### Backward Compatibility
+
+**Data Format Compatibility:**
+Pipeline v3 maintains full backward compatibility with v2.1:
+
+- ✅ **JSONL Artifacts**: Same document format as v2.1
+- ✅ **Vector Store**: Compatible with existing Qdrant collections
+- ✅ **Keyword Index**: Compatible with SQLite FTS5 databases
+- ✅ **Configuration**: Extends v2.1 config with new sections
+- ✅ **Storage Paths**: Isolated v3 paths prevent conflicts
+
+**Migration Notes:**
+- Existing v2.1 data remains unchanged
+- v3 uses separate storage directories (`storage_data_v3/`, `qdrant_data_v3/`)
+- Configuration files can be gradually updated
+- No breaking changes to core document processing
+
+**Version Detection:**
+```bash
+# Check pipeline version
+python cli_main.py --help  # Shows "Production Document Processing Pipeline v3"
+
+# Verify configuration version
+python cli_main.py config get pipeline.version  # Returns "3.0.0-dev"
+```
+
 ---
 
 ## Advanced Search Capabilities
