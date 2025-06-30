@@ -118,30 +118,70 @@ data/lmc_docs/datasheets/
 
 ### 🔄 Current Active Issues:
 
-#### **Medium Priority Issues** ⚡
+#### **CRITICAL Production Readiness Issues** 🚨
+**Priority**: Address before feature development
+- **Issue #25:** No Top-Level Error Handling in CLI Entry Point
+  - Application crashes on unhandled exceptions
+  - No graceful error messages for users
+  - **Quick fix with high impact on reliability**
+  
+- **Issue #26:** No Database Schema Versioning or Migration Framework
+  - Breaking changes on upgrades cause data loss
+  - No safe path for system evolution
+  - **Essential for production deployments**
+  
+- **Issue #27:** No Cross-System Consistency Guarantees
+  - Data corruption across storage systems (SQLite, Qdrant, JSONL)
+  - Partial failures leave system in inconsistent state
+  - **Critical for data integrity**
+
+#### **HIGH Priority Feature Issues** 🔥
+- **Issue #7:** Fix model/part number pair extraction
+  - Multi-line JSON metadata parsing broken
+  - All datasheet pair extraction currently failing
+  
+- **Issue #14:** Document-type aware chunking strategies (Medium priority)
+- **Issue #13:** Hybrid PDF parsing: VLM for datasheets, Docling for regular docs (Medium priority)
 
 #### **Enhancement Issues** 🆕
 - **Issue #21:** doc_id mismatch between keyword and vector indexes (Low priority)
-  - Data consistency issue for document management
-  - Same document has different IDs in different indexes
-  - Doesn't affect functionality but complicates debugging
-
-- **Issue #14:** Document-type aware chunking strategies (Medium priority)
-- **Issue #13:** Hybrid PDF parsing: VLM for datasheets, Docling for regular docs (Medium priority)
 - **Issue #15:** Proper table extraction and LlamaIndex node handling (Medium priority)
 - **Issue #12:** Page-level content classification (Medium priority)
 - **Issue #8:** Missing get_status() method (Low priority)
 - **Issue #5:** Qdrant server upgrade for performance (Low priority)
 
+#### **📋 Comprehensive Architecture Review**
+**28 Fundamental Gaps Identified**: See [../../ISSUES.md](../../ISSUES.md)
+- Security vulnerabilities (SQL injection, SSRF, path traversal)
+- Error handling architecture gaps
+- Data persistence and backup missing
+- Configuration management issues
+- Testing infrastructure deficiencies  
+- Observability and monitoring absent
+
 ### Production Readiness Status:
+
+#### **✅ Core Functionality Complete:**
 - ✅ **Document Processing:** Full PDF→markdown pipeline working with OpenAI Vision API
 - ✅ **Storage System:** JSONL artifacts created in `storage_data_v3/`
 - ✅ **Indexing:** Both vector and keyword search fully operational
 - ✅ **Keyword Enhancement:** --with-keywords integration restored and working
-- ✅ **Document Updates:** Proper cleanup and replacement for both indexes
 - ✅ **Queue System:** Enterprise-grade processing with lifecycle management
 - ✅ **User Experience:** Consolidated CLI with full v2.1 feature parity
-- ✅ **Data Integrity:** Vector and keyword indexes update consistently
+
+#### **⚠️ Production Gaps Identified:**
+- ❌ **Error Handling:** No top-level exception handling (Issue #25)
+- ❌ **Data Safety:** No database migration framework (Issue #26)
+- ❌ **Data Consistency:** Cross-system transaction failures (Issue #27)
+- ❌ **Security:** Multiple vulnerabilities identified (SQL injection, SSRF, path traversal)
+- ❌ **Testing:** No formal testing framework or CI/CD
+- ❌ **Monitoring:** No observability infrastructure (metrics, tracing, health checks)
+- ❌ **Backup/Recovery:** No data backup or disaster recovery capabilities
+
+#### **🎯 Production Readiness Assessment:**
+**Current State**: Development-ready with core functionality complete  
+**Production State**: Requires architecture improvements before deployment  
+**Priority Actions**: Address Issues #25-27 for basic reliability and data safety
 
 ## Essential Commands
 
@@ -301,4 +341,4 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **📋 Development Status:** [DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)
 
-**Current Focus:** **PRODUCTION READY** - Core functionality fully restored with keyword enhancement working. Next priorities: Document-type aware chunking (Issue #14) and hybrid parsing strategies (Issue #13). V3 now matches V2.1 capabilities with enhanced search quality.
+**Current Focus:** **ARCHITECTURE IMPROVEMENTS REQUIRED** - Core functionality complete but production deployment requires addressing fundamental gaps. Priority: Issues #25-27 (error handling, database migrations, data consistency). See [../../ISSUES.md](../../ISSUES.md) for comprehensive 28-issue roadmap addressing security, reliability, testing, and observability gaps.

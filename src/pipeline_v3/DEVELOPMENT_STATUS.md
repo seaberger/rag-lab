@@ -1,13 +1,40 @@
 # Production Pipeline v3 - Development Status
 
-## Current State: Major Progress on Critical Issues 🔄
+## Current State: Architecture Review Complete - Production Gaps Identified 🔍
 
 **Date:** December 30, 2025  
-**Branch:** `fix/issue-16-keyword-enhancement`  
-**Last Commit:** `4a54ac5` - CLI search interface bugs with enhanced functionality  
-**Status:** Core functionality restored with keyword enhancement, one critical regression remaining
+**Branch:** `main`  
+**Last Commit:** Updated documentation with comprehensive architecture analysis  
+**Status:** Core functionality complete, requires architecture improvements for production deployment
 
-## 🚨 URGENT: Critical Issues Requiring Immediate Fix
+## 🚨 CRITICAL: Production Readiness Issues (Issues #25-27)
+
+### Issue #25: No Top-Level Error Handling in CLI Entry Point
+- **Impact:** Application crashes on unhandled exceptions with ugly stack traces
+- **Priority:** CRITICAL - Essential for basic reliability
+- **GitHub:** https://github.com/seaberger/rag-lab/issues/25
+
+### Issue #26: No Database Schema Versioning or Migration Framework  
+- **Impact:** Breaking changes on upgrades cause complete data loss
+- **Priority:** CRITICAL - Required for safe system evolution
+- **GitHub:** https://github.com/seaberger/rag-lab/issues/26
+
+### Issue #27: No Cross-System Consistency Guarantees
+- **Impact:** Data corruption across storage systems (SQLite, Qdrant, JSONL)
+- **Priority:** CRITICAL - Essential for data integrity
+- **GitHub:** https://github.com/seaberger/rag-lab/issues/27
+
+## 📋 Comprehensive Architecture Analysis
+
+**28 Fundamental Gaps Identified**: See [../../ISSUES.md](../../ISSUES.md)
+- **Security**: SQL injection, SSRF, path traversal vulnerabilities
+- **Error Handling**: Inconsistent patterns, swallowed errors, no recovery
+- **Data Persistence**: No backup system, corruption detection, disaster recovery
+- **Configuration**: No environment management, secrets handling, validation
+- **Testing**: No formal framework, CI/CD, security testing
+- **Observability**: No metrics, tracing, structured logging, monitoring
+
+## HIGH Priority Feature Issues
 
 ### Issue #7: Broken Pair Extraction (HIGH)
 - **Impact:** Model/part number pairs not extracted from datasheets in BOTH V2.1 & V3
@@ -198,4 +225,26 @@
 **Impact:** Performance optimization opportunity  
 **Solution:** Upgrade from local storage to Qdrant server
 
-**Pipeline v3 status: Core functionality restored with keyword enhancement, one critical issue remaining** 🔄
+## Development Roadmap
+
+### **Phase 1 (URGENT): Production Foundation**
+1. **Issue #25**: Add top-level error handling - Essential for reliability
+2. **Issue #26**: Implement database schema versioning - Required for upgrades  
+3. **Issue #27**: Add cross-system consistency guarantees - Critical for data integrity
+
+### **Phase 2 (HIGH): Security & Input Validation** 
+- SQL injection protection and input sanitization
+- Path traversal fixes and URL validation
+- Secure temporary file handling
+
+### **Phase 3 (MEDIUM): Testing & Observability**
+- Formal testing framework with CI/CD
+- Metrics collection and monitoring infrastructure
+- Structured logging and distributed tracing
+
+### **Phase 4 (FEATURE): Data Quality & Performance**
+- Fix pair extraction (Issue #7)
+- Document-type aware chunking (Issue #14)
+- Hybrid parsing strategies (Issue #13)
+
+**Pipeline v3 status: Core functionality complete, architecture improvements required for production deployment** 🏗️
