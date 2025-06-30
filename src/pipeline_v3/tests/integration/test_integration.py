@@ -16,7 +16,7 @@ import shutil
 from typing import List, Dict, Any
 
 # Add parent directory for imports  
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     from pipeline.enhanced_core import EnhancedPipeline
