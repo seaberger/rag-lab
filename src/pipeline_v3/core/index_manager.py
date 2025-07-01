@@ -53,6 +53,9 @@ class IndexManager:
         self._init_embeddings()
         self._init_text_splitter()
         
+        # Cache for document sources
+        self._doc_source_cache = {}
+        
         logger.info(f"IndexManager initialized with Qdrant: {self.qdrant_path}")
     
     def _init_qdrant(self) -> None:
@@ -470,6 +473,27 @@ class IndexManager:
         
         return chunks
     
+    def _get_document_source(self, doc_id: str) -> str:
+        """Get document source path from registry with caching."""
+        if doc_id in self._doc_source_cache:
+            return self._doc_source_cache[doc_id]
+        
+        try:
+            doc = self.registry.get_document(doc_id)
+            if doc:
+                # Extract just the filename from the full path
+                source_path = doc.source
+                if '/' in source_path:
+                    source = source_path.split('/')[-1]
+                else:
+                    source = source_path
+                self._doc_source_cache[doc_id] = source
+                return source
+        except Exception as e:
+            logger.debug(f"Could not retrieve source for doc {doc_id}: {e}")
+        
+        return "unknown"
+    
     def search_vector(
         self,
         query: str,
@@ -510,12 +534,14 @@ class IndexManager:
                 return []
             
             for result in result_nodes:
+                doc_id = getattr(result, 'metadata', {}).get('doc_id', 'unknown')
                 search_results.append({
                     "node_id": getattr(result, 'node_id', getattr(result, 'id_', 'unknown')),
                     "score": getattr(result, 'score', 0.0),
                     "content": getattr(result, 'text', getattr(result, 'content', '')),
                     "metadata": getattr(result, 'metadata', {}),
-                    "doc_id": getattr(result, 'metadata', {}).get('doc_id', 'unknown')
+                    "doc_id": doc_id,
+                    "source": self._get_document_source(doc_id)
                 })
             
             # Apply post-filters that can't be handled by LlamaIndex
@@ -549,6 +575,12 @@ class IndexManager:
             # Parse unified filters
             parsed_filters = FilterBuilder.parse_unified_filters(filters)
             
+            # Escape special characters in FTS5 query
+            # FTS5 special characters: " ( ) * - : ^ 
+            escaped_query = query
+            for char in ['"', '(', ')', '*', '-', ':', '^']:
+                escaped_query = escaped_query.replace(char, f'"{char}"')
+            
             # Build basic query (simplified for initial implementation)
             sql_query = """
                 SELECT doc_id, node_id, chunk_index, content, metadata, 
@@ -556,7 +588,7 @@ class IndexManager:
                 FROM keyword_index 
                 WHERE keyword_index MATCH ?
             """
-            params = [query]
+            params = [escaped_query]
             
             # Add basic doc_ids filter for now (simplified implementation)
             if parsed_filters and 'doc_ids' in parsed_filters:
@@ -573,13 +605,15 @@ class IndexManager:
             
             results = []
             for row in cursor.fetchall():
+                doc_id = row[0]
                 results.append({
-                    "doc_id": row[0],
+                    "doc_id": doc_id,
                     "node_id": row[1],
                     "chunk_index": row[2],
                     "content": row[3],
                     "metadata": row[4],
-                    "score": row[5]
+                    "score": row[5],
+                    "source": self._get_document_source(doc_id)
                 })
             
             return results
