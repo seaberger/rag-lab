@@ -80,6 +80,8 @@ class DocumentType(Enum):
     MARKDOWN = "markdown"
     DATASHEET_PDF = "datasheet_pdf"
     GENERIC_PDF = "generic_pdf"
+    WORD_DOCUMENT = "word_document"
+    POWERPOINT_PRESENTATION = "powerpoint_presentation"
 
 
 class DocumentClassifier:
@@ -99,6 +101,13 @@ class DocumentClassifier:
         # PDF files - check if datasheet mode with additional heuristics
         if path.suffix.lower() == ".pdf":
             return DocumentClassifier._classify_pdf(path, is_datasheet_mode)
+
+        # Office documents - Word and PowerPoint
+        if path.suffix.lower() in {".docx", ".doc"}:
+            return DocumentType.WORD_DOCUMENT
+        
+        if path.suffix.lower() in {".pptx", ".ppt"}:
+            return DocumentType.POWERPOINT_PRESENTATION
 
         raise ValueError(f"Unsupported file type: {path.suffix}")
 
@@ -147,6 +156,12 @@ class DocumentClassifier:
         
         if doc_type == DocumentType.MARKDOWN:
             return 1.0  # Always confident about markdown files
+        
+        if doc_type == DocumentType.WORD_DOCUMENT:
+            return 1.0  # Always confident about Word documents based on extension
+        
+        if doc_type == DocumentType.POWERPOINT_PRESENTATION:
+            return 1.0  # Always confident about PowerPoint documents based on extension
         
         filename_lower = path.name.lower()
         
@@ -232,6 +247,30 @@ async def parse_document(
             "parse_method": "openai_vision"
         }
 
+    elif doc_type == DocumentType.WORD_DOCUMENT:
+        # Parse Word document with python-docx
+        markdown, pairs = await parse_word_document(pdf_path, config)
+        metadata = {
+            "source_type": "word_document",
+            "file_name": pdf_path.name,
+            "file_size": pdf_path.stat().st_size,
+            "content_length": len(markdown),
+            "parse_method": "python_docx",
+            "extracted_pairs": len(pairs)
+        }
+
+    elif doc_type == DocumentType.POWERPOINT_PRESENTATION:
+        # Parse PowerPoint with python-pptx
+        markdown, pairs, slide_metadata = await parse_powerpoint_document(pdf_path, config)
+        metadata = {
+            "source_type": "powerpoint_presentation",
+            "file_name": pdf_path.name,
+            "file_size": pdf_path.stat().st_size,
+            "content_length": len(markdown),
+            "parse_method": "python_pptx",
+            "slide_count": slide_metadata.get("slide_count", 0)
+        }
+
     # Cache result
     if cache:
         # Use the same content hash and cache key generated earlier
@@ -250,7 +289,7 @@ async def parse_document(
             {"markdown": markdown, "pairs": pairs, "metadata": metadata},
         )
 
-    return markdown, pairs, metadata
+    return markdown, pairs, metadata, metadata
 
 
 async def vision_parse_datasheet(
@@ -392,3 +431,330 @@ async def vision_parse_generic(
 
     response = await call_api()
     return response.output[0].content[0].text, []
+
+
+async def parse_word_document(
+    word_path: Path, config: Optional[PipelineConfig] = None
+) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
+    """Parse Word document with python-docx and convert to markdown."""
+    try:
+        from docx import Document
+    except ImportError:
+        raise ImportError("python-docx library is required for Word document parsing. Install with: pip install python-docx")
+    
+    try:
+        doc = Document(word_path)
+        
+        # Extract document metadata
+        props = doc.core_properties
+        logger.info(f"Parsing Word document: {word_path.name}")
+        if props.title:
+            logger.info(f"Document title: {props.title}")
+        if props.author:
+            logger.info(f"Document author: {props.author}")
+        
+        # Parse document structure
+        sections = []
+        
+        # Process paragraphs and headings
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                # Determine if this is a heading
+                style_name = paragraph.style.name
+                if style_name.startswith('Heading'):
+                    level = _get_heading_level(style_name)
+                    sections.append({
+                        'type': 'heading',
+                        'level': level,
+                        'text': paragraph.text.strip()
+                    })
+                else:
+                    sections.append({
+                        'type': 'paragraph',
+                        'text': paragraph.text.strip(),
+                        'style': style_name
+                    })
+        
+        # Process tables
+        for table in doc.tables:
+            table_data = _extract_word_table(table)
+            if table_data:
+                sections.append({
+                    'type': 'table',
+                    'data': table_data
+                })
+        
+        # Convert to markdown
+        markdown = _convert_word_sections_to_markdown(sections)
+        
+        # Extract model/part pairs for technical documents
+        pairs = _extract_word_pairs(sections)
+        
+        # Create metadata
+        metadata = {
+            "source_type": "word_document",
+            "file_name": word_path.name,
+            "file_size": word_path.stat().st_size,
+            "content_length": len(markdown),
+            "doc_type": DocumentType.WORD_DOCUMENT.value,
+            "section_count": len(sections),
+            "pair_count": len(pairs),
+            "title": props.title or "",
+            "author": props.author or "",
+            "created": props.created.isoformat() if props.created else None,
+            "modified": props.modified.isoformat() if props.modified else None
+        }
+        
+        logger.info(f"Successfully parsed Word document with {len(sections)} sections and {len(pairs)} pairs")
+        return markdown, pairs, metadata
+        
+    except Exception as e:
+        logger.error(f"Failed to parse Word document {word_path}: {e}")
+        raise ValueError(f"Word document parsing failed: {e}")
+
+
+async def parse_powerpoint_document(
+    ppt_path: Path, config: Optional[PipelineConfig] = None
+) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
+    """Parse PowerPoint presentation with python-pptx and convert to markdown."""
+    try:
+        from pptx import Presentation
+    except ImportError:
+        raise ImportError("python-pptx library is required for PowerPoint parsing. Install with: pip install python-pptx")
+    
+    try:
+        prs = Presentation(ppt_path)
+        
+        logger.info(f"Parsing PowerPoint presentation: {ppt_path.name}")
+        logger.info(f"Slide count: {len(prs.slides)}")
+        
+        # Extract presentation metadata
+        slide_contents = []
+        
+        for i, slide in enumerate(prs.slides):
+            slide_data = _parse_slide_content(slide, i + 1)
+            slide_contents.append(slide_data)
+        
+        # Convert slides to markdown
+        markdown = _convert_slides_to_markdown(slide_contents)
+        
+        # PowerPoint presentations rarely have model/part pairs
+        pairs = []
+        
+        # Create metadata
+        metadata = {
+            "source_type": "powerpoint_presentation",
+            "file_name": ppt_path.name,
+            "file_size": ppt_path.stat().st_size,
+            "content_length": len(markdown),
+            "doc_type": DocumentType.POWERPOINT_PRESENTATION.value,
+            "slide_count": len(prs.slides),
+            "has_speaker_notes": any(slide.get("notes") for slide in slide_contents)
+        }
+        
+        logger.info(f"Successfully parsed PowerPoint with {len(prs.slides)} slides")
+        return markdown, pairs, metadata
+        
+    except Exception as e:
+        logger.error(f"Failed to parse PowerPoint presentation {ppt_path}: {e}")
+        raise ValueError(f"PowerPoint parsing failed: {e}")
+
+
+def _get_heading_level(style_name: str) -> int:
+    """Extract heading level from Word style name."""
+    try:
+        if 'Heading' in style_name:
+            # Extract number from "Heading 1", "Heading 2", etc.
+            parts = style_name.split()
+            if len(parts) > 1 and parts[1].isdigit():
+                return int(parts[1])
+        return 1  # Default to H1 if can't determine
+    except:
+        return 1
+
+
+def _extract_word_table(table) -> List[List[str]]:
+    """Extract table data from Word table."""
+    try:
+        table_data = []
+        for row in table.rows:
+            row_data = []
+            for cell in row.cells:
+                cell_text = cell.text.strip()
+                row_data.append(cell_text)
+            if any(row_data):  # Only add non-empty rows
+                table_data.append(row_data)
+        return table_data
+    except Exception as e:
+        logger.warning(f"Failed to extract table data: {e}")
+        return []
+
+
+def _convert_word_sections_to_markdown(sections: List[Dict]) -> str:
+    """Convert Word document sections to markdown format."""
+    markdown_parts = []
+    
+    for section in sections:
+        if section['type'] == 'heading':
+            level = section['level']
+            heading_prefix = '#' * min(level, 6)  # Limit to H6
+            markdown_parts.append(f"{heading_prefix} {section['text']}\n")
+            
+        elif section['type'] == 'paragraph':
+            markdown_parts.append(f"{section['text']}\n")
+            
+        elif section['type'] == 'table':
+            table_md = _convert_table_to_markdown(section['data'])
+            markdown_parts.append(table_md)
+    
+    return '\n'.join(markdown_parts)
+
+
+def _convert_table_to_markdown(table_data: List[List[str]]) -> str:
+    """Convert table data to markdown table format."""
+    if not table_data:
+        return ""
+    
+    markdown_lines = []
+    
+    # Header row
+    if table_data:
+        header = " | ".join(table_data[0])
+        markdown_lines.append(f"| {header} |")
+        
+        # Separator row
+        separator = " | ".join(["---"] * len(table_data[0]))
+        markdown_lines.append(f"| {separator} |")
+        
+        # Data rows
+        for row in table_data[1:]:
+            # Pad row to match header length
+            padded_row = row + [""] * (len(table_data[0]) - len(row))
+            row_text = " | ".join(padded_row)
+            markdown_lines.append(f"| {row_text} |")
+    
+    return "\n".join(markdown_lines) + "\n"
+
+
+def _extract_word_pairs(sections: List[Dict]) -> List[Tuple[str, str]]:
+    """Extract model/part number pairs from Word document sections."""
+    pairs = []
+    
+    # Look for technical patterns in text
+    import re
+    pair_patterns = [
+        r'([A-Z][A-Z0-9\-\+]+)\s*[:\-]\s*([0-9]{6,})',  # Model: partnumber
+        r'Model\s*([A-Z][A-Z0-9\-\+]+).*?Part\s*(?:Number|No\.?)\s*([0-9]{6,})',  # Model X Part Number Y
+        r'([A-Z]{2,}[0-9]+[A-Z\-\+]*)\s*\(([0-9]{6,})\)',  # MODEL(partnumber)
+    ]
+    
+    for section in sections:
+        if section['type'] in ['paragraph', 'heading']:
+            text = section['text']
+            for pattern in pair_patterns:
+                matches = re.findall(pattern, text, re.IGNORECASE)
+                for match in matches:
+                    model, part = match
+                    pairs.append((model.strip(), part.strip()))
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_pairs = []
+    for pair in pairs:
+        if pair not in seen:
+            seen.add(pair)
+            unique_pairs.append(pair)
+    
+    return unique_pairs
+
+
+def _parse_slide_content(slide, slide_number: int) -> Dict[str, Any]:
+    """Parse content from a single PowerPoint slide."""
+    content = {
+        'slide_number': slide_number,
+        'title': '',
+        'content': [],
+        'tables': [],
+        'notes': ''
+    }
+    
+    # Extract text from shapes
+    for shape in slide.shapes:
+        if hasattr(shape, "text") and shape.text.strip():
+            # Check if this is a title placeholder
+            if (hasattr(shape, "placeholder_format") and 
+                shape.placeholder_format and 
+                shape.placeholder_format.type == 1):  # Title placeholder
+                content['title'] = shape.text.strip()
+            else:
+                content['content'].append(shape.text.strip())
+        
+        # Handle tables in slides
+        if hasattr(shape, "table") and shape.has_table:
+            table_data = _extract_ppt_table(shape.table)
+            if table_data:
+                content['tables'].append(table_data)
+    
+    # Extract speaker notes
+    if slide.has_notes_slide:
+        notes_text = slide.notes_slide.notes_text_frame.text.strip()
+        if notes_text:
+            content['notes'] = notes_text
+    
+    return content
+
+
+def _extract_ppt_table(table) -> List[List[str]]:
+    """Extract table data from PowerPoint table."""
+    try:
+        table_data = []
+        for row in table.rows:
+            row_data = []
+            for cell in row.cells:
+                cell_text = cell.text.strip()
+                row_data.append(cell_text)
+            if any(row_data):  # Only add non-empty rows
+                table_data.append(row_data)
+        return table_data
+    except Exception as e:
+        logger.warning(f"Failed to extract PowerPoint table data: {e}")
+        return []
+
+
+def _convert_slides_to_markdown(slide_contents: List[Dict]) -> str:
+    """Convert PowerPoint slides to markdown format."""
+    markdown_parts = []
+    
+    for slide in slide_contents:
+        slide_num = slide['slide_number']
+        title = slide['title']
+        content = slide['content']
+        tables = slide['tables']
+        notes = slide['notes']
+        
+        # Slide header
+        if title:
+            markdown_parts.append(f"# Slide {slide_num}: {title}\n")
+        else:
+            markdown_parts.append(f"# Slide {slide_num}\n")
+        
+        # Slide content
+        for text in content:
+            # Handle bullet points and lists
+            if text.startswith('•') or text.startswith('-'):
+                markdown_parts.append(f"{text}\n")
+            else:
+                markdown_parts.append(f"{text}\n")
+        
+        # Tables
+        for table_data in tables:
+            table_md = _convert_table_to_markdown(table_data)
+            markdown_parts.append(table_md)
+        
+        # Speaker notes
+        if notes:
+            markdown_parts.append(f"\n**Speaker Notes:** {notes}\n")
+        
+        markdown_parts.append("\n---\n")  # Slide separator
+    
+    return '\n'.join(markdown_parts)
