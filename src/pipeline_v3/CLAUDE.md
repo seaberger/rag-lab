@@ -27,7 +27,7 @@ uv run python -m src.pipeline_v3.cli_main [command]
 
 ## Document Locations 📁
 
-### Sample Documents (7 PDFs):
+### Sample Documents (9 files):
 ```
 data/sample_docs/
 ├── COHR_Air-CooledThermopileSensors_DB25_DS_1119_3.pdf
@@ -36,7 +36,9 @@ data/sample_docs/
 ├── COHR_PowerMax-USB_UV-VIS_DS_0920_2.pdf
 ├── FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
 ├── labmax-touch-ds.pdf
-└── pm10k-plus-ds.pdf
+├── pm10k-plus-ds.pdf
+├── Understanding-ISO-17025-Test-Document.docx (🆕 Word)
+└── ISO-17025-Calibration-Standards-Presentation.pptx (🆕 PowerPoint)
 ```
 
 ### LMC Documents (30 PDFs):

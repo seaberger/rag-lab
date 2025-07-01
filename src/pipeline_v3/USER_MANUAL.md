@@ -6,15 +6,16 @@ A comprehensive guide to using the Production Document Processing Pipeline v3 fo
 
 1. [Quick Start](#quick-start)
 2. [Installation & Setup](#installation--setup)
-3. [Basic Operations](#basic-operations)
-4. [Advanced Features](#advanced-features)
-5. [CLI Reference](#cli-reference)
-6. [Advanced Search Capabilities](#advanced-search-capabilities)
-7. [Configuration](#configuration)
-8. [Database Migration Framework](#database-migration-framework)
-9. [Troubleshooting](#troubleshooting)
-10. [Best Practices](#best-practices)
-11. [Examples & Use Cases](#examples--use-cases)
+3. [Supported Document Types](#supported-document-types)
+4. [Basic Operations](#basic-operations)
+5. [Advanced Features](#advanced-features)
+6. [CLI Reference](#cli-reference)
+7. [Advanced Search Capabilities](#advanced-search-capabilities)
+8. [Configuration](#configuration)
+9. [Database Migration Framework](#database-migration-framework)
+10. [Troubleshooting](#troubleshooting)
+11. [Best Practices](#best-practices)
+12. [Examples & Use Cases](#examples--use-cases)
 
 ---
 
@@ -90,6 +91,64 @@ python cli_main.py config set queue.max_workers 4
 python cli_main.py config set chunking.chunk_size 1024
 python cli_main.py config list
 ```
+
+---
+
+## Supported Document Types
+
+Pipeline v3 supports multiple document types with intelligent classification and specialized parsing:
+
+### PDF Documents
+- **Technical Datasheets**: Automatically detected based on content or forced with `--mode datasheet`
+- **Generic Documents**: General PDFs with `--mode generic`
+- **Automatic Classification**: Uses `--mode auto` (default) to intelligently classify
+
+### Microsoft Office Documents 🆕
+#### Word Documents (.docx, .doc)
+- **Full Text Extraction**: Preserves document structure including headings, paragraphs, and lists
+- **Table Extraction**: Tables are converted to markdown format with proper formatting
+- **Metadata Extraction**: Captures author, creation date, modification date, and other properties
+- **Smart Chunking**: Uses semantic section-based chunking for optimal retrieval
+
+```bash
+# Process Word documents
+python cli_main.py add report.docx --with-keywords
+python cli_main.py add specification.doc --mode auto
+```
+
+#### PowerPoint Presentations (.pptx, .ppt)
+- **Slide-by-Slide Extraction**: Each slide becomes a searchable chunk
+- **Speaker Notes**: Captures and indexes presenter notes
+- **Title and Content**: Preserves slide structure and bullet points
+- **Metadata**: Includes slide count and presentation properties
+
+```bash
+# Process PowerPoint presentations
+python cli_main.py add presentation.pptx --with-keywords
+python cli_main.py add slides.ppt --metadata type=training
+```
+
+### Markdown Files (.md)
+- **Direct Processing**: Native markdown support
+- **Structure Preservation**: Maintains heading hierarchy
+- **Code Block Support**: Preserves formatted code sections
+
+### Web Documents (URLs)
+- **Direct URL Processing**: Fetch and process documents from HTTP/HTTPS
+- **Automatic Content Extraction**: Converts HTML to markdown
+- **Metadata Preservation**: Captures source URL and fetch timestamp
+
+```bash
+# Process web documents
+python cli_main.py add https://example.com/datasheet.pdf
+python cli_main.py add https://docs.example.com/manual.html
+```
+
+### Document Classification
+The pipeline automatically detects document types based on:
+- **File Extension**: .pdf, .docx, .doc, .pptx, .ppt, .md
+- **Content Analysis**: For PDFs, analyzes content to determine if it's a technical datasheet
+- **Mode Override**: Use `--mode` to force a specific classification
 
 ---
 

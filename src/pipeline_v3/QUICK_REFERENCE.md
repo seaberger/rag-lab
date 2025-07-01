@@ -8,6 +8,7 @@
 - **✅ Production Ready**: All core functionality restored and enhanced
 
 ## ✅ Recent Features Added
+- **Issue #31**: 🆕 Microsoft Office document support (Word & PowerPoint)
 - **Issue #22**: Enhanced search with advanced hybrid fusion methods
 - **Issue #17**: Fixed keyword generation JSON parsing (OpenAI compatibility)
 - **Issue #20**: Fixed vector indexing with keyword enhancement
@@ -26,6 +27,12 @@ python cli_main.py add "data/*.pdf" --mode auto --workers 3
 python cli_main.py add /docs --recursive --mode generic
 python cli_main.py add doc.pdf --prompt custom.md
 python cli_main.py add https://example.com/doc.pdf
+
+# 🆕 Office Document Support (Issue #31)
+python cli_main.py add report.docx --with-keywords
+python cli_main.py add presentation.pptx --mode auto
+python cli_main.py add "docs/*.docx" --workers 3
+python cli_main.py add slides.ppt --metadata type=training
 
 # Enhanced Search (Issue #22)
 python cli_main.py search "keyword"                                    # Hybrid RRF (default)

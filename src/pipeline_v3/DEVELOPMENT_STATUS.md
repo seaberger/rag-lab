@@ -79,6 +79,16 @@
 - **Issue Resolution:** ✅ Issue #26 - Safe system evolution and upgrade path implemented
 - **Commit:** `f3a44d8` - Database Migration Framework
 
+### ✅ Issue #31: Microsoft Office Document Support - COMPLETE
+- **Word Documents** (.docx, .doc) - Full text extraction with structure preservation
+- **PowerPoint Presentations** (.pptx, .ppt) - Slide-by-slide extraction with speaker notes
+- **Smart Chunking** - Semantic sections for Word, slide-based for PowerPoint
+- **Search Integration** - Full support for keyword, vector, and hybrid search
+- **Special Character Fix** - Keyword search now handles hyphens, colons, etc.
+- **Source Display Fix** - Search results show actual document names
+- **Tests:** 28/29 passing (96.6% success rate)
+- **Branch:** `feature/office-document-support`
+
 ## Production Deployment Status
 
 ### ✅ Ready for Enterprise Use

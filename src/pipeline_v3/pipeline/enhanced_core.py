@@ -384,6 +384,34 @@ class EnhancedPipeline:
                     
             return markdown, pairs, metadata
         
+        elif doc_type.name == 'WORD_DOCUMENT':
+            # Parse Word document
+            from core.parsers import parse_word_document
+            markdown, pairs, metadata = await parse_word_document(source_path, self.config)
+            
+            # Clean up temporary file if from URL
+            if is_url:
+                try:
+                    source_path.unlink()
+                except:
+                    pass
+            
+            return markdown, pairs, metadata
+            
+        elif doc_type.name == 'POWERPOINT_PRESENTATION':
+            # Parse PowerPoint presentation
+            from core.parsers import parse_powerpoint_document
+            markdown, pairs, metadata = await parse_powerpoint_document(source_path, self.config)
+            
+            # Clean up temporary file if from URL
+            if is_url:
+                try:
+                    source_path.unlink()
+                except:
+                    pass
+            
+            return markdown, pairs, metadata
+            
         else:
             # For markdown/text files, read directly
             content = source_path.read_text(encoding='utf-8', errors='ignore')
