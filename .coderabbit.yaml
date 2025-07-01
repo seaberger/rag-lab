@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit Configuration for RAG Lab Repository
+# Enterprise Document Processing System with focus on reliability and robustness
+
+language: "en-US"
+early_access: false
+
+# Review Configuration
+reviews:
+  # Use assertive profile for production-ready system
+  profile: "assertive"
+  
+  # Request changes when critical issues found
+  request_changes_workflow: true
+  
+  # Enable comprehensive review features
+  high_level_summary: true
+  poem: false  # Disable poems for professional reviews
+  review_status: true
+  collapse_walkthrough: false
+  
+  # Custom review instructions for the project
+  instructions: |
+    Focus on the following aspects when reviewing code:
+    1. **Error Handling**: Ensure all exceptions are properly caught and handled
+    2. **Resource Management**: Check for proper cleanup of file handles, database connections, and temporary files
+    3. **Security**: Look for SQL injection, path traversal, and input validation issues
+    4. **Data Consistency**: Verify atomic operations across SQLite, Qdrant, and JSONL storage
+    5. **API Integration**: Check OpenAI API calls for proper error handling and retry logic
+    6. **Testing**: Ensure new features have corresponding tests
+    7. **Type Safety**: Verify proper type hints and validation
+    
+    Key areas of concern:
+    - Document processing pipeline reliability
+    - Cross-system transaction consistency
+    - OpenAI API integration robustness
+    - Database migration safety
+
+# Auto Review Settings
+auto_review:
+  enabled: true
+  # Review draft PRs to catch issues early
+  drafts: true
+
+# Chat Settings
+chat:
+  auto_reply: true
+
+# Path Filters - Exclude non-code files and generated data
+path_filters:
+  - "!cache_v3/**"
+  - "!qdrant_data_v3/**"
+  - "!storage_data_v3/**"
+  - "!data/sample_docs/**"
+  - "!data/lmc_docs/**"
+  - "!*.db"
+  - "!*.sqlite"
+  - "!*.lz4"
+  - "!*.jsonl"
+  - "!.DS_Store"
+  - "!__pycache__/**"
+  - "!*.pyc"
+  - "!.env"
+  - "!EXECUTIVE_*.md"
+
+# Path-based Instructions
+path_instructions:
+  - path: "src/pipeline_v3/core/**"
+    instructions: |
+      Pay special attention to:
+      - Database transaction handling and rollback capabilities
+      - Proper error propagation and context preservation
+      - Resource cleanup in finally blocks
+      - Thread safety for concurrent operations
+  
+  - path: "src/pipeline_v3/storage/**"
+    instructions: |
+      Check for:
+      - SQL injection vulnerabilities
+      - Proper parameterized queries
+      - Atomic operations across multiple storage systems
+      - Data consistency guarantees
+  
+  - path: "src/pipeline_v3/pipeline/**"
+    instructions: |
+      Verify:
+      - OpenAI API error handling and retry logic
+      - Proper timeout handling
+      - Resource cleanup for temporary files
+      - Queue management and job state transitions
+  
+  - path: "tests/**"
+    instructions: |
+      Ensure:
+      - Comprehensive test coverage for new features
+      - Both unit and integration tests
+      - Proper test isolation and cleanup
+      - Edge case handling
+
+# Tool Configuration
+tools:
+  # Python-specific linting
+  ruff:
+    enabled: true
+  
+  # Security scanning
+  semgrep:
+    enabled: true
+  
+  # Type checking
+  mypy:
+    enabled: true

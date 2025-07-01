@@ -204,3 +204,55 @@ Thumbs.db
 
 # Editor workspace files
 *.code-workspace
+
+# Executive pitch documents
+EXECUTIVE_*.md
+
+# Pipeline v3 Runtime Data - DO NOT COMMIT
+# ========================================
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Cache directories and files
+cache_v3/
+**/cache_v3/
+*.lz4
+
+# Storage artifacts (generated data)
+storage_data_v3/
+**/storage_data_v3/
+*.jsonl
+
+# Vector database files
+qdrant_data_v3/
+**/qdrant_data_v3/
+qdrant_data/
+**/qdrant_data/
+
+# Processing artifacts
+fingerprints_v3.db
+document_registry_v3.db
+keyword_index_v3.db
+jobs_v3.db
+
+# Legacy v2.1 runtime data
+src/parsing/refactored_2_1/cache/
+src/parsing/refactored_2_1/qdrant_data/
+src/parsing/refactored_2_1/storage_data/
+src/parsing/refactored_2_1/*.db
+
+# Log files
+pipeline_v3.log
+processing_report_v3.json
+*.log
+
+# Temporary files
+temp_*
+tmp_*
+download_*

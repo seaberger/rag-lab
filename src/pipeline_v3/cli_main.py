@@ -24,11 +24,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from cli.management import main
+from utils.cleanup import cleanup_temp_resources, get_resource_manager
 
 logger = logging.getLogger(__name__)
 
 
 def run_cli():
+    resource_manager = get_resource_manager()
     try:
         asyncio.run(main())
         sys.exit(0)
@@ -76,6 +78,13 @@ def run_cli():
         logger.exception("Unhandled exception")
         print("❌ Unexpected error. Run with -v for details.")
         sys.exit(1)
+    finally:
+        # Ensure cleanup happens on exit
+        try:
+            resource_manager.cleanup()
+            cleanup_temp_resources()
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {e}")
 
 
 if __name__ == "__main__":

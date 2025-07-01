@@ -28,6 +28,7 @@ try:
     from storage.keyword_index import BM25Index
     from utils.chunking_metadata import process_and_index_document
     from utils.common_utils import logger
+    from utils.cleanup import temporary_file, get_resource_manager
     from utils.config import PipelineConfig
     from utils.monitoring import ProgressMonitor
     from core.parsers import DocumentClassifier, parse_document
@@ -73,14 +74,20 @@ async def fetch_document(source: Union[str, Path]) -> Tuple[Path, str, bytes]:
                     # Create doc_id from URL
                     doc_id = hashlib.sha256(source.encode()).hexdigest()[:16]
                     
-                    # Save to temporary file
+                    # Save to temporary file using cleanup manager
                     parsed_url = urlparse(source)
                     filename = Path(parsed_url.path).name or f"document_{doc_id}"
-                    temp_path = Path(f"./temp_{filename}")
-                    temp_path.write_bytes(raw_bytes)
+                    suffix = Path(filename).suffix or '.pdf'
                     
-                    logger.info(f"Downloaded {len(raw_bytes)} bytes from {source}")
-                    return temp_path, doc_id, raw_bytes
+                    with temporary_file(suffix=suffix, prefix='download_') as temp_path:
+                        temp_path.write_bytes(raw_bytes)
+                        logger.info(f"Downloaded {len(raw_bytes)} bytes from {source}")
+                        
+                        # Register with resource manager for cleanup
+                        resource_manager = get_resource_manager()
+                        resource_manager.register_temp_file(temp_path)
+                        
+                        return temp_path, doc_id, raw_bytes
                     
         except Exception as e:
             logger.error(f"Failed to fetch URL {source}: {e}")
