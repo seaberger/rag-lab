@@ -11,9 +11,10 @@ A comprehensive guide to using the Production Document Processing Pipeline v3 fo
 5. [CLI Reference](#cli-reference)
 6. [Advanced Search Capabilities](#advanced-search-capabilities)
 7. [Configuration](#configuration)
-8. [Troubleshooting](#troubleshooting)
-9. [Best Practices](#best-practices)
-10. [Examples & Use Cases](#examples--use-cases)
+8. [Database Migration Framework](#database-migration-framework)
+9. [Troubleshooting](#troubleshooting)
+10. [Best Practices](#best-practices)
+11. [Examples & Use Cases](#examples--use-cases)
 
 ---
 
@@ -733,6 +734,170 @@ LLAMA_CLOUD_API_KEY=your_llama_cloud_key
 LANGFUSE_SECRET_KEY=your_langfuse_key
 LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
 ```
+
+---
+
+## Database Migration Framework
+
+Pipeline v3 includes a comprehensive database migration framework that ensures safe schema evolution and prevents data loss during system upgrades.
+
+### Overview
+
+The migration framework provides:
+- **Version Tracking**: Each database maintains its schema version
+- **Automatic Migrations**: Schema updates applied automatically on startup
+- **Rollback Support**: Safe rollback to previous schema versions
+- **Transaction Safety**: All migrations run within database transactions
+- **Checksum Verification**: Ensures migration integrity and prevents tampering
+
+### Supported Databases
+
+The framework manages schema versions for all Pipeline v3 databases:
+- **Document Registry** (`document_registry_v3.db`) - Document state tracking
+- **Keyword Index** (`keyword_index_v3.db`) - Full-text search database
+- **Fingerprints** (`fingerprints_v3.db`) - Document change detection
+- **Job Queue** (`jobs_v3.db`) - Background job management
+
+### Checking Migration Status
+
+```bash
+# Check all database schema versions
+uv run python -c "
+from src.pipeline_v3.core.registry import DocumentRegistry
+from src.pipeline_v3.core.keyword_index import KeywordIndex  
+from src.pipeline_v3.core.fingerprint import FingerprintStore
+from src.pipeline_v3.job_queue.storage import JobStorage
+
+print('Database Schema Versions:')
+print(f'Registry: {DocumentRegistry().get_schema_version()}')
+print(f'Keyword Index: {KeywordIndex().get_schema_version()}')
+print(f'Fingerprints: {FingerprintStore().get_schema_version()}')
+print(f'Job Queue: {JobStorage().get_schema_version()}')
+"
+```
+
+### Migration Files
+
+Migration files are stored in the `migrations/` directory:
+
+```
+src/pipeline_v3/migrations/
+├── registry/
+│   ├── 001_initial_schema.sql      # Document registry tables
+│   └── 001_initial_schema.down.sql # Rollback script
+├── fingerprints/
+│   ├── 001_initial_schema.sql      # Fingerprint storage
+│   └── 001_initial_schema.down.sql
+├── keyword_index/
+│   ├── 001_initial_schema.sql      # FTS5 search tables
+│   └── 001_initial_schema.down.sql
+└── jobs/
+    ├── 001_initial_schema.sql      # Job queue tables
+    └── 001_initial_schema.down.sql
+```
+
+### Creating New Migrations
+
+When adding new schema changes:
+
+1. **Create Migration Files:**
+   ```bash
+   # For new features requiring schema changes
+   touch src/pipeline_v3/migrations/registry/002_new_feature.sql
+   touch src/pipeline_v3/migrations/registry/002_new_feature.down.sql
+   ```
+
+2. **Migration File Format:**
+   ```sql
+   -- 002_new_feature.sql
+   -- Migration: 002_new_feature
+   -- Description: Add new feature table
+   
+   CREATE TABLE new_feature (
+       id INTEGER PRIMARY KEY,
+       name TEXT NOT NULL,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+   
+   CREATE INDEX idx_new_feature_name ON new_feature(name);
+   ```
+
+3. **Rollback File Format:**
+   ```sql
+   -- 002_new_feature.down.sql
+   -- Rollback: 002_new_feature
+   -- Description: Remove new feature table
+   
+   DROP INDEX IF EXISTS idx_new_feature_name;
+   DROP TABLE IF EXISTS new_feature;
+   ```
+
+### Testing Migrations
+
+The framework includes comprehensive tests:
+
+```bash
+# Run migration unit tests
+uv run python src/pipeline_v3/tests/unit/test_migrations.py
+
+# Run integration tests with real migration files
+uv run python src/pipeline_v3/tests/integration/test_migrations_integration.py
+
+# Run regression tests for edge cases
+uv run python src/pipeline_v3/tests/regression/test_migrations_regression.py
+```
+
+### Migration Safety
+
+The framework ensures safe operations through:
+
+- **Atomic Transactions**: All migrations run in database transactions
+- **Checksum Verification**: Detects modified migration files
+- **Version Consistency**: Prevents out-of-order migrations
+- **Rollback Validation**: Tests rollback scripts during development
+- **Error Recovery**: Failed migrations don't leave partial changes
+
+### Troubleshooting Migrations
+
+#### Migration Failed Error
+```bash
+# Check which migration failed
+uv run python -c "
+from src.pipeline_v3.core.migrations import MigrationManager
+manager = MigrationManager('document_registry_v3.db')
+print('Applied migrations:', manager.get_applied_migrations())
+"
+```
+
+#### Force Migration Re-run (Development Only)
+```bash
+# ⚠️ Only for development - will lose data
+rm document_registry_v3.db keyword_index_v3.db fingerprints_v3.db jobs_v3.db
+# Next pipeline startup will rebuild schemas
+```
+
+#### Check Migration Integrity
+```bash
+# Verify migration files haven't been modified
+uv run python -c "
+from src.pipeline_v3.core.migrations import MigrationManager, load_migrations_from_sql_files
+from pathlib import Path
+
+migrations_dir = Path('src/pipeline_v3/migrations/registry')
+migrations = load_migrations_from_sql_files(migrations_dir)
+manager = MigrationManager('document_registry_v3.db')
+result = manager.verify_migrations(migrations)
+print(f'Verification result: {result}')
+"
+```
+
+### Best Practices
+
+1. **Never Modify Applied Migrations**: Once a migration is applied in production, create a new migration instead
+2. **Test Rollbacks**: Always test rollback scripts before deploying
+3. **Backup Before Major Changes**: Create database backups before schema migrations
+4. **Version Control**: Keep all migration files in version control
+5. **Sequential Versions**: Use sequential version numbers for clarity
 
 ---
 

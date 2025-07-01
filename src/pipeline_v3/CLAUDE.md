@@ -116,24 +116,33 @@ data/lmc_docs/datasheets/
   - Keyword generation now works perfectly with all OpenAI models
   - Enhanced search quality through proper keyword augmentation
 
+- ✅ **Issue #26:** Database Schema Versioning and Migration Framework (**COMPLETED**)
+  - Implemented comprehensive MigrationManager with version tracking and rollback
+  - Created DatabaseBase class with automatic migration integration
+  - Added initial schema migrations for all 4 databases (registry, fingerprints, keyword_index, jobs)
+  - Built transaction-safe migration execution with checksum verification
+  - Comprehensive test suite (unit, integration, regression tests)
+  - Enables safe system evolution and prevents data loss on upgrades
+
 ### 🔄 Current Active Issues:
 
-#### **CRITICAL Production Readiness Issues** 🚨
-**Priority**: Address before feature development
-- **Issue #25:** No Top-Level Error Handling in CLI Entry Point
-  - Application crashes on unhandled exceptions
-  - No graceful error messages for users
-  - **Quick fix with high impact on reliability**
+#### **IMMEDIATE NEXT: Feature Development** 🚀
+**Current Priority**: Word & PPT Document Support
+- Expand document processing beyond PDF to Microsoft Office formats
+- Enable broader enterprise document workflows
+- Foundation for comprehensive document management
+
+#### **PRODUCTION READINESS PIPELINE** 🚨
+**Reliability & Robustness Improvements**
+- **Issue #27:** Cross-System Consistency Guarantees (**RELIABILITY**)
+  - **Impact**: Prevents data corruption and ensures system reliability
+  - **Why Critical**: 3+ storage systems (SQLite, Qdrant, JSONL) with no atomic transactions
+  - **Deliverable**: Distributed transaction-like behavior with rollback capabilities
   
-- **Issue #26:** No Database Schema Versioning or Migration Framework
-  - Breaking changes on upgrades cause data loss
-  - No safe path for system evolution
-  - **Essential for production deployments**
-  
-- **Issue #27:** No Cross-System Consistency Guarantees
-  - Data corruption across storage systems (SQLite, Qdrant, JSONL)
-  - Partial failures leave system in inconsistent state
-  - **Critical for data integrity**
+- **Issues #28 & #29:** OpenAI API Integration Hardening (**ROBUSTNESS**)
+  - **Impact**: Makes the system production-ready for AI operations
+  - **Why Critical**: Core AI functionality has initialization and timeout issues
+  - **Deliverable**: Bulletproof OpenAI client with exponential backoff and circuit breaker patterns
 
 #### **HIGH Priority Feature Issues** 🔥
 - **Issue #7:** Fix model/part number pair extraction
@@ -171,17 +180,18 @@ data/lmc_docs/datasheets/
 
 #### **⚠️ Production Gaps Identified:**
 - ❌ **Error Handling:** No top-level exception handling (Issue #25)
-- ❌ **Data Safety:** No database migration framework (Issue #26)
+- ✅ **Data Safety:** Database migration framework implemented (Issue #26) ✅
 - ❌ **Data Consistency:** Cross-system transaction failures (Issue #27)
 - ❌ **Security:** Multiple vulnerabilities identified (SQL injection, SSRF, path traversal)
 - ❌ **Testing:** No formal testing framework or CI/CD
 - ❌ **Monitoring:** No observability infrastructure (metrics, tracing, health checks)
 - ❌ **Backup/Recovery:** No data backup or disaster recovery capabilities
 
-#### **🎯 Production Readiness Assessment:**
-**Current State**: Development-ready with core functionality complete  
-**Production State**: Requires architecture improvements before deployment  
-**Priority Actions**: Address Issues #25-27 for basic reliability and data safety
+#### **🎯 Development Status Assessment:**
+**Current State**: Core functionality complete + error handling + database migration framework  
+**Feature Development**: Ready to expand with Word & PPT document support  
+**Production Pipeline**: Reliability & robustness improvements (Issues #27-29) for enterprise deployment  
+**Recent Progress**: ✅ Error handling (Issue #25) + database schema versioning (Issue #26) completed
 
 ## Essential Commands
 
@@ -237,6 +247,35 @@ uv run python -m src.pipeline_v3.cli_main config list
 uv run python -m src.pipeline_v3.cli_main config set queue.max_workers 4
 ```
 
+### Database Migrations (New in v3)
+```bash
+# Check migration status for all databases
+uv run python -c "
+from src.pipeline_v3.core.registry import DocumentRegistry
+from src.pipeline_v3.core.keyword_index import KeywordIndex
+from src.pipeline_v3.core.fingerprint import FingerprintStore
+from src.pipeline_v3.job_queue.storage import JobStorage
+
+# Check each database's migration status
+registry = DocumentRegistry()
+print(f'Registry DB version: {registry.get_schema_version()}')
+
+keyword_idx = KeywordIndex()
+print(f'Keyword DB version: {keyword_idx.get_schema_version()}')
+
+fingerprints = FingerprintStore()
+print(f'Fingerprints DB version: {fingerprints.get_schema_version()}')
+
+job_storage = JobStorage()
+print(f'Jobs DB version: {job_storage.get_schema_version()}')
+"
+
+# Run migration tests
+uv run python src/pipeline_v3/tests/unit/test_migrations.py
+uv run python src/pipeline_v3/tests/integration/test_migrations_integration.py
+uv run python src/pipeline_v3/tests/regression/test_migrations_regression.py
+```
+
 ### Cache Management
 ```bash
 # Clear storage cache for testing
@@ -268,13 +307,17 @@ uv run python -m src.pipeline_v3.cli_main search "PM10" --type keyword
 ### Development Priorities (Updated):
 
 #### **Next Development Sprint** 🎯
-1. **Issue #18**: Add --with-keywords to update command (Quick win)
-   - Simple CLI consistency fix
-   - Remove need for workaround
+1. **Word & PPT Document Support**: Expand processing capabilities (**IMMEDIATE NEXT**)
+   - Microsoft Office format support
+   - Enterprise document workflow foundation
 
-2. **Issue #17**: Fix keyword generation JSON parsing (Medium)
-   - Debug AI keyword generation failure
-   - Improve error handling and parsing robustness
+2. **Issue #27**: Cross-System Consistency Guarantees (**RELIABILITY**)
+   - Distributed transaction-like behavior with rollback
+   - Prevents data corruption across storage systems
+
+3. **Issues #28 & #29**: OpenAI API Integration Hardening (**ROBUSTNESS**)
+   - Bulletproof AI client with circuit breaker patterns
+   - Production-ready API operations
 
 #### **Future Enhancement Cycle** 🚀
 - 🔧 **Data Quality**: Document-type aware chunking strategies (Issue #14)
@@ -317,6 +360,7 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **Index Consistency:** Automatic verification and repair
 - **Hybrid Search:** Vector + keyword with score normalization
 - **Production Scalability:** Enterprise-grade error handling and recovery
+- **Database Migration Framework:** Version tracking, rollback support, and safe schema evolution
 
 ### Monitoring & Diagnostics:
 - Real-time queue status and performance metrics
@@ -341,4 +385,4 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **📋 Development Status:** [DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)
 
-**Current Focus:** **ARCHITECTURE IMPROVEMENTS REQUIRED** - Core functionality complete but production deployment requires addressing fundamental gaps. Priority: Issues #25-27 (error handling, database migrations, data consistency). See [../../ISSUES.md](../../ISSUES.md) for comprehensive 28-issue roadmap addressing security, reliability, testing, and observability gaps.
+**Current Focus:** **FEATURE EXPANSION & RELIABILITY** - Core functionality + error handling + database migrations complete. Next: Word & PPT support, then reliability & robustness improvements (Issues #27-29). See [../../ISSUES.md](../../ISSUES.md) for comprehensive development roadmap.

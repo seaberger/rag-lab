@@ -35,19 +35,30 @@ cd src/pipeline_v3
 
 ### 🔄 **Active Issues and Priorities**
 
-#### **CRITICAL Production Readiness Issues** 🚨
-- **Issue #25**: No Top-Level Error Handling in CLI Entry Point
-  - Application crashes on unhandled exceptions
-  - No graceful error messages for users
-  - Essential for basic reliability
-- **Issue #26**: No Database Schema Versioning or Migration Framework
-  - Breaking changes on upgrades cause data loss
-  - No safe path for system evolution
-  - Blocks production deployments
-- **Issue #27**: No Cross-System Consistency Guarantees
-  - Data corruption across storage systems (SQLite, Qdrant, JSONL)
-  - Partial failures leave system in inconsistent state
-  - Critical for data integrity
+#### **IMMEDIATE NEXT: Feature Development** 🚀
+**Current Priority**: Word & PPT Document Support
+- Expand document processing beyond PDF to Microsoft Office formats
+- Enable broader enterprise document workflows
+- Foundation for comprehensive document management
+
+#### **PRODUCTION READINESS PIPELINE** 🚨
+**Progress Update**: ✅ Issues #25 & #26 completed - Reliability & Robustness next!
+- **✅ Issue #25**: Top-Level Error Handling in CLI Entry Point (**COMPLETED**)
+  - ✅ Comprehensive CLI error handling with proper exit codes implemented
+  - ✅ Graceful error messages and user-friendly feedback
+  - ✅ Application reliability and crash prevention achieved
+- **✅ Issue #26**: Database Schema Versioning and Migration Framework (**COMPLETED**)
+  - ✅ Implemented comprehensive migration framework with version tracking and rollback
+  - ✅ Safe system evolution and upgrade path now available
+  - ✅ Production deployment blocker removed
+- **Issue #27**: Cross-System Consistency Guarantees (**RELIABILITY**)
+  - **Impact**: Prevents data corruption and ensures system reliability
+  - **Why Critical**: 3+ storage systems (SQLite, Qdrant, JSONL) with no atomic transactions
+  - **Deliverable**: Distributed transaction-like behavior with rollback capabilities
+- **Issues #28 & #29**: OpenAI API Integration Hardening (**ROBUSTNESS**)
+  - **Impact**: Makes the system production-ready for AI operations
+  - **Why Critical**: Core AI functionality has initialization and timeout issues
+  - **Deliverable**: Bulletproof OpenAI client with exponential backoff and circuit breaker patterns
 
 #### **HIGH Priority Issues** 🔥  
 - **Issue #7**: Fix model/part number pair extraction (BOTH V2.1 & V3)
@@ -76,6 +87,17 @@ cd src/pipeline_v3
 **See**: [ISSUES.md](ISSUES.md) - Complete analysis of 28 fundamental architecture gaps across security, error handling, data persistence, configuration, testing, and observability
 
 ### 📋 **Recent Achievements**
+- ✅ **Issue #25 Resolved**: Top-Level Error Handling in CLI Entry Point (**LATEST**)
+  - Comprehensive CLI error handling with proper exit codes (0, 1, 126, 128, 130)
+  - Graceful error messages and user-friendly feedback
+  - Application reliability and crash prevention implemented
+  - Enhanced user experience with proper error handling
+- ✅ **Issue #26 Resolved**: Database Schema Versioning and Migration Framework
+  - Comprehensive MigrationManager with version tracking and rollback support
+  - DatabaseBase class with automatic migration integration
+  - Initial schema migrations for all 4 databases with transaction safety
+  - Comprehensive test suite (unit, integration, regression)
+  - Safe system evolution and upgrade path implemented
 - ✅ **Issue #16 Resolved**: Keyword enhancement restored - storage artifacts now contain keyword-enhanced markdown
 - ✅ **Issue #9 Resolved**: CLI consolidation complete - single production interface
 - ✅ **Issue #6 Resolved**: Storage artifacts now created correctly
@@ -150,28 +172,47 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 ## 🎯 Development Priorities
 
-### **URGENT: Production Readiness** 🚨
-**Focus**: Address fundamental architecture gaps before feature development
-1. **Issue #25**: Add top-level error handling (CRITICAL)
-   - Essential for basic system reliability
-   - Quick fix with immediate impact
-2. **Issue #26**: Implement database schema versioning (CRITICAL)
-   - Required for safe system evolution
-   - Prevents data loss on upgrades
-3. **Issue #27**: Add cross-system consistency guarantees (CRITICAL)
-   - Prevents data corruption
-   - Essential for production deployments
+### **IMMEDIATE: Feature Development** 🚀
+**Focus**: Expand document processing capabilities  
+**Current Priority**: Word & PPT Document Support
+- Expand beyond PDF to Microsoft Office formats
+- Enable broader enterprise document workflows
+- Foundation for comprehensive document management
 
-### **Next Sprint Focus**
-1. **Production Foundation**: Address Issues #25-27 for basic reliability
-2. **Data Quality**: Fix pair extraction (Issue #7) and enhance chunking (Issue #14)
-3. **Architecture Review**: Systematically address gaps from [ISSUES.md](ISSUES.md)
+### **NEXT: Production Readiness** 🚨
+**Focus**: Complete reliability and robustness improvements  
+**Progress**: ✅ Issues #25 & #26 completed - Reliability & Robustness next!
+1. **✅ Issue #25**: Top-level error handling (**COMPLETED**)
+   - ✅ Comprehensive CLI error handling implemented
+   - ✅ Application reliability and crash prevention achieved
+2. **✅ Issue #26**: Database schema versioning (**COMPLETED**)
+   - ✅ Comprehensive migration framework implemented
+   - ✅ Safe system evolution and upgrade path available
+3. **Issue #27**: Cross-system consistency guarantees (**RELIABILITY**)
+   - **Impact**: Prevents data corruption and ensures system reliability
+   - **Why Critical**: 3+ storage systems with no atomic transactions
+   - **Deliverable**: Distributed transaction-like behavior with rollback
+4. **Issues #28 & #29**: OpenAI API integration hardening (**ROBUSTNESS**)
+   - **Impact**: Production-ready AI operations
+   - **Why Critical**: Core AI functionality has timeout/initialization issues
+   - **Deliverable**: Bulletproof OpenAI client with circuit breaker patterns
+
+### **Development Sequence**
+1. **Feature Development**: Word & PPT Document Support (**IMMEDIATE NEXT**)
+2. **Reliability**: Cross-system consistency guarantees (Issue #27)
+3. **Robustness**: OpenAI API integration hardening (Issues #28 & #29)
+4. **Data Quality**: Fix pair extraction (Issue #7) and enhance chunking (Issue #14)
+5. **Architecture Review**: Systematically address gaps from [ISSUES.md](ISSUES.md)
 
 ### **Architecture Improvement Roadmap**
+**Phase 0 (Feature)**: Document processing expansion
+- Word & PPT document support **IMMEDIATE NEXT**
+
 **Phase 1 (Critical)**: Core reliability and data integrity
-- Error handling framework (Issue #25)
-- Database migrations (Issue #26)  
-- Transaction consistency (Issue #27)
+- ✅ Error handling framework (Issue #25) **COMPLETED**
+- ✅ Database migrations (Issue #26) **COMPLETED**
+- Transaction consistency (Issue #27) **RELIABILITY**
+- OpenAI API hardening (Issues #28 & #29) **ROBUSTNESS**
 
 **Phase 2 (High)**: Security and input validation
 - SQL injection protection
@@ -228,6 +269,6 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 **🎯 For Pipeline v3 work, go directly to:** [src/pipeline_v3/CLAUDE.md](src/pipeline_v3/CLAUDE.md)
 
-**📊 Current Status**: Core functionality complete, requires architecture improvements for production  
-**🔄 Active Focus**: Production readiness (Issues #25-27) and systematic architecture gap resolution  
-**📋 Architecture Review**: [ISSUES.md](ISSUES.md) identifies 28 gaps across reliability, security, and maintainability
+**📊 Current Status**: Core functionality + error handling + database migration framework complete, expanding capabilities with Word/PPT support  
+**🔄 Active Focus**: Word & PPT document support, then reliability & robustness improvements ✅ #25 & #26 Complete  
+**📋 Architecture Review**: [ISSUES.md](ISSUES.md) identifies 28 gaps - 2 critical issues resolved, reliability & robustness next
