@@ -225,7 +225,7 @@ async def parse_document(
 
     elif doc_type == DocumentType.DATASHEET_PDF:
         # Use special datasheet prompt with pair extraction
-        markdown, pairs = await vision_parse_datasheet(pdf_path, prompt_text, config)
+        markdown, pairs, _ = await vision_parse_datasheet(pdf_path, prompt_text, config)
         metadata = {
             "source_type": "datasheet_pdf", 
             "extracted_pairs": len(pairs),
@@ -237,7 +237,7 @@ async def parse_document(
 
     elif doc_type == DocumentType.GENERIC_PDF:
         # Use generic prompt without pair extraction
-        markdown, _ = await vision_parse_generic(pdf_path, prompt_text, config)
+        markdown, _, _ = await vision_parse_generic(pdf_path, prompt_text, config)
         pairs = []
         metadata = {
             "source_type": "generic_pdf",
@@ -249,7 +249,7 @@ async def parse_document(
 
     elif doc_type == DocumentType.WORD_DOCUMENT:
         # Parse Word document with python-docx
-        markdown, pairs = await parse_word_document(pdf_path, config)
+        markdown, pairs, _ = await parse_word_document(pdf_path, config)
         metadata = {
             "source_type": "word_document",
             "file_name": pdf_path.name,
@@ -289,17 +289,17 @@ async def parse_document(
             {"markdown": markdown, "pairs": pairs, "metadata": metadata},
         )
 
-    return markdown, pairs, metadata, metadata
+    return markdown, pairs, metadata
 
 
 async def vision_parse_datasheet(
     pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None
-) -> Tuple[str, List[Tuple[str, str]]]:
+) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse datasheet PDF with model/part number extraction."""
     client = OpenAI()
 
     # Get model from config or use default
-    model = config.openai.vision_model if config else "gpt-4o"
+    model = config.openai.vision_model if config else "gpt-4.1"
     max_retries = config.openai.max_retries if config else 3
 
     # Enhanced prompt structure from notebook
@@ -382,17 +382,19 @@ async def vision_parse_datasheet(
         logger.debug(f"Metadata section being parsed: {md[:200]}...")
         pairs = []
 
-    return md, pairs
+    # Return 3 values to match expected interface
+    # Third value is metadata dict (empty for PDFs as metadata is in pairs)
+    return md, pairs, {}
 
 
 async def vision_parse_generic(
     pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None
-) -> Tuple[str, List[Tuple[str, str]]]:
+) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse generic PDF without pair extraction."""
     client = OpenAI()
 
     # Get model from config or use default
-    model = config.openai.vision_model if config else "gpt-4o"
+    model = config.openai.vision_model if config else "gpt-4.1"
     max_retries = config.openai.max_retries if config else 3
 
     # Enhanced prompt for generic PDFs
@@ -430,7 +432,9 @@ async def vision_parse_generic(
         )
 
     response = await call_api()
-    return response.output[0].content[0].text, []
+    # Return 3 values to match expected interface
+    # Generic PDFs don't extract pairs, so return empty list and dict
+    return response.output[0].content[0].text, [], {}
 
 
 async def parse_word_document(
