@@ -330,7 +330,7 @@ uv run python -m src.pipeline_v3.cli_main search "PM10" --type keyword
 ## Key Configuration
 
 Configuration via `config.yaml`:
-- **OpenAI Models:** gpt-4o for vision, text-embedding-3-small for embeddings
+- **OpenAI Models:** gpt-4.1 for vision, gpt-4.1-mini for keywords, text-embedding-3-small for embeddings
 - **Qdrant Settings:** `./qdrant_data_v3`, collection: `datasheets_v3`, dimensions: 1536
 - **Storage:** `./storage_data_v3` (JSONL artifacts with full datasheet content)
 - **Cache:** LZ4 compression, configurable TTL

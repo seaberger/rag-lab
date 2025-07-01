@@ -43,8 +43,8 @@ class BatchSettings:
 @dataclass
 class OpenAISettings:
     api_key: Optional[str] = None
-    vision_model: str = "gpt-4o"
-    keyword_model: str = "gpt-4o-mini"
+    vision_model: str = "gpt-4.1"
+    keyword_model: str = "gpt-4.1-mini"
     embedding_model: str = "text-embedding-3-small"
     dimensions: int = 1536
     max_retries: int = 3

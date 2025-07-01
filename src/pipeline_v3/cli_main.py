@@ -10,7 +10,7 @@ Usage:
 This is a convenience script that imports and runs the main CLI.
 """
 
-from utils.common_utils import init_cli_logging, CLIArgumentError, DependencyError, ConfigLoadError
+from .utils.common_utils import init_cli_logging, CLIArgumentError, DependencyError, ConfigLoadError
 
 # Initialize logging first
 init_cli_logging()
@@ -23,8 +23,8 @@ from pathlib import Path
 # Add the current directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from cli.management import main
-from utils.cleanup import cleanup_temp_resources, get_resource_manager
+from .cli.management import main
+from .utils.cleanup import cleanup_temp_resources, get_resource_manager
 
 logger = logging.getLogger(__name__)
 

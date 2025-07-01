@@ -13,7 +13,7 @@ from .common_utils import logger, retry_api_call
 class KeywordGenerator:
     """Generate contextual keywords for document chunks using OpenAI."""
     
-    def __init__(self, model: str = "gpt-4o-mini", max_keywords: int = 10):
+    def __init__(self, model: str = "gpt-4.1-mini", max_keywords: int = 10):
         self.client = OpenAI()
         self.model = model
         self.max_keywords = max_keywords
@@ -92,7 +92,7 @@ Return only a JSON list of keywords, like: ["keyword1", "keyword2", ...]"""
 
 async def batch_generate_keywords(
     nodes: List[TextNode], 
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-4.1-mini",
     batch_size: int = 10
 ) -> List[TextNode]:
     """Generate keywords for multiple nodes in batches for cost efficiency."""
@@ -234,7 +234,7 @@ async def process_and_index_document(
         if progress:
             progress.update_stage(doc_id, "keywords")
         # Get model from config or use default
-        keyword_model = config.openai.keyword_model if config else "gpt-4o-mini"
+        keyword_model = config.openai.keyword_model if config else "gpt-4.1-mini"
         batch_threshold = config.batch.threshold if config else 10
         
         if len(nodes) > batch_threshold:  # Use batch for large documents
