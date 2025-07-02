@@ -672,16 +672,29 @@ Based on the Pipeline v3 development priorities, issues will be addressed in the
 - ISSUE-ARCH-005: No Event-Driven Architecture
 
 ## Updated Statistics
-- **Total Issues**: 35 (+7 new)
-- **✅ Resolved**: 6 (2 architecture + 4 config/cleanup)
+- **Total Issues**: 36 (+8 new)
+- **✅ Resolved**: 7 (2 architecture + 4 config/cleanup + 1 UX)
 - **🔄 In Progress**: 0
 - **📋 Planned**: 28 (Issue #52 superseded by #56)
 - **🚨 Critical Remaining**: 1 (Issue #27)
 
 ### Priority Breakdown
 - **High Priority**: 9 remaining (2 resolved, 1 superseded)
-- **Medium Priority**: 14 (2 resolved from 16)
+- **Medium Priority**: 14 (3 resolved from 17)
 - **Low Priority**: 5 (2 resolved from 7)
 
 ### New Enterprise Feature
 - **Issue #56**: Multi-tenant collection support - Comprehensive solution for business group isolation
+
+### ISSUE-UX-001: CLI Parameter Design Inconsistency
+**Priority**: ~~MEDIUM~~ **RESOLVED**  
+**GitHub Issue**: [Issue #36](https://github.com/seaberger/rag-lab/issues/36)  
+**Location**: `cli/management.py`  
+**Impact**: Inconsistent user experience
+
+**Description**: CLI mixed parameter paradigms with `--mode datasheet` (parameter with value) and `--with-keywords` (boolean flag).
+
+**Status**: ✅ **RESOLVED** (PR #58) - Implemented enterprise-ready consistent parameter design with:
+- New parameters: `--document-type`, `--processing-options`, `--profile`
+- Backward compatibility with deprecation warnings
+- Enterprise profile support for standardized workflows

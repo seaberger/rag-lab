@@ -152,7 +152,33 @@ python cli_main.py add https://docs.example.com/manual.html
 The pipeline automatically detects document types based on:
 - **File Extension**: .pdf, .docx, .doc, .pptx, .ppt, .md
 - **Content Analysis**: For PDFs, analyzes content to determine if it's a technical datasheet
-- **Mode Override**: Use `--mode` to force a specific classification
+- **Document Type Override**: Use `--document-type` to specify classification
+- **Processing Profiles**: Use `--profile` for predefined configurations
+
+#### New Enterprise-Ready Parameters 🆕
+The CLI now uses consistent, extensible parameters following industry standards:
+
+**Document Types** (`--document-type`):
+- `datasheet` - Technical datasheets with specifications
+- `manual` - User manuals and guides
+- `specification` - Technical specifications
+- `generic` - General documents
+- `auto` - Automatic detection (default)
+
+**Processing Options** (`--processing-options`):
+- `keywords` - Generate keywords for enhanced search
+- `enhanced-metadata` - Extract additional metadata
+- `fast-mode` - Speed-optimized processing
+
+**Processing Profiles** (`--profile`):
+- `standard-datasheet` - Datasheet with keyword enhancement
+- `quick-scan` - Fast processing with reduced timeout
+- `comprehensive` - All enhancements with extended timeout
+
+#### Legacy Parameters (Deprecated)
+The following parameters still work but show deprecation warnings:
+- `--mode` → Use `--document-type` instead
+- `--with-keywords` → Use `--processing-options keywords` instead
 
 ---
 
@@ -191,8 +217,11 @@ python cli_main.py add document.pdf --pages "1-5"
 # Process specific pages
 python cli_main.py add manual.pdf --pages "1,3,5,10-15"
 
-# Process with other options
-python cli_main.py add catalog.pdf --pages "1-10" --with-keywords --mode datasheet
+# Process with other options (new syntax)
+python cli_main.py add catalog.pdf --pages "1-10" --document-type datasheet --processing-options keywords
+
+# Or using a profile
+python cli_main.py add catalog.pdf --pages "1-10" --profile standard-datasheet
 ```
 
 **Benefits:**

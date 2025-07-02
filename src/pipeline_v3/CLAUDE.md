@@ -84,9 +84,14 @@ data/lmc_docs/datasheets/
 - ✅ **Issue #6:** Storage artifacts creation (OpenAI Vision API integration)
 
 ### ✅ Major Completed Features:
+- ✅ **Issue #36:** CLI Parameter Consistency (**COMPLETED & MERGED**)
+  - Enterprise-ready parameters: `--document-type`, `--processing-options`, `--profile`
+  - Backward compatibility with deprecation warnings
+  - Professional design following kubectl/AWS CLI patterns
 - ✅ **Issue #9:** CLI Consolidation (**COMPLETED & MERGED**)
   - Single production CLI with full v2.1 feature parity
-  - Document classification modes: `--mode datasheet|generic|auto`
+  - Document classification: `--document-type datasheet|generic|auto` (was `--mode`)
+  - Processing options: `--processing-options keywords,enhanced-metadata` (was `--with-keywords`)
   - Batch processing: `"docs/*.pdf" --workers 3`
   - Custom prompts: `--prompt custom.md`
   - URL support: Process HTTP/HTTPS documents
@@ -450,7 +455,8 @@ uv run python -m src.pipeline_v3.cli_main add "docs/*.pdf"  # Always use queue
 
 - **Use uv from project root:** Critical for proper environment and imports
 - **Primary CLI:** Use `cli_main.py` for production with full v2.1 feature parity
-- **Keyword Enhancement:** --with-keywords now working, use for better search quality
+- **Enterprise CLI:** New parameters `--document-type`, `--processing-options`, `--profile` (Issue #36)
+- **Keyword Enhancement:** Use `--processing-options keywords` for better search quality
 - **CLI Workaround:** For update with keywords, use `add --force` until Issue #18 resolved
 - **37 PDFs available:** Mix of simple and complex datasheets for comprehensive testing  
 - **Storage isolation:** All v3 components use v3-specific paths to avoid conflicts

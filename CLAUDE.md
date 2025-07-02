@@ -22,10 +22,16 @@ cd src/pipeline_v3
 ### ✅ **Production Ready Components**
 - **Pipeline v3**: Enterprise document processing with OpenAI Vision API
 - **Storage System**: JSONL artifacts with full datasheet parsing
-- **Search Engine**: Hybrid vector + keyword search
+- **Search Engine**: Hybrid vector + keyword search with advanced fusion
 - **Queue Management**: Scalable concurrent processing
+- **Office Documents**: Word & PowerPoint support (Issue #31)
+- **URL Batch Processing**: Web document collections (Issue #45)
 
 ### 🎯 **Completed Major Milestones**
+- **✅ Issue #36**: CLI parameter consistency (**LATEST COMPLETED**)
+  - Enterprise-ready `--document-type`, `--processing-options`, `--profile`
+  - Backward compatibility with deprecation warnings
+  - Professional parameter design following kubectl/AWS CLI patterns
 - **✅ Issue #9**: CLI interface consolidation (**COMPLETED & MERGED**)
   - Single production CLI with full v2.1 feature parity
   - Document classification modes (datasheet/generic/auto)
@@ -87,7 +93,11 @@ cd src/pipeline_v3
 **See**: [ISSUES.md](ISSUES.md) - Complete analysis of 28 fundamental architecture gaps across security, error handling, data persistence, configuration, testing, and observability
 
 ### 📋 **Recent Achievements**
-- ✅ **Issue #25 Resolved**: Top-Level Error Handling in CLI Entry Point (**LATEST**)
+- ✅ **Issue #36 Resolved**: CLI parameter consistency with enterprise design (**LATEST**)
+  - Consistent `--document-type`, `--processing-options`, `--profile` parameters
+  - Backward compatibility with deprecation warnings for smooth transition
+  - Professional CLI design following kubectl/AWS patterns
+- ✅ **Issue #25 Resolved**: Top-Level Error Handling in CLI Entry Point
   - Comprehensive CLI error handling with proper exit codes (0, 1, 126, 128, 130)
   - Graceful error messages and user-friendly feedback
   - Application reliability and crash prevention implemented
