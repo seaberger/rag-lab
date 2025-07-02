@@ -270,14 +270,29 @@ uv run python -m src.pipeline_v3.cli_main add catalog.pdf --pages "1-20"
 - Ensure proper working directory
 
 **Issue**: Repeated timeouts
-- Reduce page range size
-- Increase `--timeout-per-page` value
+- **Important**: Distinguish between shell timeout (2 minutes) and API timeout
+- For shell timeout: Use `--timeout` parameter (e.g., `--timeout 600` for 10 minutes)
+- For API timeout: Reduce page range size or increase `--timeout-per-page` value
 - Check document complexity
 
 **Issue**: Rate limit errors
 - Reduce concurrent workers
 - Increase retry delays in config
 - Consider API tier upgrade
+
+### Understanding Timeout Types
+
+#### Shell/Bash Timeout (Default: 2 minutes)
+- **What**: The shell terminates any command after 2 minutes
+- **When**: Always applies to direct CLI commands
+- **Fix**: Use `--timeout` parameter to extend (up to 600 seconds/10 minutes)
+- **Example**: `uv run python -m src.pipeline_v3.cli_main add doc.pdf --timeout 600`
+
+#### API Timeout (Configurable)
+- **What**: OpenAI API request timeout
+- **When**: Applied per API call based on document complexity
+- **Fix**: Automatically calculated as `base + (pages × per_page)`
+- **Config**: Set in `config.yaml` under `openai.timeout_base` and `openai.timeout_per_page`
 
 ## Future Enhancements
 

@@ -10,9 +10,22 @@ The Pipeline v3 Queue System is a production-grade, asynchronous document proces
 **Direct CLI commands timeout after 2 minutes** due to shell limitations. Since PDF processing with OpenAI Vision API takes approximately 30-45 seconds per page:
 
 - **Small PDFs (1-3 pages)**: Direct CLI is acceptable
-- **Large PDFs (>5 pages)**: Queue system required
+- **Large PDFs (>5 pages)**: Queue system required OR use timeout workaround
 - **Multiple PDFs**: Queue system strongly recommended
 - **Production workloads**: Always use queue system
+
+#### Timeout Workaround for Direct CLI
+For situations where you need to process larger documents without using the queue:
+
+```bash
+# Extend timeout to 10 minutes (600 seconds)
+uv run python -m src.pipeline_v3.cli_main add large_document.pdf --timeout 600
+
+# Or use specific page ranges to reduce processing time
+uv run python -m src.pipeline_v3.cli_main add large_document.pdf --pages 1-10
+```
+
+**Note**: The `--timeout` parameter extends the Bash command timeout, not the internal Python timeouts. This is useful for ad-hoc processing but the queue system remains the recommended approach for production workloads.
 
 ### Benefits of Queue Processing
 1. **No timeout limitations** - Process for hours or days

@@ -16,10 +16,16 @@ This guide provides best practices for processing multiple documents efficiently
 | Scenario | Direct CLI | Queue System | Reason |
 |----------|------------|--------------|---------|
 | Single 2-page PDF | ✅ Use | Optional | Completes in ~60-90 seconds |
-| Single 10-page PDF | ❌ Don't | ✅ Use | Would take ~5-7 minutes |
+| Single 10-page PDF | ⚠️ Use with --timeout | ✅ Preferred | Would take ~5-7 minutes (use --timeout 600) |
 | 5 PDFs (any size) | ❌ Don't | ✅ Use | Sequential processing exceeds timeout |
 | 100+ PDFs | ❌ Never | ✅ Always | Hours of processing time |
 | Production workload | ❌ Never | ✅ Always | Reliability and monitoring required |
+
+**Timeout Workaround**: For medium-sized documents (4-20 pages), you can extend the shell timeout:
+```bash
+# Process 15-page document with 10-minute timeout
+uv run python -m src.pipeline_v3.cli_main add document.pdf --timeout 600
+```
 
 ## Quick Decision Tree
 
@@ -27,7 +33,8 @@ This guide provides best practices for processing multiple documents efficiently
 Is it a single PDF?
 ├─ Yes → How many pages?
 │  ├─ 1-3 pages → Direct CLI is OK
-│  └─ 4+ pages → Use Queue
+│  ├─ 4-20 pages → Direct CLI with --timeout OR Queue
+│  └─ 20+ pages → Always use Queue
 └─ No (multiple PDFs) → Always use Queue
 ```
 
