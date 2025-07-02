@@ -366,6 +366,11 @@ Examples:
             action='store_true',
             help='Show detailed system information'
         )
+        status_parser.add_argument(
+            '--json',
+            action='store_true',
+            help='Output in JSON format'
+        )
         
         # Maintenance command
         maint_parser = subparsers.add_parser('maintenance', help='Run maintenance operations')
@@ -788,11 +793,23 @@ Examples:
     async def handle_status(self, args):
         """Handle system status."""
         try:
+            # Get pipeline status (sync)
+            pipeline_status = self.pipeline.get_status()
+            
+            # Get queue status (sync)
+            queue_status = self.queue.get_status() if self.queue else {}
+            
+            # Get registry statistics (sync)
+            registry_stats = self.registry.get_statistics() if self.registry else {}
+            
+            # Get index statistics (sync)
+            index_stats = self.index_manager.get_statistics() if self.index_manager else {}
+            
             status = {
-                'pipeline': await self.pipeline.get_status(),
-                'queue': await self.queue.get_status() if self.queue else {},
-                'registry': await self.registry.get_statistics() if self.registry else {},
-                'indexes': await self.index_manager.get_status() if self.index_manager else {}
+                'pipeline': pipeline_status,
+                'queue': queue_status,
+                'registry': registry_stats,
+                'indexes': index_stats
             }
             
             if args.detailed or args.json:
