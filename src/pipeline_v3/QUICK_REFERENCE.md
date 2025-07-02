@@ -1,6 +1,7 @@
 # Pipeline v3 Quick Reference 🚀
 
-## 🎉 **LATEST UPDATES** - Issue #22 RESOLVED
+## 🎉 **LATEST UPDATES** - Issues #36 & #22 RESOLVED
+- **✅ NEW: Enterprise CLI Parameters**: Consistent `--document-type`, `--processing-options`, `--profile` (Issue #36)
 - **✅ Enhanced Search**: Advanced hybrid fusion algorithms (RRF, Adaptive, Weighted)
 - **✅ CLI Search Fixed**: All search types working (vector, keyword, hybrid)
 - **✅ Vector Search**: Proper LlamaIndex integration with VectorStoreQuery
@@ -42,21 +43,21 @@ python cli_main.py add "docs/*.pdf"  # Processes reliably
 ### Document Operations
 ```bash
 # Enhanced Add Commands (Issue #9 Features)
-python cli_main.py add document.pdf --mode datasheet
-python cli_main.py add "data/*.pdf" --mode auto --workers 3
-python cli_main.py add /docs --recursive --mode generic
+python cli_main.py add document.pdf --document-type datasheet
+python cli_main.py add "data/*.pdf" --document-type auto --workers 3
+python cli_main.py add /docs --recursive --document-type generic
 python cli_main.py add doc.pdf --prompt custom.md
 python cli_main.py add https://example.com/doc.pdf
 
 # 🆕 Office Document Support (Issue #31)
-python cli_main.py add report.docx --with-keywords
-python cli_main.py add presentation.pptx --mode auto
+python cli_main.py add report.docx --processing-options keywords
+python cli_main.py add presentation.pptx --document-type auto
 python cli_main.py add "docs/*.docx" --workers 3
 python cli_main.py add slides.ppt --metadata type=training
 
 # 🆕 URL Batch Processing (Issue #45)
-python cli_main.py add dummy --url-file urls.json --with-keywords    # Process URLs from batch file
-python cli_main.py add local.pdf --url-file web_docs.md --workers 3  # Mix local + web docs
+python cli_main.py add dummy --url-file urls.json --processing-options keywords    # Process URLs from batch file
+python cli_main.py add local.pdf --url-file web_docs.md --workers 3              # Mix local + web docs
 
 # Enhanced Search (Issue #22)
 python cli_main.py search "keyword"                                    # Hybrid RRF (default)
@@ -107,7 +108,7 @@ python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://si
 python cli_main.py batch validate-urls batch.json
 
 # Test queue performance with URLs
-python cli_main.py batch test-queue batch.json --workers 2 --with-keywords
+python cli_main.py batch test-queue batch.json --workers 2 --processing-options keywords
 ```
 
 ## Advanced Search Guide
