@@ -18,13 +18,13 @@ Pipeline v3 is designed as a distributed, queue-based document processing system
 │         │                   │                   │               │
 ├─────────┼───────────────────┼───────────────────┼───────────────┤
 │         │                   │                   │               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              Queue Management Layer                     │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │   │
-│  │  │ Document    │  │ Job Manager │  │ Scheduler   │     │   │
-│  │  │ Queue       │  │ & Persist   │  │ & Priority  │     │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘     │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│  ╔═════════════════════════════════════════════════════════╗   │
+│  ║            **CRITICAL** Queue Management Layer         ║   │
+│  ║  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     ║   │
+│  ║  │ Document    │  │ Job Manager │  │ Scheduler   │     ║   │
+│  ║  │ Queue       │  │ & Persist   │  │ & Priority  │     ║   │
+│  ║  └─────────────┘  └─────────────┘  └─────────────┘     ║   │
+│  ╚═════════════════════════════════════════════════════════╝   │
 │         │                                                       │
 ├─────────┼───────────────────────────────────────────────────────┤
 │         │                                                       │
@@ -35,6 +35,12 @@ Pipeline v3 is designed as a distributed, queue-based document processing system
 │  │  │ Classifier  │  │ & Change    │  │ Orchestrator│     │   │
 │  │  │             │  │ Detection   │  │             │     │   │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘     │   │
+│  │  ┌─────────────┐  ┌─────────────┐                      │   │
+│  │  │ Office Doc  │  │ Migration   │                      │   │
+│  │  │ Parser      │  │ Framework   │                      │   │
+│  │  │ (.docx/.ppt)│  │ (Legacy     │                      │   │
+│  │  │             │  │ Support)    │                      │   │
+│  │  └─────────────┘  └─────────────┘                      │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │         │                                                       │
 ├─────────┼───────────────────────────────────────────────────────┤
@@ -61,6 +67,38 @@ Pipeline v3 is designed as a distributed, queue-based document processing system
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## API Hardening & Monitoring Components
+
+The system includes enterprise-grade API hardening and monitoring capabilities essential for production deployment:
+
+**🔐 API Hardening Features:**
+- **Centralized API Key Management**: Secure, consistent API key resolution with clear priority hierarchy (explicit → config → environment)
+- **Enhanced Retry Logic**: Sophisticated retry system with exponential backoff, jitter, and intelligent error classification
+- **Circuit Breaker Pattern**: Prevents cascade failures by isolating failing components
+- **Timeout Escalation**: Dynamic timeout adjustment for large documents and complex operations
+- **Rate Limit Protection**: Intelligent backoff multipliers and request throttling
+
+**📊 Monitoring & Observability:**
+- **Real-time Progress Tracking**: Page-by-page processing visibility for large documents
+- **Performance Metrics**: Throughput, latency, and error rate monitoring
+- **Health Checks**: Component status monitoring with configurable alerting
+- **Audit Logging**: Complete operation trail for compliance and debugging
+- **Resource Monitoring**: CPU, memory, and disk usage tracking
+
+**🛡️ Security & Reliability:**
+- **Authentication Security**: Fast-fail on auth errors, secure credential handling
+- **Data Integrity**: Checksums and validation at each processing stage
+- **Graceful Degradation**: Continue processing on partial failures
+- **Dead Letter Queue**: Isolation of persistently failing jobs for analysis
+
+
+
+
+
+
+
+
 
 ## Core Components
 
@@ -93,6 +131,18 @@ Pipeline v3 is designed as a distributed, queue-based document processing system
 - Confidence scoring improvements
 - Custom classification rules
 - Integration with fingerprinting
+
+**OfficeDocParser** (`parsing/office.py`)
+- Microsoft Office document processing (.docx, .pptx, .xlsx)
+- Native content extraction and formatting preservation
+- Embedded media and metadata handling
+- Optimized for enterprise document workflows
+
+**MigrationFramework** (`migration/legacy.py`)
+- Seamless migration from Pipeline v2.x to v3
+- Data format conversion and validation
+- Batch migration with progress tracking
+- Rollback capabilities for failed migrations
 
 **FingerprintManager** (`core/fingerprint.py`)
 - SHA-256 content + metadata hashing
@@ -150,7 +200,7 @@ Pipeline v3 is designed as a distributed, queue-based document processing system
 
 ### 1. Document Ingestion Flow
 ```
-Source Documents → Queue → Fingerprinting → Classification → Processing → Dual Indexing
+Source Documents → Office Parser/Migration Framework → Queue → Fingerprinting → Classification → Processing → Dual Indexing
 ```
 
 ### 2. Update Flow

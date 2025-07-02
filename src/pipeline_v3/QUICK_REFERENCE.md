@@ -42,42 +42,61 @@ python cli_main.py add "docs/*.pdf"  # Processes reliably
 
 ## Essential Commands
 
+### Quick Start Flow (<10 lines)
+```bash
+# Modern document processing with type classification
+python cli_main.py add document.pdf --document-type datasheet --processing-options keywords
+
+# Advanced hybrid search with adaptive fusion
+python cli_main.py search "laser sensors" --fusion-method adaptive --top-k 5
+
+# Directory processing with filtering
+python cli_main.py add /docs --recursive --include-pattern "*.pdf" --exclude-pattern "**/test/**"
+
+# URL batch processing
+python cli_main.py add dummy --url-file batch_urls.json --workers 3
+
+# Page-range processing for large documents
+python cli_main.py add manual.pdf --pages "1-10" --document-type manual
+```
+
 ### Document Operations
 ```bash
-# Enhanced Add Commands (Issues #9 & #36 Features)
-python cli_main.py add document.pdf --document-type datasheet
-python cli_main.py add "data/*.pdf" --document-type auto --workers 3
-python cli_main.py add /docs --recursive --document-type generic
-python cli_main.py add doc.pdf --prompt custom.md
-python cli_main.py add https://example.com/doc.pdf
+# Modern Document Type Classification
+python cli_main.py add datasheet.pdf --document-type datasheet --processing-options keywords
+python cli_main.py add manual.pdf --document-type manual --processing-options enhanced-metadata
+python cli_main.py add spec.pdf --document-type specification --metadata version=2.0
+python cli_main.py add unknown.pdf --document-type auto  # Automatic detection
 
-# 🆕 Enhanced Directory Parsing (Issue #33)
-python cli_main.py add data/docs --recursive --dry-run                    # Preview files
-python cli_main.py add data/docs --include-pattern "*.pdf"               # Only PDFs
-python cli_main.py add data/docs --exclude-pattern "**/test/**"          # Skip test dirs
-python cli_main.py add data/docs --include-pattern "*.docx" --include-pattern "*.pptx"  # Office docs
-python cli_main.py add data/docs --recursive --exclude-pattern "*.tmp" --exclude-pattern ".git/**"
+# Processing Profiles (Predefined Configurations)
+python cli_main.py add catalog.pdf --profile comprehensive
+python cli_main.py add datasheet.pdf --profile standard-datasheet
+python cli_main.py add quick_scan.pdf --profile quick-scan
 
-# 🆕 Office Document Support (Issue #31)
-python cli_main.py add report.docx --processing-options keywords
-python cli_main.py add presentation.pptx --document-type auto
-python cli_main.py add "docs/*.docx" --workers 3
-python cli_main.py add slides.ppt --metadata type=training
+# Advanced Directory Processing with Patterns
+python cli_main.py add /company_docs --recursive --dry-run                      # Preview files
+python cli_main.py add /docs --include-pattern "*.pdf" --exclude-pattern "**/test/**"
+python cli_main.py add /reports --include-pattern "*.docx" --include-pattern "*.pptx" 
+python cli_main.py add /data --recursive --exclude-pattern "*.tmp" --exclude-pattern ".git/**"
 
-# 🆕 URL Batch Processing (Issue #45)
-python cli_main.py add dummy --url-file urls.json --processing-options keywords    # Process URLs from batch file
-python cli_main.py add local.pdf --url-file web_docs.md --workers 3              # Mix local + web docs
+# URL Batch Processing (Modern)
+python cli_main.py add dummy --url-file batch_urls.json --processing-options keywords
+python cli_main.py add local.pdf --url-file web_docs.md --workers 3 --document-type auto
 
-# Enhanced Search (Issue #22)
-python cli_main.py search "keyword"                                    # Hybrid RRF (default)
-python cli_main.py search "PM10K specs" --fusion-method adaptive       # Smart weighting
-python cli_main.py search "calibration" --type keyword --top-k 5       # Exact matching
-python cli_main.py search "sensor tech" --type vector                  # Semantic search
-python cli_main.py search "laser" --filter '{"doc_ids": ["abc123"]}'   # Filtered search
+# Page-Range Processing for Cost Optimization
+python cli_main.py add large_manual.pdf --pages "1-10" --document-type manual
+python cli_main.py add catalog.pdf --pages "1-5,20-30" --processing-options keywords
+python cli_main.py add spec.pdf --pages "1,3,5,10-15" --profile standard-datasheet
 
-# Update documents (re-add with change detection)
-python cli_main.py add document.pdf --force  # Force reprocess
-python cli_main.py remove document.pdf
+# Advanced Search with Multiple Fusion Methods
+python cli_main.py search "laser measurement" --fusion-method adaptive --top-k 10
+python cli_main.py search "PM10K specifications" --type keyword --filter '{"doc_ids": ["abc123"]}'
+python cli_main.py search "calibration procedures" --type hybrid --fusion-method rrf
+python cli_main.py search "thermopile sensor" --type vector --top-k 5
+
+# Document Management
+python cli_main.py add document.pdf --force  # Force reprocess with change detection
+python cli_main.py remove document.pdf       # Remove from all indexes
 ```
 
 ### Queue Management
@@ -107,22 +126,62 @@ python cli_main.py config get queue.max_workers
 python cli_main.py config set queue.max_workers 8
 ```
 
-### 🆕 Batch Operations (Issue #45)
+### Advanced Batch Example (Production)
 ```bash
-# Create URL batch files
+# Start persistent queue for production workloads
+python cli_main.py queue start --workers 8
+
+# Batch process mixed document types with comprehensive filtering
+python cli_main.py add /company_docs --recursive \
+  --include-pattern "*.pdf" --include-pattern "*.docx" \
+  --exclude-pattern "**/archive/**" --exclude-pattern "*.tmp" \
+  --document-type auto --processing-options keywords,enhanced-metadata \
+  --metadata source=production batch_date=$(date +%Y%m%d)
+
+# URL batch processing with profiles
+python cli_main.py add dummy --url-file external_docs.json \
+  --profile quick-scan --workers 4 --metadata source=external
+
+# Page-range batch for large document collections
+python cli_main.py add "catalogs/*.pdf" --pages "1-10" \
+  --document-type datasheet --processing-options keywords --workers 6
+
+# Monitor production batch progress
+python cli_main.py queue status --detailed --json
+
+# Create and validate URL batch files
 python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output batch.json
-python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output batch.md
-
-# Validate URL batch files
 python cli_main.py batch validate-urls batch.json
-
-# Test queue performance with URLs
 python cli_main.py batch test-queue batch.json --workers 2 --processing-options keywords
 ```
 
-## 📁 Enhanced Directory Processing (Issue #33)
+## 🏭 Modern CLI Parameter Guide
 
-### Directory Scanning Options
+### Document Type Classification (`--document-type`)
+| Type | Purpose | Example |
+|------|---------|----------|
+| `datasheet` | Technical datasheets with specifications | `--document-type datasheet` |
+| `manual` | User manuals and guides | `--document-type manual` |
+| `specification` | Technical specifications | `--document-type specification` |
+| `generic` | General documents | `--document-type generic` |
+| `auto` | Automatic detection (default) | `--document-type auto` |
+
+### Processing Options (`--processing-options`)
+| Option | Purpose | Usage |
+|--------|---------|-------|
+| `keywords` | Generate keywords for enhanced search | `--processing-options keywords` |
+| `enhanced-metadata` | Extract additional metadata | `--processing-options enhanced-metadata` |
+| `fast-mode` | Speed-optimized processing | `--processing-options fast-mode` |
+| **Combined** | Multiple options | `--processing-options keywords,enhanced-metadata` |
+
+### Processing Profiles (`--profile`)
+| Profile | Description | Best For |
+|---------|-------------|----------|
+| `standard-datasheet` | Datasheet with keyword enhancement | Technical datasheets |
+| `quick-scan` | Fast processing with reduced timeout | Quick document previews |
+| `comprehensive` | All enhancements with extended timeout | Important documents |
+
+### Directory Filtering
 | Option | Purpose | Example |
 |--------|---------|---------|
 | `--recursive` | Scan subdirectories | `add data/docs --recursive` |
@@ -130,35 +189,24 @@ python cli_main.py batch test-queue batch.json --workers 2 --processing-options 
 | `--include-pattern` | Only include matching files | `--include-pattern "*.pdf"` |
 | `--exclude-pattern` | Skip matching files/dirs | `--exclude-pattern "**/test/**"` |
 
-### Supported File Types
-**Documents**: `.pdf`, `.docx`, `.pptx`, `.doc`, `.ppt`, `.txt`, `.md`, `.markdown`
+### Page Range Selection (`--pages`)
+| Format | Description | Example |
+|--------|-------------|---------|
+| `"1-10"` | Pages 1 through 10 | `--pages "1-10"` |
+| `"1,3,5"` | Specific pages only | `--pages "1,3,5"` |
+| `"1-5,10-15"` | Multiple ranges | `--pages "1-5,10-15"` |
 
-### Common Directory Patterns
+### URL Batch Processing (`--url-file`)
 ```bash
-# Preview all documents in a directory tree
-python cli_main.py add data/documents --recursive --dry-run
+# JSON format batch file
+python cli_main.py add dummy --url-file batch.json --workers 3
 
-# Process only PDFs, exclude temporary files
-python cli_main.py add data/documents --recursive --include-pattern "*.pdf" --exclude-pattern "*.tmp"
+# Markdown format batch file  
+python cli_main.py add dummy --url-file batch.md --processing-options keywords
 
-# Process Office documents only
-python cli_main.py add data/reports --include-pattern "*.docx" --include-pattern "*.pptx"
-
-# Skip test directories and backup files
-python cli_main.py add data/project --recursive --exclude-pattern "**/test/**" --exclude-pattern "*.bak"
-
-# Multiple exclusions for clean processing
-python cli_main.py add data --recursive \
-  --exclude-pattern ".git/**" \
-  --exclude-pattern "node_modules/**" \
-  --exclude-pattern "**/*.tmp"
+# Mix local files with URL batch
+python cli_main.py add local.pdf --url-file web_docs.json --document-type auto
 ```
-
-### Directory Processing Tips
-- **Always use `--dry-run` first** to preview what will be processed
-- **Use `--recursive`** for deep directory scanning
-- **Combine patterns** for precise control over file selection
-- **Exclude common unwanted directories** like `.git`, `node_modules`, `test`
 
 ## Advanced Search Guide
 
@@ -189,17 +237,24 @@ python cli_main.py search "thermopile sensor" --fusion-method rrf
 python cli_main.py search "laser measurement" --fusion-method weighted
 ```
 
-### Query Optimization Tips
+### Query Optimization Examples
 
 ```bash
-# Model Numbers → Use keyword or adaptive
-python cli_main.py search "LabMax Touch PN 2256258" --type keyword
+# Model Numbers → Use keyword or adaptive fusion
+python cli_main.py search "LabMax Touch PN 2256258" --type keyword --top-k 5
+python cli_main.py search "PM10K specifications" --fusion-method adaptive
 
-# Technical Concepts → Use vector or adaptive  
-python cli_main.py search "thermopile calibration methodology" --type vector
+# Technical Concepts → Use vector or adaptive search
+python cli_main.py search "thermopile calibration methodology" --type vector --top-k 10
+python cli_main.py search "laser measurement accuracy" --fusion-method adaptive
 
-# Mixed Queries → Use hybrid with RRF
-python cli_main.py search "PM10K sensor accuracy specifications" --fusion-method rrf
+# Mixed Queries → Use hybrid with RRF (most reliable)
+python cli_main.py search "PM10K sensor accuracy specifications" --fusion-method rrf --top-k 8
+python cli_main.py search "optical sensor calibration procedures" --type hybrid
+
+# Filtered Search → Combine with document filtering
+python cli_main.py search "calibration" --filter '{"doc_ids": ["datasheet_123", "manual_456"]}'
+python cli_main.py search "specifications" --type keyword --filter '{"doc_ids": ["specific_doc"]}'
 ```
 
 ### Basic Filtering
