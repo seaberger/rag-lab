@@ -303,6 +303,21 @@ Examples:
             '--pages',
             help='Page range to process (e.g., "1-5", "1,3,7", "10-20", "1-10,15-20"). Useful for testing large documents or processing specific sections.'
         )
+        add_parser.add_argument(
+            '--exclude-pattern',
+            action='append',
+            help='Glob patterns to exclude (e.g., "*.tmp", "**/test/**", ".git/**"). Can be specified multiple times.'
+        )
+        add_parser.add_argument(
+            '--include-pattern',
+            action='append',
+            help='Glob patterns to include (e.g., "*.pdf", "reports/**/*.docx"). Can be specified multiple times.'
+        )
+        add_parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help='Preview files that would be processed without actually processing them'
+        )
         
         
         # Remove command
@@ -501,7 +516,8 @@ Examples:
             command_string = ' '.join(sys.argv[1:])
             raise CLIArgumentError("Unknown command. Use --help for usage information.", command_string=command_string)
 
-    def _resolve_sources(self, sources: List[str], recursive: bool = False, url_file: Optional[str] = None) -> List[str]:
+    def _resolve_sources(self, sources: List[str], recursive: bool = False, url_file: Optional[str] = None,
+                        exclude_patterns: Optional[List[str]] = None, include_patterns: Optional[List[str]] = None) -> List[str]:
         """Resolve sources to actual file paths.
         
         Supports:
@@ -550,16 +566,26 @@ Examples:
                 
             # Handle directories
             if source_path.is_dir():
+                print(f"📁 Scanning directory: {source_path}" + (" (recursive)" if recursive else ""))
+                
+                # Define supported file extensions (including Office documents)
+                supported_extensions = ['.pdf', '.txt', '.md', '.markdown', '.docx', '.pptx', '.doc', '.ppt']
+                
+                dir_files = []
                 if recursive:
-                    # Recursively find all PDF and text files
-                    patterns = ['**/*.pdf', '**/*.txt', '**/*.md']
+                    # Recursively find all supported files
+                    patterns = ['**/*' + ext for ext in supported_extensions]
                     for pattern in patterns:
-                        resolved.extend(str(p) for p in source_path.glob(pattern))
+                        dir_files.extend(str(p) for p in source_path.glob(pattern))
                 else:
                     # Just immediate children
-                    patterns = ['*.pdf', '*.txt', '*.md']
+                    patterns = ['*' + ext for ext in supported_extensions]
                     for pattern in patterns:
-                        resolved.extend(str(p) for p in source_path.glob(pattern))
+                        dir_files.extend(str(p) for p in source_path.glob(pattern))
+                
+                if dir_files:
+                    print(f"   Found {len(dir_files)} document(s) in {source_path}")
+                resolved.extend(dir_files)
                 continue
                 
             # Handle glob patterns
@@ -567,19 +593,53 @@ Examples:
                 matches = glob.glob(source, recursive=recursive)
                 if matches:
                     # Filter to supported file types
+                    supported_extensions = ['.pdf', '.txt', '.md', '.markdown', '.docx', '.pptx', '.doc', '.ppt']
                     for match in matches:
                         match_path = Path(match)
-                        if match_path.is_file() and match_path.suffix.lower() in ['.pdf', '.txt', '.md']:
+                        if match_path.is_file() and match_path.suffix.lower() in supported_extensions:
                             resolved.append(match)
                 else:
                     print(f"Warning: No files found matching pattern: {source}")
             except Exception as e:
                 print(f"Warning: Invalid glob pattern '{source}': {e}")
                 
+        # Apply include/exclude filters
+        filtered_resolved = []
+        for path in resolved:
+            # Skip URLs from filtering
+            if path.startswith(('http://', 'https://')):
+                filtered_resolved.append(path)
+                continue
+                
+            path_obj = Path(path)
+            
+            # Check exclude patterns
+            excluded = False
+            if exclude_patterns:
+                for pattern in exclude_patterns:
+                    if path_obj.match(pattern) or any(p.match(pattern) for p in path_obj.parents):
+                        excluded = True
+                        break
+            
+            if excluded:
+                continue
+                
+            # Check include patterns (if specified, file must match at least one)
+            if include_patterns:
+                included = False
+                for pattern in include_patterns:
+                    if path_obj.match(pattern):
+                        included = True
+                        break
+                if not included:
+                    continue
+                    
+            filtered_resolved.append(path)
+        
         # Remove duplicates while preserving order
         seen = set()
         unique_resolved = []
-        for path in resolved:
+        for path in filtered_resolved:
             if path not in seen:
                 seen.add(path)
                 unique_resolved.append(path)
@@ -724,13 +784,48 @@ Examples:
         args = self._migrate_deprecated_parameters(args)
         
         # Resolve all sources (files, URLs, directories, globs, URL files)
-        resolved_sources = self._resolve_sources(args.sources, args.recursive, getattr(args, 'url_file', None))
+        resolved_sources = self._resolve_sources(
+            args.sources, 
+            args.recursive, 
+            getattr(args, 'url_file', None),
+            getattr(args, 'exclude_pattern', None),
+            getattr(args, 'include_pattern', None)
+        )
         
         if not resolved_sources:
             print("No documents found to process.")
             return
             
         print(f"Found {len(resolved_sources)} document(s) to process")
+        
+        # If dry-run, show what would be processed and exit
+        if getattr(args, 'dry_run', False):
+            print("\n🔍 DRY RUN - Files that would be processed:")
+            
+            # Group by type
+            by_type = {}
+            for source in resolved_sources:
+                if source.startswith(('http://', 'https://')):
+                    file_type = 'URL'
+                else:
+                    file_type = Path(source).suffix.lower() or 'no extension'
+                by_type.setdefault(file_type, []).append(source)
+            
+            # Display by type
+            for file_type, files in sorted(by_type.items()):
+                print(f"\n  {file_type} ({len(files)} files):")
+                for file in sorted(files)[:10]:  # Show first 10
+                    print(f"    • {file}")
+                if len(files) > 10:
+                    print(f"    ... and {len(files) - 10} more")
+            
+            print(f"\n📊 Summary:")
+            print(f"   Total files: {len(resolved_sources)}")
+            for file_type, files in sorted(by_type.items()):
+                print(f"   {file_type}: {len(files)}")
+            
+            print("\n✅ Dry run complete. Use without --dry-run to process these files.")
+            return
         
         # Parse metadata
         metadata = self._parse_metadata(args.metadata)

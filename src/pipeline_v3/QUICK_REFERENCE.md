@@ -9,6 +9,8 @@
 - **✅ Production Ready**: All core functionality restored and enhanced
 
 ## ✅ Recent Features Added
+- **Issue #36**: 🆕 Enterprise CLI parameter consistency (`--document-type`, `--processing-options`, `--profile`)
+- **Issue #33**: 🆕 Enhanced directory parsing with filtering and Office document support (**LATEST**)
 - **Issue #45**: 🆕 URL Batch Processing (process URLs from markdown/JSON files)
 - **Issue #31**: 🆕 Microsoft Office document support (Word & PowerPoint)
 - **Issue #22**: Enhanced search with advanced hybrid fusion methods
@@ -42,12 +44,19 @@ python cli_main.py add "docs/*.pdf"  # Processes reliably
 
 ### Document Operations
 ```bash
-# Enhanced Add Commands (Issue #9 Features)
+# Enhanced Add Commands (Issues #9 & #36 Features)
 python cli_main.py add document.pdf --document-type datasheet
 python cli_main.py add "data/*.pdf" --document-type auto --workers 3
 python cli_main.py add /docs --recursive --document-type generic
 python cli_main.py add doc.pdf --prompt custom.md
 python cli_main.py add https://example.com/doc.pdf
+
+# 🆕 Enhanced Directory Parsing (Issue #33)
+python cli_main.py add data/docs --recursive --dry-run                    # Preview files
+python cli_main.py add data/docs --include-pattern "*.pdf"               # Only PDFs
+python cli_main.py add data/docs --exclude-pattern "**/test/**"          # Skip test dirs
+python cli_main.py add data/docs --include-pattern "*.docx" --include-pattern "*.pptx"  # Office docs
+python cli_main.py add data/docs --recursive --exclude-pattern "*.tmp" --exclude-pattern ".git/**"
 
 # 🆕 Office Document Support (Issue #31)
 python cli_main.py add report.docx --processing-options keywords
@@ -110,6 +119,46 @@ python cli_main.py batch validate-urls batch.json
 # Test queue performance with URLs
 python cli_main.py batch test-queue batch.json --workers 2 --processing-options keywords
 ```
+
+## 📁 Enhanced Directory Processing (Issue #33)
+
+### Directory Scanning Options
+| Option | Purpose | Example |
+|--------|---------|---------|
+| `--recursive` | Scan subdirectories | `add data/docs --recursive` |
+| `--dry-run` | Preview files without processing | `add data/docs --dry-run` |
+| `--include-pattern` | Only include matching files | `--include-pattern "*.pdf"` |
+| `--exclude-pattern` | Skip matching files/dirs | `--exclude-pattern "**/test/**"` |
+
+### Supported File Types
+**Documents**: `.pdf`, `.docx`, `.pptx`, `.doc`, `.ppt`, `.txt`, `.md`, `.markdown`
+
+### Common Directory Patterns
+```bash
+# Preview all documents in a directory tree
+python cli_main.py add data/documents --recursive --dry-run
+
+# Process only PDFs, exclude temporary files
+python cli_main.py add data/documents --recursive --include-pattern "*.pdf" --exclude-pattern "*.tmp"
+
+# Process Office documents only
+python cli_main.py add data/reports --include-pattern "*.docx" --include-pattern "*.pptx"
+
+# Skip test directories and backup files
+python cli_main.py add data/project --recursive --exclude-pattern "**/test/**" --exclude-pattern "*.bak"
+
+# Multiple exclusions for clean processing
+python cli_main.py add data --recursive \
+  --exclude-pattern ".git/**" \
+  --exclude-pattern "node_modules/**" \
+  --exclude-pattern "**/*.tmp"
+```
+
+### Directory Processing Tips
+- **Always use `--dry-run` first** to preview what will be processed
+- **Use `--recursive`** for deep directory scanning
+- **Combine patterns** for precise control over file selection
+- **Exclude common unwanted directories** like `.git`, `node_modules`, `test`
 
 ## Advanced Search Guide
 
