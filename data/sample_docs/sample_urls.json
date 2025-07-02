@@ -1,0 +1,8 @@
+{
+  "description": "Sample URLs for Pipeline v3 testing",
+  "urls": [
+    "https://www.coherent.com/content/dam/coherent/site/en/resources/datasheet/power-and-energy-measurement/powermax-usb-uv-vis-power-sensors-ds.pdf",
+    "https://www.coherent.com/content/dam/coherent/site/en/resources/laser-measurement-and-control-help-center/application-notes-and-white-papers/application-notes/understanding-a-certificate-of-calibration.pdf"
+  ],
+  "total_count": 2
+}
