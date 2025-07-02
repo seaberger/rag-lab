@@ -74,20 +74,30 @@ async def fetch_document(source: Union[str, Path]) -> Tuple[Path, str, bytes]:
                     # Create doc_id from URL
                     doc_id = hashlib.sha256(source.encode()).hexdigest()[:16]
                     
-                    # Save to temporary file using cleanup manager
+                    # Save to temporary file - don't use context manager since we need file to persist
+                    import tempfile
                     parsed_url = urlparse(source)
                     filename = Path(parsed_url.path).name or f"document_{doc_id}"
                     suffix = Path(filename).suffix or '.pdf'
                     
-                    with temporary_file(suffix=suffix, prefix='download_') as temp_path:
-                        temp_path.write_bytes(raw_bytes)
-                        logger.info(f"Downloaded {len(raw_bytes)} bytes from {source}")
+                    # Create temporary file without context manager
+                    with tempfile.NamedTemporaryFile(
+                        mode='wb', 
+                        suffix=suffix, 
+                        prefix='download_', 
+                        delete=False
+                    ) as tf:
+                        temp_path = Path(tf.name)
                         
-                        # Register with resource manager for cleanup
-                        resource_manager = get_resource_manager()
-                        resource_manager.register_temp_file(temp_path)
-                        
-                        return temp_path, doc_id, raw_bytes
+                    # Write content to the persistent temp file
+                    temp_path.write_bytes(raw_bytes)
+                    logger.info(f"Downloaded {len(raw_bytes)} bytes from {source}")
+                    
+                    # Register with resource manager for cleanup
+                    resource_manager = get_resource_manager()
+                    resource_manager.register_temp_file(temp_path)
+                    
+                    return temp_path, doc_id, raw_bytes
                     
         except Exception as e:
             logger.error(f"Failed to fetch URL {source}: {e}")

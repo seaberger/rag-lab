@@ -113,10 +113,17 @@ class EnhancedPipeline:
             # Parse document content if not provided
             if content is None:
                 self.progress_monitor.update_stage(temp_doc_id, "parsing")
+                # Define source_path for both URL and local file cases
                 if not is_url:
                     source_path = Path(source)
                     if not source_path.exists():
                         raise FileNotFoundError(f"Source file not found: {source}")
+                else:
+                    # For URLs, create a temporary path representation for logging
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(source)
+                    filename = Path(parsed_url.path).name or "url_document"
+                    source_path = Path(filename)
                 
                 try:
                     # Parse the document using OpenAI APIs for PDFs
@@ -135,23 +142,27 @@ class EnhancedPipeline:
                     
                 except TimeoutError as e:
                     logger.error(f"Document parsing timed out for {source}: {e}")
-                    # Get page count for helpful error message
-                    try:
-                        from pdf2image import pdfinfo_from_path
-                        info = pdfinfo_from_path(str(source_path))
-                        page_count = info.get('Pages', 'unknown')
-                        logger.error(f"Document has {page_count} pages. Consider using --timeout or --timeout-per-page to increase limits.")
-                    except:
-                        pass
+                    # Get page count for helpful error message (only for local files)
+                    if not is_url:
+                        try:
+                            from pdf2image import pdfinfo_from_path
+                            info = pdfinfo_from_path(str(source_path))
+                            page_count = info.get('Pages', 'unknown')
+                            logger.error(f"Document has {page_count} pages. Consider using --timeout or --timeout-per-page to increase limits.")
+                        except:
+                            pass
                     raise
                 except Exception as e:
                     logger.error(f"Document parsing failed for {source}: {e}")
-                    # Fall back to reading as text if parsing fails
-                    if str(source_path).endswith('.pdf'):
+                    # Fall back to reading as text if parsing fails (only for local files)
+                    if not is_url and str(source_path).endswith('.pdf'):
                         raise  # Don't fall back for PDFs
-                    content = source_path.read_text(encoding='utf-8', errors='ignore')
-                    self._temp_pairs = []
-                    self._temp_parsed_metadata = {}
+                    elif not is_url:
+                        content = source_path.read_text(encoding='utf-8', errors='ignore')
+                        self._temp_pairs = []
+                        self._temp_parsed_metadata = {}
+                    else:
+                        raise  # For URLs, always raise the exception
             
             # Update progress to change detection stage
             self.progress_monitor.update_stage(temp_doc_id, "change_detection")
@@ -342,8 +353,11 @@ class EnhancedPipeline:
         
         # For PDFs, use fetch_document and parse_document
         if doc_type.name.endswith('_PDF'):
-            # Get PDF path and bytes using fetch_document
-            pdf_path, _, raw_bytes = await fetch_document(source)
+            # Get PDF path and bytes using fetch_document (reuse if already downloaded for URL)
+            if is_url:
+                pdf_path, raw_bytes = source_path, content_bytes
+            else:
+                pdf_path, _, raw_bytes = await fetch_document(source)
             
             # Load prompt from file or use appropriate default
             if prompt_file and Path(prompt_file).exists():
@@ -375,8 +389,8 @@ class EnhancedPipeline:
                 pdf_path, doc_type, prompt_text, self.cache, self.config
             )
             
-            # Clean up temporary file if created
-            if pdf_path != source_path:
+            # Clean up temporary file if created from URL
+            if is_url:
                 try:
                     pdf_path.unlink()
                 except:
