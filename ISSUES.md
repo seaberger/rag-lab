@@ -553,14 +553,14 @@ Based on the Pipeline v3 development priorities, issues will be addressed in the
 ## 📋 Configuration & Implementation Gaps (NEW FINDINGS)
 
 ### ISSUE-CONFIG-006: Missing SearchSettings Configuration
-**Priority**: MEDIUM  
+**Priority**: ~~MEDIUM~~ **RESOLVED**  
 **GitHub Issue**: [Issue #49](https://github.com/seaberger/rag-lab/issues/49)  
 **Location**: `search/cli.py`, `utils/config.py`  
 **Impact**: Search parameters hardcoded, not configurable
 
 **Description**: Search functionality uses hardcoded values (hybrid_alpha, paths) with FIXME comments indicating these should come from configuration.
 
-**Fix**: Add SearchSettings dataclass to configuration system.
+**Status**: ✅ **RESOLVED** (PR #57) - Added SearchSettings dataclass with hybrid_alpha, default_limit, and default_mode configuration.
 
 ### ISSUE-CONFIG-007: Hardcoded Qdrant Collection Names
 **Priority**: ~~HIGH~~ **SUPERSEDED**  
@@ -573,24 +573,24 @@ Based on the Pipeline v3 development priorities, issues will be addressed in the
 **Status**: **CLOSED** - Superseded by comprehensive multi-tenant collection support (Issue #56) which provides complete business group isolation with collection-aware storage and search.
 
 ### ISSUE-CONFIG-008: Hardcoded Validation Parameters
-**Priority**: MEDIUM  
+**Priority**: ~~MEDIUM~~ **RESOLVED**  
 **GitHub Issue**: [Issue #51](https://github.com/seaberger/rag-lab/issues/51)  
 **Location**: `utils/validation.py`  
 **Impact**: File type and size limits not configurable
 
 **Description**: Validation parameters (allowed_extensions, max_file_size) hardcoded with FIXME comments.
 
-**Fix**: Move validation parameters to ValidationSettings configuration.
+**Status**: ✅ **RESOLVED** (PR #57) - Moved validation parameters to ValidationSettings configuration.
 
 ### ISSUE-CONFIG-009: Monitoring Report Path Hardcoded
-**Priority**: LOW  
+**Priority**: ~~LOW~~ **RESOLVED**  
 **GitHub Issue**: [Issue #50](https://github.com/seaberger/rag-lab/issues/50)  
 **Location**: `utils/monitoring.py` line 152  
 **Impact**: Report location not configurable
 
 **Description**: Report filepath hardcoded as "pipeline_report.json" despite config having report_file field.
 
-**Fix**: Use config.monitoring.report_file instead of hardcoded value.
+**Status**: ✅ **RESOLVED** (PR #57) - Updated save_report() to use config.monitoring.report_file.
 
 ### ISSUE-IMPL-001: LlamaIndex MetadataFilters Not Implemented
 **Priority**: MEDIUM  
@@ -613,14 +613,14 @@ Based on the Pipeline v3 development priorities, issues will be addressed in the
 **Fix**: Implement pairs filtering logic for vector store queries.
 
 ### ISSUE-CLEANUP-001: Outdated FIXME Comment
-**Priority**: LOW  
+**Priority**: ~~LOW~~ **RESOLVED**  
 **GitHub Issue**: [Issue #55](https://github.com/seaberger/rag-lab/issues/55)  
 **Location**: `core/pipeline.py` lines 47-53  
 **Impact**: Confusing documentation
 
 **Description**: FIXME comment references items that have been implemented elsewhere.
 
-**Fix**: Remove or update outdated comment.
+**Status**: ✅ **RESOLVED** (PR #57) - Removed outdated FIXME comment and replaced with clarifying note.
 
 ## Updated Priority Matrix
 
@@ -673,15 +673,15 @@ Based on the Pipeline v3 development priorities, issues will be addressed in the
 
 ## Updated Statistics
 - **Total Issues**: 35 (+7 new)
-- **✅ Resolved**: 2
+- **✅ Resolved**: 6 (2 architecture + 4 config/cleanup)
 - **🔄 In Progress**: 0
-- **📋 Planned**: 32 (Issue #52 superseded by #56)
+- **📋 Planned**: 28 (Issue #52 superseded by #56)
 - **🚨 Critical Remaining**: 1 (Issue #27)
 
 ### Priority Breakdown
 - **High Priority**: 9 remaining (2 resolved, 1 superseded)
-- **Medium Priority**: 16 (+4 new)
-- **Low Priority**: 7 (+2 new)
+- **Medium Priority**: 14 (2 resolved from 16)
+- **Low Priority**: 5 (2 resolved from 7)
 
 ### New Enterprise Feature
 - **Issue #56**: Multi-tenant collection support - Comprehensive solution for business group isolation
