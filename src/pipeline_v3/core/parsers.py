@@ -10,7 +10,8 @@ from openai import OpenAI
 # Use absolute imports to avoid relative import issues
 try:
     from storage.cache import CacheManager
-    from utils.common_utils import logger, retry_api_call
+    from utils.common_utils import logger
+    from utils.enhanced_retry import enhanced_retry_api_call
     from utils.config import PipelineConfig
     from utils.openai_client import create_vision_client
 except ImportError:
@@ -18,7 +19,8 @@ except ImportError:
     import sys
     sys.path.append(str(Path(__file__).parent.parent))
     from storage.cache import CacheManager
-    from utils.common_utils import logger, retry_api_call
+    from utils.common_utils import logger
+    from utils.enhanced_retry import enhanced_retry_api_call
     from utils.config import PipelineConfig
     from utils.openai_client import create_vision_client
 
@@ -340,7 +342,7 @@ async def vision_parse_datasheet(
     logger.info(f"Using timeout of {api_timeout}s for {page_count} pages")
 
     # Make API call with retry using Responses API
-    @retry_api_call(max_attempts=max_retries, timeout=api_timeout)
+    @enhanced_retry_api_call(max_attempts=max_retries, timeout=api_timeout, retry_type="vision")
     async def call_api():
         return client.responses.create(
             model=model,
@@ -425,7 +427,7 @@ async def vision_parse_generic(
     api_timeout = timeout_base + (page_count * timeout_per_page)
     logger.info(f"Using timeout of {api_timeout}s for {page_count} pages")
 
-    @retry_api_call(max_attempts=max_retries, timeout=api_timeout)
+    @enhanced_retry_api_call(max_attempts=max_retries, timeout=api_timeout, retry_type="vision")
     async def call_api():
         return client.responses.create(
             model=model,

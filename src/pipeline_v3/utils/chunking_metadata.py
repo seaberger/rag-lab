@@ -8,7 +8,8 @@ from llama_index.core.schema import Document, TextNode
 from .monitoring import ProgressMonitor
 
 from openai import OpenAI
-from .common_utils import logger, retry_api_call
+from .common_utils import logger
+from .enhanced_retry import enhanced_retry_api_call
 from .openai_client import create_text_client
 
 class KeywordGenerator:
@@ -56,7 +57,7 @@ Text chunk:
 
 Return only a JSON list of keywords, like: ["keyword1", "keyword2", ...]"""
 
-        @retry_api_call(max_attempts=3)
+        @enhanced_retry_api_call(max_attempts=3, retry_type="text")
         async def call_api():
             return self.client.chat.completions.create(
                 model=self.model,
@@ -132,7 +133,7 @@ Return JSON format:
     ...
 }}"""
 
-            @retry_api_call(max_attempts=3)
+            @enhanced_retry_api_call(max_attempts=3, retry_type="batch")
             async def call_batch_api():
                 client = create_text_client()
                 return client.chat.completions.create(
