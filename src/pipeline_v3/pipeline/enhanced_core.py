@@ -83,7 +83,8 @@ class EnhancedPipeline:
         index_types: IndexType = IndexType.BOTH,
         mode: str = "auto",
         prompt_file: Optional[str] = None,
-        with_keywords: bool = False
+        with_keywords: bool = False,
+        page_range: Optional[str] = None
     ) -> Dict[str, Any]:
         """Process a single document with intelligent change detection.
         
@@ -128,7 +129,7 @@ class EnhancedPipeline:
                 try:
                     # Parse the document using OpenAI APIs for PDFs
                     content, pairs, parsed_metadata = await self._parse_document_with_openai(
-                        source, "temp_id", mode=mode, prompt_file=prompt_file
+                        source, "temp_id", mode=mode, prompt_file=prompt_file, page_range=page_range
                     )
                     
                     # Merge parsed metadata with provided metadata
@@ -321,7 +322,8 @@ class EnhancedPipeline:
         source: Union[str, Path],
         doc_id: str,
         mode: str = "auto",
-        prompt_file: Optional[str] = None
+        prompt_file: Optional[str] = None,
+        page_range: Optional[str] = None
     ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
         """Parse document using OpenAI APIs for PDFs or direct read for text.
         
@@ -386,7 +388,7 @@ class EnhancedPipeline:
             
             # Parse using OpenAI
             markdown, pairs, metadata = await parse_document(
-                pdf_path, doc_type, prompt_text, self.cache, self.config
+                pdf_path, doc_type, prompt_text, self.cache, self.config, page_range
             )
             
             # Clean up temporary file if created from URL

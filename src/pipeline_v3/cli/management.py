@@ -278,6 +278,10 @@ Examples:
             '--url-file',
             help='Path to markdown or JSON file containing URLs to process'
         )
+        add_parser.add_argument(
+            '--pages',
+            help='Page range to process (e.g., "1-5", "1,3,7", "10-20", "1-10,15-20"). Useful for testing large documents or processing specific sections.'
+        )
         
         
         # Remove command
@@ -626,7 +630,8 @@ Examples:
                     index_types=self._parse_index_type(args.index_type),
                     mode=args.mode,
                     prompt_file=args.prompt,
-                    with_keywords=getattr(args, 'with_keywords', False)
+                    with_keywords=getattr(args, 'with_keywords', False),
+                    page_range=getattr(args, 'pages', None)
                 )
                 
                 if args.json:
@@ -653,7 +658,8 @@ Examples:
                     "force_reprocess": args.force,
                     "mode": args.mode,
                     "prompt_file": args.prompt,
-                    "with_keywords": getattr(args, 'with_keywords', False)
+                    "with_keywords": getattr(args, 'with_keywords', False),
+                    "page_range": getattr(args, 'pages', None)
                 }
                 document_infos.append(doc_info)
             

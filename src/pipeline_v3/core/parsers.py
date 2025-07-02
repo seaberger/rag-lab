@@ -14,6 +14,7 @@ try:
     from utils.enhanced_retry import enhanced_retry_api_call
     from utils.config import PipelineConfig
     from utils.openai_client import create_vision_client
+    from utils.page_range import PageRangeParser, PageProgressMonitor, get_page_count_from_pdf
 except ImportError:
     # Fallback for when running from different directory
     import sys
@@ -23,6 +24,7 @@ except ImportError:
     from utils.enhanced_retry import enhanced_retry_api_call
     from utils.config import PipelineConfig
     from utils.openai_client import create_vision_client
+    from utils.page_range import PageRangeParser, PageProgressMonitor, get_page_count_from_pdf
 
 def _find_poppler() -> Optional[str]:
     """Return directory that contains pdfinfo/pdftoppm (Poppler) or None."""
@@ -30,11 +32,19 @@ def _find_poppler() -> Optional[str]:
     exe = shutil.which("pdfinfo")
     return None if exe is None else str(Path(exe).parent)
 
-def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str] = None) -> Tuple[List[str], int]:
+def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str] = None, page_range: Optional[str] = None) -> Tuple[List[str], int]:
     """Convert PDF pages to base64 data URIs for OpenAI Vision API.
     
+    Args:
+        pdf_path: Path to PDF file
+        dpi: DPI for image conversion
+        poppler_path: Path to Poppler binaries
+        page_range: Page range specification (e.g., "1-5", "1,3,7")
+    
     Returns:
-        Tuple of (data_uris, page_count)
+        Tuple of (data_uris, total_page_count)
+        Note: total_page_count is the original document page count,
+              len(data_uris) is the number of processed pages
     """
     import base64
     import io
@@ -47,16 +57,65 @@ def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str
             logger.warning("Poppler not found in PATH. PDF conversion may fail.")
     
     try:
-        # Convert PDF pages to PIL Images
-        images = convert_from_path(
-            str(pdf_path),
-            dpi=dpi,  # Configurable DPI
-            fmt='RGB',
-            poppler_path=poppler_path
-        )
+        # First, get total page count for validation and progress tracking
+        total_page_count = get_page_count_from_pdf(pdf_path)
         
-        page_count = len(images)
+        # Parse page range if specified
+        if page_range:
+            try:
+                page_numbers = PageRangeParser.parse(page_range, total_page_count)
+                logger.info(f"Processing {PageRangeParser.format_page_summary(page_numbers)} of {pdf_path.name}")
+            except Exception as e:
+                logger.error(f"Invalid page range '{page_range}': {e}")
+                raise ValueError(f"Invalid page range: {e}")
+        else:
+            page_numbers = list(range(1, total_page_count + 1))
+            logger.info(f"Processing all {total_page_count} pages of {pdf_path.name}")
+        
+        # Initialize progress monitor
+        progress_monitor = PageProgressMonitor(total_page_count, page_numbers)
+        
+        # Convert only specified pages to PIL Images
+        if len(page_numbers) == total_page_count and page_numbers == list(range(1, total_page_count + 1)):
+            # Converting all pages - use simple approach
+            progress_monitor.start_processing(1)
+            images = convert_from_path(
+                str(pdf_path),
+                dpi=dpi,
+                fmt='RGB',
+                poppler_path=poppler_path
+            )
+            progress_monitor.finish_processing(total_page_count)
+        else:
+            # Converting specific pages - use page-by-page approach for progress monitoring
+            images = []
+            for page_num in page_numbers:
+                progress_monitor.start_processing(page_num)
+                try:
+                    # Convert single page
+                    page_images = convert_from_path(
+                        str(pdf_path),
+                        dpi=dpi,
+                        fmt='RGB',
+                        poppler_path=poppler_path,
+                        first_page=page_num,
+                        last_page=page_num
+                    )
+                    if page_images:
+                        images.extend(page_images)
+                        progress_monitor.finish_processing(page_num, success=True)
+                    else:
+                        logger.warning(f"No image returned for page {page_num}")
+                        progress_monitor.finish_processing(page_num, success=False)
+                except Exception as e:
+                    logger.error(f"Failed to convert page {page_num}: {e}")
+                    progress_monitor.finish_processing(page_num, success=False)
+                    raise
+        
+        # Convert images to data URIs
         data_uris = []
+        processed_pages = len(images)
+        
         for i, image in enumerate(images):
             # Convert PIL Image to base64 data URI
             buffer = io.BytesIO()
@@ -68,10 +127,10 @@ def _pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: Optional[str
             data_uri = f"data:image/jpeg;base64,{base64_string}"
             data_uris.append(data_uri)
             
-            logger.debug(f"Converted page {i+1}/{page_count} of {pdf_path.name}")
+            logger.debug(f"Converted page image {i+1}/{processed_pages} to data URI")
         
-        logger.info(f"Converted {page_count} pages from {pdf_path.name}")
-        return data_uris, page_count
+        logger.info(f"Converted {processed_pages} pages from {pdf_path.name} (total pages: {total_page_count})")
+        return data_uris, total_page_count
         
     except Exception as e:
         logger.error(f"Failed to convert PDF {pdf_path} to data URIs: {e}")
@@ -193,6 +252,7 @@ async def parse_document(
     prompt_text: str,
     cache: Optional[CacheManager] = None,
     config: Optional[PipelineConfig] = None,
+    page_range: Optional[str] = None,
 ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse document based on type."""
 
@@ -229,7 +289,7 @@ async def parse_document(
 
     elif doc_type == DocumentType.DATASHEET_PDF:
         # Use special datasheet prompt with pair extraction
-        markdown, pairs, _ = await vision_parse_datasheet(pdf_path, prompt_text, config)
+        markdown, pairs, _ = await vision_parse_datasheet(pdf_path, prompt_text, config, page_range)
         metadata = {
             "source_type": "datasheet_pdf", 
             "extracted_pairs": len(pairs),
@@ -241,7 +301,7 @@ async def parse_document(
 
     elif doc_type == DocumentType.GENERIC_PDF:
         # Use generic prompt without pair extraction
-        markdown, _, _ = await vision_parse_generic(pdf_path, prompt_text, config)
+        markdown, _, _ = await vision_parse_generic(pdf_path, prompt_text, config, page_range)
         pairs = []
         metadata = {
             "source_type": "generic_pdf",
@@ -297,7 +357,7 @@ async def parse_document(
 
 
 async def vision_parse_datasheet(
-    pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None
+    pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None, page_range: Optional[str] = None
 ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse datasheet PDF with model/part number extraction."""
     client = create_vision_client(config)
@@ -332,7 +392,7 @@ async def vision_parse_datasheet(
 
     # Add PDF pages as images (Responses API format) 
     dpi = config.pdf.dpi if config and hasattr(config, 'pdf') else 150
-    data_uris, page_count = _pdf_to_data_uris(pdf, dpi=dpi)
+    data_uris, page_count = _pdf_to_data_uris(pdf, dpi=dpi, page_range=page_range)
     parts += [{"type": "input_image", "image_url": uri} for uri in data_uris]
     
     # Calculate timeout based on page count
@@ -392,7 +452,7 @@ async def vision_parse_datasheet(
 
 
 async def vision_parse_generic(
-    pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None
+    pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None, page_range: Optional[str] = None
 ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse generic PDF without pair extraction."""
     client = create_vision_client(config)
@@ -418,7 +478,7 @@ async def vision_parse_generic(
 
     # Add PDF pages as images with configurable DPI
     dpi = config.pdf.dpi if config and hasattr(config, 'pdf') else 150
-    data_uris, page_count = _pdf_to_data_uris(pdf, dpi=dpi)
+    data_uris, page_count = _pdf_to_data_uris(pdf, dpi=dpi, page_range=page_range)
     parts += [{"type": "input_image", "image_url": uri} for uri in data_uris]
     
     # Calculate timeout based on page count

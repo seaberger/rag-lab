@@ -10,6 +10,7 @@ dependencies = [
     "lz4>=4.4.4",
     "matplotlib>=3.10.3",
     "pdf2image>=1.17.0",
+    "pymupdf>=1.24.0",
     "python-docx>=1.1.2",
     "python-pptx>=1.0.0",
     "python-dotenv>=1.1.0",
