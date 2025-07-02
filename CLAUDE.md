@@ -24,96 +24,14 @@ cd src/pipeline_v3
 - **Storage System**: JSONL artifacts with full datasheet parsing
 - **Search Engine**: Hybrid vector + keyword search with advanced fusion
 - **Queue Management**: Scalable concurrent processing
-- **Office Documents**: Word & PowerPoint support (Issue #31)
-- **URL Batch Processing**: Web document collections (Issue #45)
+- **Office Documents**: Word & PowerPoint support (.docx, .pptx)
+- **URL Batch Processing**: Web document collections from markdown/JSON files
 
-### 🎯 **Completed Major Milestones**
-- **✅ Issue #36**: CLI parameter consistency (**LATEST COMPLETED**)
-  - Enterprise-ready `--document-type`, `--processing-options`, `--profile`
-  - Backward compatibility with deprecation warnings
-  - Professional parameter design following kubectl/AWS CLI patterns
-- **✅ Issue #9**: CLI interface consolidation (**COMPLETED & MERGED**)
-  - Single production CLI with full v2.1 feature parity
-  - Document classification modes (datasheet/generic/auto)
-  - Batch processing with concurrent workers
-  - URL support and custom prompt files
-  - Rich progress reporting with emoji indicators
-
-### 🔄 **Active Issues and Priorities**
-
-#### **IMMEDIATE NEXT: Production Readiness** 🚀
-**Current Priority**: OpenAI API Integration Hardening (Issues #28 & #29)
-- Bulletproof AI client with exponential backoff and circuit breaker patterns
-- Production-ready API operations with proper timeout handling
-- Core AI functionality reliability improvements
-
-#### **PRODUCTION READINESS PIPELINE** 🚨
-**Progress Update**: ✅ Issues #25 & #26 completed - Reliability & Robustness next!
-- **✅ Issue #25**: Top-Level Error Handling in CLI Entry Point (**COMPLETED**)
-  - ✅ Comprehensive CLI error handling with proper exit codes implemented
-  - ✅ Graceful error messages and user-friendly feedback
-  - ✅ Application reliability and crash prevention achieved
-- **✅ Issue #26**: Database Schema Versioning and Migration Framework (**COMPLETED**)
-  - ✅ Implemented comprehensive migration framework with version tracking and rollback
-  - ✅ Safe system evolution and upgrade path now available
-  - ✅ Production deployment blocker removed
-- **Issue #27**: Cross-System Consistency Guarantees (**RELIABILITY**)
-  - **Impact**: Prevents data corruption and ensures system reliability
-  - **Why Critical**: 3+ storage systems (SQLite, Qdrant, JSONL) with no atomic transactions
-  - **Deliverable**: Distributed transaction-like behavior with rollback capabilities
-- **Issues #28 & #29**: OpenAI API Integration Hardening (**ROBUSTNESS**)
-  - **Impact**: Makes the system production-ready for AI operations
-  - **Why Critical**: Core AI functionality has initialization and timeout issues
-  - **Deliverable**: Bulletproof OpenAI client with exponential backoff and circuit breaker patterns
-
-#### **HIGH Priority Issues** 🔥  
-- **Issue #7**: Fix model/part number pair extraction (BOTH V2.1 & V3)
-  - Multi-line JSON metadata not parsed correctly
-  - Only extracts first line: `"Metadata: {"` instead of full JSON block
-  - All datasheet pair extraction currently broken
-- **Issue #14**: Document-type aware chunking strategies
-  - Page-based chunking for datasheets (1 page = 1 chunk)
-  - Semantic chunking for regular documents
-  - Better context preservation for technical specs
-
-#### **MEDIUM Priority Issues** ⚡
-- **Issue #13**: Hybrid PDF parsing (VLM for datasheets, Docling for regular docs)
-  - Cost savings by using Docling for non-technical documents
-  - Performance improvements for simple text extraction
-- **Issue #15**: Proper table extraction and LlamaIndex node handling
-  - TableNode creation for structured data
-  - Table-aware chunking strategies
-- **Issue #12**: Page-level content classification for mixed documents
-
-#### **LOW Priority Issues** 📋
-- **Issue #8**: System status monitoring (Low priority)
-- **Issue #5**: Performance optimizations (Low priority)
-
-#### **📋 Comprehensive Architecture Review**
-**See**: [ISSUES.md](ISSUES.md) - Complete analysis of 28 fundamental architecture gaps across security, error handling, data persistence, configuration, testing, and observability
-
-### 📋 **Recent Achievements**
-- ✅ **Issue #36 Resolved**: CLI parameter consistency with enterprise design (**LATEST**)
-  - Consistent `--document-type`, `--processing-options`, `--profile` parameters
-  - Backward compatibility with deprecation warnings for smooth transition
-  - Professional CLI design following kubectl/AWS patterns
-- ✅ **Issue #25 Resolved**: Top-Level Error Handling in CLI Entry Point
-  - Comprehensive CLI error handling with proper exit codes (0, 1, 126, 128, 130)
-  - Graceful error messages and user-friendly feedback
-  - Application reliability and crash prevention implemented
-  - Enhanced user experience with proper error handling
-- ✅ **Issue #26 Resolved**: Database Schema Versioning and Migration Framework
-  - Comprehensive MigrationManager with version tracking and rollback support
-  - DatabaseBase class with automatic migration integration
-  - Initial schema migrations for all 4 databases with transaction safety
-  - Comprehensive test suite (unit, integration, regression)
-  - Safe system evolution and upgrade path implemented
-- ✅ **Issue #16 Resolved**: Keyword enhancement restored - storage artifacts now contain keyword-enhanced markdown
-- ✅ **Issue #9 Resolved**: CLI consolidation complete - single production interface
-- ✅ **Issue #6 Resolved**: Storage artifacts now created correctly
-- ✅ **Issue #4 Resolved**: Document state management fixed
-- ✅ **Issue #3 Resolved**: Vector embedding generation working
-- ✅ **Issue #11 Resolved**: Configurable timeout handling implemented (merged to main)
+### 🎯 **Development Planning**
+For current priorities and active issues, see:
+- **[ROADMAP.md](ROADMAP.md)** - Active development priorities and issue tracking
+- **[ISSUES.md](ISSUES.md)** - Comprehensive architecture gap analysis
+- **[GitHub Issues](https://github.com/seaberger/rag-lab/issues)** - Live issue tracking
 
 ## 🗂️ Repository Architecture
 
@@ -180,61 +98,6 @@ pwd  # Should show: /Users/seanbergman/Repositories/rag_lab
 uv run python -m src.pipeline_v3.cli_main --help
 ```
 
-## 🎯 Development Priorities
-
-### **✅ COMPLETED: Feature Development** 🚀
-**Focus**: Expand document processing capabilities  
-**✅ Word & PPT Document Support**: (**COMPLETED**)
-- ✅ Microsoft Office format support implemented (.docx, .pptx)
-- ✅ Enterprise document workflow foundation established
-- ✅ Comprehensive document management across multiple formats
-
-### **NEXT: Production Readiness** 🚨
-**Focus**: Complete reliability and robustness improvements  
-**Progress**: ✅ Issues #25 & #26 completed - Reliability & Robustness next!
-1. **✅ Issue #25**: Top-level error handling (**COMPLETED**)
-   - ✅ Comprehensive CLI error handling implemented
-   - ✅ Application reliability and crash prevention achieved
-2. **✅ Issue #26**: Database schema versioning (**COMPLETED**)
-   - ✅ Comprehensive migration framework implemented
-   - ✅ Safe system evolution and upgrade path available
-3. **Issue #27**: Cross-system consistency guarantees (**RELIABILITY**)
-   - **Impact**: Prevents data corruption and ensures system reliability
-   - **Why Critical**: 3+ storage systems with no atomic transactions
-   - **Deliverable**: Distributed transaction-like behavior with rollback
-4. **Issues #28 & #29**: OpenAI API integration hardening (**ROBUSTNESS**)
-   - **Impact**: Production-ready AI operations
-   - **Why Critical**: Core AI functionality has timeout/initialization issues
-   - **Deliverable**: Bulletproof OpenAI client with circuit breaker patterns
-
-### **Development Sequence**
-1. **✅ Feature Development**: Word & PPT Document Support (**COMPLETED**)
-2. **✅ Reliability**: Cross-system consistency guarantees (Issue #27) (**COMPLETED**)
-3. **Robustness**: OpenAI API integration hardening (Issues #28 & #29) (**IMMEDIATE NEXT**)
-4. **Data Quality**: Fix pair extraction (Issue #7) and enhance chunking (Issue #14)
-5. **Architecture Review**: Systematically address gaps from [ISSUES.md](ISSUES.md)
-
-### **Architecture Improvement Roadmap**
-**✅ Phase 0 (Feature)**: Document processing expansion (**COMPLETED**)
-- ✅ Word & PPT document support **COMPLETED**
-
-**✅ Phase 1 (Critical)**: Core reliability and data integrity (**COMPLETED**)
-- ✅ Error handling framework (Issue #25) **COMPLETED**
-- ✅ Database migrations (Issue #26) **COMPLETED**
-- ✅ Transaction consistency (Issue #27) **COMPLETED**
-- OpenAI API hardening (Issues #28 & #29) **ROBUSTNESS**
-
-**Phase 2 (High)**: Security and input validation
-- SQL injection protection
-- Path traversal fixes
-- Input sanitization framework
-
-**Phase 3 (Medium)**: Testing and observability
-- Formal testing framework with CI/CD
-- Metrics collection and monitoring
-- Structured logging and tracing
-
-**See [ISSUES.md](ISSUES.md) for complete 28-issue analysis and implementation roadmap**
 
 ## 📚 Documentation Hierarchy
 
@@ -279,6 +142,6 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 **🎯 For Pipeline v3 work, go directly to:** [src/pipeline_v3/CLAUDE.md](src/pipeline_v3/CLAUDE.md)
 
-**📊 Current Status**: Core functionality + error handling + database migrations + Word/PPT support + cross-system consistency complete  
-**🔄 Active Focus**: OpenAI API integration hardening (Issues #28 & #29) for production readiness ✅ #25, #26, #27 Complete  
-**📋 Architecture Review**: [ISSUES.md](ISSUES.md) identifies 28 gaps - Phase 0 & Phase 1 complete, robustness improvements next
+**📊 Current Status**: Production-ready with core functionality, enterprise features, and reliability improvements  
+**🔄 Development Planning**: See [ROADMAP.md](ROADMAP.md) for current priorities  
+**📋 Architecture Gaps**: See [ISSUES.md](ISSUES.md) for comprehensive analysis
