@@ -29,8 +29,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 import logging
 
-# Import custom exceptions
-from utils.common_utils import CLIArgumentError, DependencyError, ConfigLoadError
+# Import custom exceptions and logger
+from utils.common_utils import CLIArgumentError, DependencyError, ConfigLoadError, logger
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -239,12 +239,38 @@ Examples:
             default='both',
             help='Type of index to create'
         )
+        # NEW: Enterprise-ready consistent parameters
+        add_parser.add_argument(
+            '--document-type',
+            choices=['datasheet', 'manual', 'specification', 'generic', 'auto'],
+            default='auto',
+            help='Type of document being processed (default: auto-detect)'
+        )
+        add_parser.add_argument(
+            '--processing-options',
+            type=str,
+            help='Comma-separated processing options: keywords,enhanced-metadata,fast-mode'
+        )
+        add_parser.add_argument(
+            '--profile',
+            type=str,
+            help='Use a predefined processing profile from config'
+        )
+        
+        # DEPRECATED: Keep old parameters for backward compatibility
         add_parser.add_argument(
             '--mode',
             choices=['datasheet', 'generic', 'auto'],
             default='auto',
-            help='Document classification mode (datasheet, generic, auto)'
+            help='(Deprecated: use --document-type) Document classification mode'
         )
+        add_parser.add_argument(
+            '--with-keywords',
+            action='store_true',
+            help='(Deprecated: use --processing-options keywords) Enable keyword generation'
+        )
+        
+        # Other parameters remain unchanged
         add_parser.add_argument(
             '--prompt',
             help='Path to custom prompt file for parsing'
@@ -268,11 +294,6 @@ Examples:
             '--timeout-per-page',
             type=int,
             help='Override timeout per page in seconds (default: 30)'
-        )
-        add_parser.add_argument(
-            '--with-keywords',
-            action='store_true',
-            help='Enable keyword generation for enhanced search (improves retrieval quality significantly)'
         )
         add_parser.add_argument(
             '--url-file',
@@ -588,6 +609,103 @@ Examples:
         else:
             raise ValueError(f"Invalid index type: {index_type_str}")
 
+    def _migrate_deprecated_parameters(self, args):
+        """Migrate deprecated parameters to new format with warnings."""
+        import warnings
+        
+        # Ensure new attributes exist with defaults
+        if not hasattr(args, 'document_type'):
+            args.document_type = None
+        if not hasattr(args, 'processing_options'):
+            args.processing_options = None
+            
+        # Migrate --mode to --document-type
+        if hasattr(args, 'mode') and args.mode and args.mode != 'auto' and not args.document_type:
+            warnings.warn(
+                f"Parameter --mode is deprecated. Use --document-type instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            logger.warning("CLI: --mode is deprecated. Use --document-type instead.")
+            args.document_type = args.mode
+        elif args.document_type:
+            # New parameter takes precedence
+            pass
+        elif hasattr(args, 'mode') and args.mode:
+            # Use mode as fallback if document_type not set
+            args.document_type = args.mode
+        else:
+            # Default to auto if neither is set
+            args.document_type = 'auto'
+        
+        # Migrate --with-keywords to --processing-options
+        if hasattr(args, 'with_keywords') and args.with_keywords and not args.processing_options:
+            warnings.warn(
+                f"Parameter --with-keywords is deprecated. Use --processing-options keywords instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            logger.warning("CLI: --with-keywords is deprecated. Use --processing-options keywords instead.")
+            args.processing_options = 'keywords'
+        elif args.processing_options:
+            # New parameter takes precedence
+            pass
+        
+        # Process profile settings if specified
+        if hasattr(args, 'profile') and args.profile:
+            self._apply_profile(args)
+        
+        return args
+    
+    def _apply_profile(self, args):
+        """Apply processing profile from configuration."""
+        profile_name = args.profile
+        
+        # Get available profiles
+        available_profiles = self.config.processing_profiles.profiles
+        
+        if profile_name not in available_profiles:
+            logger.warning(f"Profile '{profile_name}' not found. Available profiles: {list(available_profiles.keys())}")
+            print(f"Warning: Profile '{profile_name}' not found. Available profiles: {', '.join(available_profiles.keys())}")
+            return
+        
+        profile = available_profiles[profile_name]
+        logger.info(f"Applying profile '{profile_name}': {profile.description}")
+        
+        # Apply profile settings (only if not already set by explicit parameters)
+        if not args.document_type or args.document_type == 'auto':
+            args.document_type = profile.document_type
+            logger.debug(f"Profile: Set document_type to {profile.document_type}")
+        
+        if not args.processing_options:
+            args.processing_options = ','.join(profile.processing_options)
+            logger.debug(f"Profile: Set processing_options to {args.processing_options}")
+        
+        # Apply timeout multiplier
+        if profile.timeout_multiplier != 1.0:
+            original_timeout = self.config.pipeline.timeout_seconds
+            self.config.pipeline.timeout_seconds = int(original_timeout * profile.timeout_multiplier)
+            logger.debug(f"Profile: Adjusted timeout from {original_timeout}s to {self.config.pipeline.timeout_seconds}s")
+    
+    def _parse_processing_options(self, options_str: Optional[str]) -> Dict[str, bool]:
+        """Parse processing options string into dictionary."""
+        if not options_str:
+            return {}
+        
+        options = {}
+        for opt in options_str.split(','):
+            opt = opt.strip().lower()
+            if opt == 'keywords':
+                options['with_keywords'] = True
+            elif opt == 'enhanced-metadata':
+                options['enhanced_metadata'] = True
+            elif opt == 'fast-mode':
+                options['fast_mode'] = True
+            else:
+                logger.warning(f"Unknown processing option: {opt}")
+        
+        return options
+    
     def _format_output(self, data: Any, json_format: bool = False) -> str:
         """Format output for display."""
         if json_format:
@@ -602,6 +720,9 @@ Examples:
 
     async def handle_add(self, args):
         """Handle document addition with enhanced features."""
+        # Handle parameter migration (Phase 2: Intelligent migration)
+        args = self._migrate_deprecated_parameters(args)
+        
         # Resolve all sources (files, URLs, directories, globs, URL files)
         resolved_sources = self._resolve_sources(args.sources, args.recursive, getattr(args, 'url_file', None))
         
@@ -628,14 +749,19 @@ Examples:
             source = resolved_sources[0]
             try:
                 print(f"Processing: {source}")
+                # Parse processing options
+                processing_options = self._parse_processing_options(
+                    getattr(args, 'processing_options', None)
+                )
+                
                 result = await self.pipeline.process_document(
                     source,
                     metadata=metadata,
                     force_reprocess=args.force,
                     index_types=self._parse_index_type(args.index_type),
-                    mode=args.mode,
+                    mode=getattr(args, 'document_type', 'auto'),  # Use new parameter
                     prompt_file=args.prompt,
-                    with_keywords=getattr(args, 'with_keywords', False),
+                    with_keywords=processing_options.get('with_keywords', False),
                     page_range=getattr(args, 'pages', None)
                 )
                 
@@ -652,7 +778,13 @@ Examples:
                 
         else:
             # Batch processing
-            print(f"Starting batch processing with mode: {args.mode}")
+            document_type = getattr(args, 'document_type', 'auto')
+            print(f"Starting batch processing with document type: {document_type}")
+            
+            # Parse processing options once for batch
+            processing_options = self._parse_processing_options(
+                getattr(args, 'processing_options', None)
+            )
             
             # Prepare document info for batch processing
             document_infos = []
@@ -661,9 +793,9 @@ Examples:
                     "source": source,
                     "metadata": metadata.copy(),
                     "force_reprocess": args.force,
-                    "mode": args.mode,
+                    "mode": document_type,  # Use new parameter name
                     "prompt_file": args.prompt,
-                    "with_keywords": getattr(args, 'with_keywords', False),
+                    "with_keywords": processing_options.get('with_keywords', False),
                     "page_range": getattr(args, 'pages', None)
                 }
                 document_infos.append(doc_info)

@@ -115,6 +115,37 @@ class SearchSettings:
     default_mode: str = "hybrid"  # Default search mode: hybrid, vector, or keyword
 
 @dataclass
+class ProcessingProfile:
+    """Defines a reusable processing configuration profile."""
+    document_type: str = "auto"
+    processing_options: List[str] = field(default_factory=list)
+    timeout_multiplier: float = 1.0  # Multiply default timeout
+    description: str = ""
+
+@dataclass
+class ProcessingProfileSettings:
+    """Collection of named processing profiles."""
+    profiles: Dict[str, ProcessingProfile] = field(default_factory=lambda: {
+        "standard-datasheet": ProcessingProfile(
+            document_type="datasheet",
+            processing_options=["keywords", "enhanced-metadata"],
+            description="Standard profile for technical datasheets with keyword enhancement"
+        ),
+        "quick-scan": ProcessingProfile(
+            document_type="auto",
+            processing_options=["fast-mode"],
+            timeout_multiplier=0.5,
+            description="Fast processing for quick document scanning"
+        ),
+        "comprehensive": ProcessingProfile(
+            document_type="auto",
+            processing_options=["keywords", "enhanced-metadata", "ocr-fallback"],
+            timeout_multiplier=2.0,
+            description="Thorough processing with all enhancements"
+        )
+    })
+
+@dataclass
 class PipelineConfig:
     pipeline: PipelineSettings = field(default_factory=PipelineSettings)
     validation: ValidationSettings = field(default_factory=ValidationSettings)
@@ -132,6 +163,7 @@ class PipelineConfig:
     chunking: ChunkingSettings = field(default_factory=ChunkingSettings)
     storage: StorageSettings = field(default_factory=StorageSettings)
     search: SearchSettings = field(default_factory=SearchSettings)  # NEW
+    processing_profiles: ProcessingProfileSettings = field(default_factory=ProcessingProfileSettings)  # NEW
     datasheet_mode: bool = True
 
     @classmethod
