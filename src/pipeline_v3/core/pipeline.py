@@ -44,14 +44,8 @@ except ImportError:
     from utils.monitoring import ProgressMonitor
     from core.parsers import DocumentClassifier, parse_document
 
-# FIXME: These names are used but not defined/imported in this snippet.
-# They might come from other local modules, constants files, or need to be implemented/moved.
-# Example: from .helpers import fetch_document, _resolve_prompt
-# Example: from .models import DatasheetArtefact
-# Example: from .processing import process_and_index_document
-# Example: from .constants import ARTEFACT_DIR, VECTOR_DB_PATH
-
-# These constants are now handled via configuration
+# Note: Key components like fetch_document and DatasheetArtefact are defined in this module.
+# Storage paths and constants are handled via PipelineConfig.
 
 async def fetch_document(source: Union[str, Path]) -> Tuple[Path, str, bytes]:
     """Fetch document from file path or URL.
