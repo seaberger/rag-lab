@@ -12,6 +12,7 @@ try:
     from storage.cache import CacheManager
     from utils.common_utils import logger, retry_api_call
     from utils.config import PipelineConfig
+    from utils.openai_client import create_vision_client
 except ImportError:
     # Fallback for when running from different directory
     import sys
@@ -19,6 +20,7 @@ except ImportError:
     from storage.cache import CacheManager
     from utils.common_utils import logger, retry_api_call
     from utils.config import PipelineConfig
+    from utils.openai_client import create_vision_client
 
 def _find_poppler() -> Optional[str]:
     """Return directory that contains pdfinfo/pdftoppm (Poppler) or None."""
@@ -296,7 +298,7 @@ async def vision_parse_datasheet(
     pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None
 ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse datasheet PDF with model/part number extraction."""
-    client = OpenAI()
+    client = create_vision_client(config)
 
     # Get model from config or use default
     model = config.openai.vision_model if config else "gpt-4.1"
@@ -391,7 +393,7 @@ async def vision_parse_generic(
     pdf: Path, parsing_prompt: str, config: Optional[PipelineConfig] = None
 ) -> Tuple[str, List[Tuple[str, str]], Dict[str, Any]]:
     """Parse generic PDF without pair extraction."""
-    client = OpenAI()
+    client = create_vision_client(config)
 
     # Get model from config or use default
     model = config.openai.vision_model if config else "gpt-4.1"

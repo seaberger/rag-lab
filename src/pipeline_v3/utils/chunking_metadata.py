@@ -9,12 +9,13 @@ from .monitoring import ProgressMonitor
 
 from openai import OpenAI
 from .common_utils import logger, retry_api_call
+from .openai_client import create_text_client
 
 class KeywordGenerator:
     """Generate contextual keywords for document chunks using OpenAI."""
     
-    def __init__(self, model: str = "gpt-4.1-mini", max_keywords: int = 10):
-        self.client = OpenAI()
+    def __init__(self, model: str = "gpt-4.1-mini", max_keywords: int = 10, config=None):
+        self.client = create_text_client(config)
         self.model = model
         self.max_keywords = max_keywords
     
@@ -133,7 +134,7 @@ Return JSON format:
 
             @retry_api_call(max_attempts=3)
             async def call_batch_api():
-                client = OpenAI()
+                client = create_text_client()
                 return client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
@@ -241,7 +242,7 @@ async def process_and_index_document(
         if len(nodes) > batch_threshold:  # Use batch for large documents
             nodes = await batch_generate_keywords(nodes, model=keyword_model)
         else:
-            keyword_gen = KeywordGenerator(model=keyword_model)
+            keyword_gen = KeywordGenerator(model=keyword_model, config=config)
             nodes = await keyword_gen.atransform(nodes)
 
     return nodes
