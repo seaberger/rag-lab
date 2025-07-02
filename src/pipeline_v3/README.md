@@ -15,6 +15,7 @@ Pipeline v3 delivers a complete, production-ready document processing system bui
 
 - **🔄 Queue-Based Processing** - Scalable concurrent document processing with job persistence
 - **📋 Document Lifecycle Management** - Intelligent add/update/remove with change detection
+- **🔗 URL Batch Processing** - Process collections of web documents from markdown/JSON files
 - **🔍 Advanced Search** - Hybrid vector + keyword search with relevance scoring
 - **💻 Production CLI** - Complete command-line interface for all operations
 - **📊 System Monitoring** - Real-time status, metrics, and health checking
@@ -165,6 +166,10 @@ python cli_main.py queue status
 ```bash
 # Batch document operations
 python cli_main.py add data/*.pdf --metadata source=batch_import
+
+# 🆕 URL batch processing
+python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output urls.json
+python cli_main.py add dummy --url-file urls.json --with-keywords --workers 3
 
 # Queue management
 python cli_main.py queue start --workers 4

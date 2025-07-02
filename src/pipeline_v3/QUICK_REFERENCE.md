@@ -8,6 +8,7 @@
 - **✅ Production Ready**: All core functionality restored and enhanced
 
 ## ✅ Recent Features Added
+- **Issue #45**: 🆕 URL Batch Processing (process URLs from markdown/JSON files)
 - **Issue #31**: 🆕 Microsoft Office document support (Word & PowerPoint)
 - **Issue #22**: Enhanced search with advanced hybrid fusion methods
 - **Issue #17**: Fixed keyword generation JSON parsing (OpenAI compatibility)
@@ -33,6 +34,10 @@ python cli_main.py add report.docx --with-keywords
 python cli_main.py add presentation.pptx --mode auto
 python cli_main.py add "docs/*.docx" --workers 3
 python cli_main.py add slides.ppt --metadata type=training
+
+# 🆕 URL Batch Processing (Issue #45)
+python cli_main.py add dummy --url-file urls.json --with-keywords    # Process URLs from batch file
+python cli_main.py add local.pdf --url-file web_docs.md --workers 3  # Mix local + web docs
 
 # Enhanced Search (Issue #22)
 python cli_main.py search "keyword"                                    # Hybrid RRF (default)
@@ -71,6 +76,19 @@ python cli_main.py maintenance --consistency-check
 python cli_main.py config list
 python cli_main.py config get queue.max_workers
 python cli_main.py config set queue.max_workers 8
+```
+
+### 🆕 Batch Operations (Issue #45)
+```bash
+# Create URL batch files
+python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output batch.json
+python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output batch.md
+
+# Validate URL batch files
+python cli_main.py batch validate-urls batch.json
+
+# Test queue performance with URLs
+python cli_main.py batch test-queue batch.json --workers 2 --with-keywords
 ```
 
 ## Advanced Search Guide

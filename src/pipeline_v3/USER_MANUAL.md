@@ -38,12 +38,14 @@ uv run python -m src.pipeline_v3.cli_main search "PM10K specs" --fusion-method a
 uv run python -m src.pipeline_v3.cli_main status
 ```
 
-### 🆕 New CLI Features (Issue #9)
+### 🆕 Latest CLI Features
 - **Document Modes**: `--mode datasheet|generic|auto` for intelligent classification
 - **Batch Processing**: `"docs/*.pdf"` for multiple files at once
 - **Custom Prompts**: `--prompt custom.md` for specialized parsing
 - **Concurrent Workers**: `--workers N` for faster batch processing
 - **URL Support**: Process documents directly from HTTP/HTTPS sources
+- **✅ URL Batch Processing**: `--url-file batch.json` for processing URL collections (**COMPLETED**)
+- **✅ Queue Testing**: `batch test-queue` for validating production queue performance (**COMPLETED**)
 
 **That's it!** Your document is now indexed and searchable.
 
@@ -175,6 +177,57 @@ python cli_main.py add doc1.pdf doc2.pdf doc3.pdf
 
 # Add with pattern (if supported by shell)
 python cli_main.py add *.pdf --metadata batch=import_2024
+```
+
+#### URL Batch Processing 🆕
+
+Process multiple documents from URLs using batch files in markdown or JSON format:
+
+```bash
+# Process URLs from batch file
+python cli_main.py add dummy --url-file urls.json --with-keywords --mode auto
+
+# Mix local files with URL batch
+python cli_main.py add local_doc.pdf --url-file web_docs.md --workers 3
+```
+
+**Supported URL Batch File Formats:**
+
+**JSON Format:**
+```json
+{
+  "description": "Batch URL processing file",
+  "urls": [
+    "https://example.com/document1.pdf",
+    "https://example.com/document2.pdf"
+  ],
+  "total_count": 2
+}
+```
+
+**Markdown Format:**
+```markdown
+# URL Batch Processing File
+
+Total URLs: 2
+
+1. [Document 1](https://example.com/document1.pdf)
+2. [Document 2](https://example.com/document2.pdf)
+```
+
+**Create URL Batch Files:**
+```bash
+# Create JSON batch file
+python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output batch.json
+
+# Create markdown batch file
+python cli_main.py batch create-url-file "https://site.com/doc1.pdf" "https://site.com/doc2.pdf" --output batch.md
+
+# Validate URL batch file
+python cli_main.py batch validate-urls batch.json
+
+# Test queue processing with URLs
+python cli_main.py batch test-queue batch.json --workers 2 --with-keywords
 ```
 
 ### Searching Documents
