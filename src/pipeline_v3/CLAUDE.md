@@ -94,6 +94,18 @@ data/lmc_docs/datasheets/
 
 ### ✅ Recently Resolved Critical Issues:
 
+- ✅ **Issue #27:** Cross-System Consistency Guarantees (**COMPLETED & MERGED**)
+  - Implemented TransactionCoordinator with two-phase commit protocol
+  - Added ConsistencyChecker for cross-system verification and repair planning
+  - Prevents data corruption across multiple storage systems (SQLite, Qdrant, JSONL)
+  - Distributed transaction-like behavior with automatic rollback on failures
+
+- ✅ **Issues #20 & #21:** Vector indexing with keywords + doc_id consistency (**COMPLETED & MERGED**)
+  - Fixed vector indexing failing when using --with-keywords flag
+  - Resolved doc_id mismatch between keyword and vector indexes
+  - Root cause: Document constructor not setting doc_id parameter correctly
+  - All keyword-enhanced documents now properly indexed in vector store
+
 - ✅ **Issue #16:** Restore chunking_metadata.py integration (**COMPLETED & MERGED**)
   - Fixed storage artifacts to contain keyword-enhanced markdown
   - Moved artifact creation to after keyword generation in pipeline
@@ -128,18 +140,18 @@ data/lmc_docs/datasheets/
 
 ### 🔄 Current Active Issues:
 
-#### **IMMEDIATE NEXT: Feature Development** 🚀
-**Current Priority**: Word & PPT Document Support
-- Expand document processing beyond PDF to Microsoft Office formats
-- Enable broader enterprise document workflows
-- Foundation for comprehensive document management
+#### **IMMEDIATE NEXT: Production Readiness** 🚀
+**Current Priority**: OpenAI API Integration Hardening (Issues #28 & #29)
+- Bulletproof AI client with exponential backoff and circuit breaker patterns
+- Production-ready API operations with proper timeout handling
+- Core AI functionality reliability improvements
 
 #### **PRODUCTION READINESS PIPELINE** 🚨
-**Reliability & Robustness Improvements**
-- **Issue #27:** Cross-System Consistency Guarantees (**RELIABILITY**)
-  - **Impact**: Prevents data corruption and ensures system reliability
-  - **Why Critical**: 3+ storage systems (SQLite, Qdrant, JSONL) with no atomic transactions
-  - **Deliverable**: Distributed transaction-like behavior with rollback capabilities
+**Progress Update**: ✅ Issues #25, #26, #27 completed - Reliability & Robustness next!
+- **✅ Issue #27**: Cross-System Consistency Guarantees (**COMPLETED**)
+  - ✅ Implemented distributed transaction-like behavior with rollback capabilities
+  - ✅ Prevents data corruption across storage systems (SQLite, Qdrant, JSONL)
+  - ✅ ConsistencyChecker provides cross-system verification and repair planning
   
 - **Issues #28 & #29:** OpenAI API Integration Hardening (**ROBUSTNESS**)
   - **Impact**: Makes the system production-ready for AI operations
@@ -309,17 +321,18 @@ uv run python -m src.pipeline_v3.cli_main search "PM10" --type keyword
 ### Development Priorities (Updated):
 
 #### **Next Development Sprint** 🎯
-1. **Word & PPT Document Support**: Expand processing capabilities (**IMMEDIATE NEXT**)
-   - Microsoft Office format support
-   - Enterprise document workflow foundation
+1. **✅ Word & PPT Document Support**: (**COMPLETED**)
+   - ✅ Microsoft Office format support implemented
+   - ✅ Enterprise document workflow foundation established
+   - ✅ .docx and .pptx files now supported alongside PDFs
 
-2. **Issue #27**: Cross-System Consistency Guarantees (**RELIABILITY**)
-   - Distributed transaction-like behavior with rollback
-   - Prevents data corruption across storage systems
+2. **✅ Issue #27**: Cross-System Consistency Guarantees (**COMPLETED**)
+   - ✅ Distributed transaction-like behavior with rollback implemented
+   - ✅ Prevents data corruption across storage systems
 
-3. **Issues #28 & #29**: OpenAI API Integration Hardening (**ROBUSTNESS**)
+3. **Issues #28 & #29**: OpenAI API Integration Hardening (**IMMEDIATE NEXT**)
    - Bulletproof AI client with circuit breaker patterns
-   - Production-ready API operations
+   - Production-ready API operations with proper error handling
 
 #### **Future Enhancement Cycle** 🚀
 - 🔧 **Data Quality**: Document-type aware chunking strategies (Issue #14)
