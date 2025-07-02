@@ -46,6 +46,8 @@ uv run python -m src.pipeline_v3.cli_main status
 - **URL Support**: Process documents directly from HTTP/HTTPS sources
 - **✅ URL Batch Processing**: `--url-file batch.json` for processing URL collections (**COMPLETED**)
 - **✅ Queue Testing**: `batch test-queue` for validating production queue performance (**COMPLETED**)
+- **✅ Page Range Selection**: `--pages "1-10"` for targeted PDF processing (**NEW**)
+- **✅ API Hardening**: Enhanced retry logic and progress monitoring for reliability (**NEW**)
 
 **That's it!** Your document is now indexed and searchable.
 
@@ -178,6 +180,28 @@ python cli_main.py add doc1.pdf doc2.pdf doc3.pdf
 # Add with pattern (if supported by shell)
 python cli_main.py add *.pdf --metadata batch=import_2024
 ```
+
+#### Page Range Selection 🆕
+Process specific pages from PDF documents for testing or targeted extraction:
+
+```bash
+# Process pages 1-5 only
+python cli_main.py add document.pdf --pages "1-5"
+
+# Process specific pages
+python cli_main.py add manual.pdf --pages "1,3,5,10-15"
+
+# Process with other options
+python cli_main.py add catalog.pdf --pages "1-10" --with-keywords --mode datasheet
+```
+
+**Benefits:**
+- Test large documents progressively (e.g., pages 1-10 before processing all 150 pages)
+- Extract specific sections (e.g., only specification pages)
+- Optimize API costs by avoiding unnecessary pages
+- Faster iteration during development
+
+For detailed page range documentation, see [PAGE_RANGE_FEATURE.md](docs/PAGE_RANGE_FEATURE.md).
 
 #### URL Batch Processing 🆕
 
@@ -362,6 +386,39 @@ python cli_main.py config set chunking.chunk_size 512
 python cli_main.py config reset --confirm
 ```
 
+### API Reliability & Performance 🆕
+
+Pipeline v3 includes comprehensive OpenAI API hardening for production reliability:
+
+#### Key Features
+- **Intelligent Retry Logic**: Exponential backoff with jitter for rate limit handling
+- **Fast Failure Modes**: Non-retryable errors (auth, invalid requests) fail immediately
+- **Timeout Escalation**: Automatically increases timeouts for subsequent retry attempts
+- **Circuit Breaker Pattern**: Prevents cascading failures under high load
+- **Progress Monitoring**: Real-time page-by-page progress for large documents
+
+#### Configuration
+```yaml
+# config.yaml
+openai:
+  timeout_base: 60        # Base timeout for API calls
+  timeout_per_page: 30    # Additional timeout per PDF page
+  client_timeout: 60      # Client-level timeout
+```
+
+#### Usage Examples
+```bash
+# Process large documents with progress monitoring
+python cli_main.py add large_catalog.pdf --pages "1-50"
+# Shows: 📄 Processing page 1 (1/50)...
+#        ✅ Page 1 processed in 0.06s
+
+# Handle timeouts gracefully
+python cli_main.py add complex_document.pdf --timeout-per-page 45
+```
+
+For detailed API hardening documentation, see [API_HARDENING.md](docs/API_HARDENING.md).
+
 ---
 
 ## CLI Reference
@@ -403,12 +460,16 @@ Options:
   --mode TYPE             Document type: datasheet, generic, auto (default: auto)
   --prompt PATH           Custom prompt file for parsing
   --workers NUMBER        Concurrent workers for batch processing
+  --pages RANGE           Process specific pages (e.g., "1-5", "1,3,5", "10-20")
+  --url-file PATH         Process URLs from batch file (markdown or JSON)
 
 Examples:
   python cli_main.py add document.pdf
   python cli_main.py add manual.pdf --metadata type=guide version=1.0
   python cli_main.py add doc.pdf --force --with-keywords
   python cli_main.py add "docs/*.pdf" --mode datasheet --workers 4
+  python cli_main.py add catalog.pdf --pages "1-10" --with-keywords
+  python cli_main.py add dummy --url-file urls.json --workers 3
 ```
 
 #### `search` Command
@@ -791,6 +852,9 @@ openai:
   embedding_model: "text-embedding-3-small"
   dimensions: 1536
   max_retries: 3
+  timeout_base: 60        # Base timeout for API calls
+  timeout_per_page: 30    # Additional timeout per PDF page
+  client_timeout: 60      # Client-level timeout
 
 cache:
   enabled: true
@@ -1060,6 +1124,32 @@ python cli_main.py maintenance --repair --cleanup
 python cli_main.py config set queue.max_workers 2
 ```
 
+#### 5. Page Range Issues 🆕
+```bash
+# "Page range exceeds document length" error
+# Solution: Check total pages first
+pdfinfo document.pdf | grep Pages
+
+# Processing timeout with large page ranges
+# Solution: Use smaller ranges or increase timeout
+python cli_main.py add doc.pdf --pages "1-10" --timeout-per-page 45
+```
+
+#### 6. OpenAI API Issues 🆕
+```bash
+# "API key not found" error
+# Solution: Check environment variable
+echo $OPENAI_API_KEY
+
+# Repeated timeouts
+# Solution: Reduce page range or increase timeout
+python cli_main.py add large.pdf --pages "1-5" --timeout-per-page 60
+
+# Rate limit errors
+# Solution: Reduce concurrent workers
+python cli_main.py config set queue.max_workers 2
+```
+
 ### Debug Mode
 
 Enable verbose logging for troubleshooting:
@@ -1174,6 +1264,18 @@ python cli_main.py search "calibration procedure" --type hybrid --top-k 3
 
 # 3. Find troubleshooting information
 python cli_main.py search "error codes" --type keyword
+```
+
+#### Scenario: Large Catalog Processing 🆕
+```bash
+# 1. Test with a few pages first
+python cli_main.py add catalog.pdf --pages "1-5" --mode datasheet
+
+# 2. If successful, process specific sections
+python cli_main.py add catalog.pdf --pages "40-60" --mode datasheet --with-keywords
+
+# 3. Process full document if needed
+python cli_main.py add catalog.pdf --force --mode datasheet
 ```
 
 #### Scenario: Research Document Archive

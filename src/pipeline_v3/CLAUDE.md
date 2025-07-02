@@ -406,5 +406,7 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - **🚀 Daily Commands:** [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)  
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **📋 Development Status:** [DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)
+- **🆕 Page Range Feature:** [docs/PAGE_RANGE_FEATURE.md](./docs/PAGE_RANGE_FEATURE.md)
+- **🆕 API Hardening:** [docs/API_HARDENING.md](./docs/API_HARDENING.md)
 
 **Current Focus:** **FEATURE EXPANSION & RELIABILITY** - Core functionality + error handling + database migrations complete. Next: Word & PPT support, then reliability & robustness improvements (Issues #27-29). See [../../ISSUES.md](../../ISSUES.md) for comprehensive development roadmap.

@@ -6,45 +6,45 @@
     "total_chunks": 0,
     "total_bytes": 0,
     "cache_hits": 0,
-    "start_time": 1749704371.4932852,
-    "elapsed_time": 40.25986576080322,
-    "average_doc_time": 20.10629653930664,
+    "start_time": 1751417629.732834,
+    "elapsed_time": 23.013667106628418,
+    "average_doc_time": 21.46205961704254,
     "stage_averages": {
-      "parsing": 3.6954879760742188e-06,
-      "change_detection": 19.349619150161743,
-      "registration": 19.350348711013794,
-      "save_artifact": 19.351211190223694
+      "parsing": 2.6226043701171875e-06,
+      "change_detection": 10.121512174606323,
+      "registration": 10.121726155281067,
+      "save_artifact": 21.461665630340576
     }
   },
   "documents": [
     {
-      "doc_id": "temp_1749704371540",
-      "source": "data/sample_docs/labmax-touch-ds.pdf",
-      "duration": 0.6907529830932617,
+      "doc_id": "temp_1751417629733",
+      "source": "https://www.coherent.com/content/dam/coherent/site/en/resources/laser-measurement-and-control-help-center/application-notes-and-white-papers/application-notes/understanding-a-certificate-of-calibration.pdf",
+      "duration": 23.01337718963623,
+      "chunks": 0,
+      "cached": false,
+      "error": null,
+      "stages": {
+        "parsing": 3.0994415283203125e-06,
+        "change_detection": 19.960172176361084,
+        "registration": 19.960243940353394,
+        "save_artifact": 23.012888193130493
+      }
+    },
+    {
+      "doc_id": "temp_1751417629781",
+      "source": "https://www.coherent.com/content/dam/coherent/site/en/resources/datasheet/power-and-energy-measurement/powermax-usb-uv-vis-power-sensors-ds.pdf",
+      "duration": 19.910742044448853,
       "chunks": 0,
       "cached": false,
       "error": null,
       "stages": {
         "parsing": 2.1457672119140625e-06,
-        "change_detection": 0.03394818305969238,
-        "registration": 0.03440713882446289,
-        "save_artifact": 0.03527712821960449
-      }
-    },
-    {
-      "doc_id": "temp_1749704372231",
-      "source": "data/sample_docs/pm10k-plus-ds.pdf",
-      "duration": 39.52184009552002,
-      "chunks": 0,
-      "cached": false,
-      "error": null,
-      "stages": {
-        "parsing": 5.245208740234375e-06,
-        "change_detection": 38.665290117263794,
-        "registration": 38.666290283203125,
-        "save_artifact": 38.66714525222778
+        "change_detection": 0.2828521728515625,
+        "registration": 0.28320837020874023,
+        "save_artifact": 19.91044306755066
       }
     }
   ],
-  "timestamp": "2025-06-11T22:00:11.753168"
+  "timestamp": "2025-07-01T17:54:12.746511"
 }
