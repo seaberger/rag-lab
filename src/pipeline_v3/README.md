@@ -31,6 +31,10 @@ Pipeline v3 Architecture
 ├─────────────────────────────────────────────────────────────┤
 │  📄 Documents  │  ⚙️ Queue    │  📊 Status  │  🔧 Config   │
 ├─────────────────────────────────────────────────────────────┤
+│              Job Queue System (Critical)                    │
+├─────────────────────────────────────────────────────────────┤
+│ Workers │ Job Storage │ Retry Logic │ Progress Tracking    │
+├─────────────────────────────────────────────────────────────┤
 │                  Enhanced Core Pipeline                     │
 ├─────────────────────────────────────────────────────────────┤
 │ Phase 1: Queue & Fingerprinting │ Phase 2: Index Lifecycle │
@@ -38,6 +42,28 @@ Pipeline v3 Architecture
 │  🔍 Hybrid Search  │  💾 Storage  │  📈 Monitoring          │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 🚨 Critical: Queue System for Production
+
+**The queue system is NOT optional for production use!** Direct CLI commands timeout after 2 minutes, but PDF processing takes 30-45 seconds per page. This means:
+
+- **Direct CLI**: Can only handle ~3-4 pages before timeout
+- **Queue System**: Can process unlimited documents reliably
+
+#### When to Use the Queue:
+- ✅ **Always** for production workloads
+- ✅ **Always** for documents > 4 pages
+- ✅ **Always** for multiple documents
+- ✅ **Always** when reliability matters
+
+#### Queue Architecture:
+- **Persistent Job Storage**: SQLite database survives restarts
+- **Concurrent Workers**: Configurable parallel processing
+- **Automatic Retries**: Handles transient failures gracefully
+- **Progress Tracking**: Real-time monitoring of long operations
+- **Resource Management**: Prevents system overload
+
+See [QUEUE_SYSTEM_GUIDE.md](docs/QUEUE_SYSTEM_GUIDE.md) for complete documentation.
 
 ## 📚 Documentation
 

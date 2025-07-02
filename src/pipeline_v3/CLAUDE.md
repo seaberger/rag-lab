@@ -390,6 +390,62 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 - Comprehensive system health checks and maintenance tools
 - Structured logging with artifact preservation
 
+## Production Patterns ⚠️
+
+### Critical: Shell Timeout Limitations
+**Direct CLI commands timeout after 2 minutes!** This is crucial to understand:
+- PDF processing: ~30-45 seconds per page
+- Shell timeout: 120 seconds total
+- Result: Direct CLI can only handle 3-4 pages max
+
+### Pattern 1: Always Use Queue for Production
+```bash
+# ❌ WRONG - Will timeout in production
+uv run python -m src.pipeline_v3.cli_main add "production/*.pdf"
+
+# ✅ CORRECT - Queue handles unlimited documents
+uv run python -m src.pipeline_v3.cli_main queue start --workers 4
+uv run python -m src.pipeline_v3.cli_main add "production/*.pdf"
+```
+
+### Pattern 2: Large Document Processing
+```bash
+# For documents > 5 pages, queue is mandatory
+uv run python -m src.pipeline_v3.cli_main queue start --workers 2
+uv run python -m src.pipeline_v3.cli_main add "manual_300pages.pdf" --mode generic
+uv run python -m src.pipeline_v3.cli_main queue status --watch
+```
+
+### Pattern 3: Batch Import Workflow
+```bash
+# Standard batch import pattern
+uv run python -m src.pipeline_v3.cli_main queue start --workers 8
+uv run python -m src.pipeline_v3.cli_main add "/import/batch_2024/*.pdf" --with-keywords
+watch -n 30 'uv run python -m src.pipeline_v3.cli_main queue status --detailed'
+```
+
+### Pattern 4: Development vs Production
+```bash
+# Development (small test files)
+uv run python -m src.pipeline_v3.cli_main add test.pdf  # OK for 1-2 pages
+
+# Production (real documents)
+uv run python -m src.pipeline_v3.cli_main queue start
+uv run python -m src.pipeline_v3.cli_main add "docs/*.pdf"  # Always use queue
+```
+
+### Key Production Rules:
+1. **Default to Queue**: When in doubt, use the queue system
+2. **Monitor Progress**: Queue provides real-time feedback
+3. **Handle Failures**: Queue automatically retries failed jobs
+4. **Resource Management**: Queue prevents system overload
+5. **Persistent Jobs**: Queue survives system restarts
+
+### Production Documentation:
+- [QUEUE_SYSTEM_GUIDE.md](docs/QUEUE_SYSTEM_GUIDE.md) - Complete queue reference
+- [BATCH_PROCESSING_GUIDE.md](docs/BATCH_PROCESSING_GUIDE.md) - Batch patterns
+- [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) - Production setup
+
 ## Important Notes ⚠️
 
 - **Use uv from project root:** Critical for proper environment and imports

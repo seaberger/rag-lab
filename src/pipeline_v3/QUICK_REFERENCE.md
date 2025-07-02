@@ -18,6 +18,25 @@
 - **Issue #11**: Configurable timeout handling with `--timeout` and `--timeout-per-page`
 - **Issue #9**: Consolidated CLI with full v2.1 feature parity
 
+## ⚠️ **CRITICAL PRODUCTION WARNING** ⚠️
+
+**Direct CLI commands timeout after 2 minutes!** Since PDF processing takes ~30-45 seconds per page:
+- ✅ **Small PDFs (1-3 pages)**: Direct CLI is OK
+- ❌ **Large PDFs (>4 pages)**: **MUST use queue system**
+- ❌ **Multiple PDFs**: **MUST use queue system**
+- ❌ **Production workloads**: **ALWAYS use queue system**
+
+```bash
+# ❌ WRONG - Will timeout
+python cli_main.py add "docs/*.pdf"  # Fails after ~3-4 pages
+
+# ✅ CORRECT - Use queue
+python cli_main.py queue start --workers 4
+python cli_main.py add "docs/*.pdf"  # Processes reliably
+```
+
+**Quick Rule: If processing > 4 pages total, use the queue system!**
+
 ## Essential Commands
 
 ### Document Operations

@@ -419,6 +419,89 @@ python cli_main.py add complex_document.pdf --timeout-per-page 45
 
 For detailed API hardening documentation, see [API_HARDENING.md](docs/API_HARDENING.md).
 
+### Production Batch Processing ⚠️
+
+**Critical Warning: Shell Command Timeout Limitations**
+
+Pipeline v3 is designed for enterprise-scale document processing, but you MUST understand a critical limitation:
+
+- **Shell commands timeout after 2 minutes** (standard Bash behavior)
+- **PDF processing takes ~30-45 seconds per page** with OpenAI Vision API
+- **Result: Direct CLI can only handle 3-4 pages before timeout**
+
+#### When to Use Queue vs Direct CLI
+
+| Document Type | Direct CLI | Queue System | Why |
+|--------------|------------|--------------|-----|
+| Single 1-2 page PDF | ✅ OK | Optional | Completes within timeout |
+| Single 5+ page PDF | ❌ Will fail | ✅ Required | Exceeds 2-minute limit |
+| Multiple PDFs | ❌ Will fail | ✅ Required | Sequential processing too slow |
+| Production workloads | ❌ Never | ✅ Always | Reliability critical |
+
+#### Quick Decision Guide
+```
+Number of pages to process = Files × Average pages per file
+
+If > 4 pages total: USE QUEUE SYSTEM
+If production environment: ALWAYS USE QUEUE SYSTEM
+```
+
+#### Example: Processing Multiple Documents
+
+**❌ WRONG - Will timeout after ~3-4 pages:**
+```bash
+# DON'T DO THIS - Will fail with timeout
+python cli_main.py add "datasheets/*.pdf" --with-keywords
+```
+
+**✅ CORRECT - Use queue for reliable processing:**
+```bash
+# Start queue system
+python cli_main.py queue start --workers 4
+
+# Submit documents to queue
+python cli_main.py add "datasheets/*.pdf" --with-keywords
+
+# Monitor progress (in separate terminal)
+watch -n 30 'python cli_main.py queue status --detailed'
+```
+
+#### Production Patterns
+
+**Pattern 1: Batch Import**
+```bash
+# For importing many documents
+python cli_main.py queue start --workers 8
+python cli_main.py add "/import/batch_2024/*.pdf" --mode auto
+python cli_main.py queue status --watch  # Real-time monitoring
+```
+
+**Pattern 2: Large Document Processing**
+```bash
+# For documents with many pages
+python cli_main.py queue start --workers 2  # Fewer workers for memory
+python cli_main.py add "manual_300pages.pdf" --mode generic
+```
+
+**Pattern 3: Continuous Processing**
+```bash
+# Keep queue running permanently
+python cli_main.py queue start --workers 6 --daemon
+# Documents added anytime will be processed automatically
+```
+
+#### Key Takeaways
+
+1. **Default to Queue**: When in doubt, use the queue system
+2. **Monitor Progress**: Queue provides detailed progress tracking
+3. **Handle Failures**: Queue automatically retries failed documents
+4. **Scale Safely**: Queue manages resources and prevents overload
+
+For comprehensive queue documentation, see:
+- [QUEUE_SYSTEM_GUIDE.md](docs/QUEUE_SYSTEM_GUIDE.md) - Complete queue reference
+- [BATCH_PROCESSING_GUIDE.md](docs/BATCH_PROCESSING_GUIDE.md) - Batch processing patterns
+- [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) - Production setup guide
+
 ---
 
 ## CLI Reference
