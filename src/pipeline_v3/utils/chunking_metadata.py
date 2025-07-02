@@ -204,6 +204,7 @@ async def process_and_index_document(
     # Create document with metadata
     doc = Document(
         text=markdown,
+        doc_id=doc_id,  # Set doc_id directly to ensure consistent ref_doc_id in vector store
         metadata={
             "doc_id": doc_id,
             "source": source,
