@@ -20,8 +20,8 @@ class PipelineSettings:
 class ValidationSettings:
     validate_urls: bool = True
     validate_files: bool = True
-    # allowed_extensions: List[str] = field(default_factory=lambda: [".pdf", ".md", ".txt"]) # Example
-    # max_url_length: int = 2048 # Example
+    allowed_extensions: List[str] = field(default_factory=lambda: [".pdf", ".md", ".txt", ".markdown", ".docx", ".pptx"])
+    max_url_length: int = 2048
 
 @dataclass
 class LimitsSettings:
@@ -109,6 +109,12 @@ class StorageSettings: # Enhanced for v3
     document_registry_path: str = "./document_registry_v3.db" # NEW in v3
 
 @dataclass
+class SearchSettings:
+    hybrid_alpha: float = 0.7  # Balance between vector (0.0) and keyword (1.0) search
+    default_limit: int = 5  # Default number of search results
+    default_mode: str = "hybrid"  # Default search mode: hybrid, vector, or keyword
+
+@dataclass
 class PipelineConfig:
     pipeline: PipelineSettings = field(default_factory=PipelineSettings)
     validation: ValidationSettings = field(default_factory=ValidationSettings)
@@ -125,6 +131,7 @@ class PipelineConfig:
     parser: ParserSettings = field(default_factory=ParserSettings)
     chunking: ChunkingSettings = field(default_factory=ChunkingSettings)
     storage: StorageSettings = field(default_factory=StorageSettings)
+    search: SearchSettings = field(default_factory=SearchSettings)  # NEW
     datasheet_mode: bool = True
 
     @classmethod

@@ -10,23 +10,21 @@ from qdrant_client import QdrantClient # For type hinting
 
 from storage.keyword_index import BM25Index # For type hinting
 
-# FIXME: Consider using PipelineConfig for collection_name
-# from ..utils.config import PipelineConfig
-
-
 class HybridSearch:
     """Combine vector and keyword search."""
 
     def __init__(
-        self, vector_store: QdrantClient, keyword_index: BM25Index, alpha: float = 0.5
+        self, vector_store: QdrantClient, keyword_index: BM25Index, alpha: float = 0.5, collection_name: str = "datasheets_v3"
     ):
         """
         Args:
             alpha: Weight for vector search (1-alpha for BM25)
+            collection_name: Qdrant collection name to search
         """
         self.vector_store = vector_store
         self.keyword_index = keyword_index
         self.alpha = alpha
+        self.collection_name = collection_name
 
     async def search(
         self, query: str, embedding_model: OpenAIEmbedding, limit: int = 10
@@ -35,10 +33,7 @@ class HybridSearch:
 
         # Vector search
         query_embedding = await embedding_model.aget_query_embedding(query)
-        # FIXME: collection_name should come from config
-        # config = PipelineConfig.from_yaml()
-        # collection_name = config.qdrant.collection_name
-        collection_name_to_use = "datasheets"
+        collection_name_to_use = self.collection_name
 
         vector_results = self.vector_store.search(
             collection_name=collection_name_to_use,
@@ -85,7 +80,6 @@ class HybridSearch:
         results = []
         for chunk_id, score in sorted_results:
             # Get from vector store (has all metadata)
-            # FIXME: collection_name should come from config
             point = self.vector_store.retrieve(
                 collection_name=collection_name_to_use, ids=[chunk_id]
             )[0]

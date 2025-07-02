@@ -14,26 +14,27 @@ from qdrant_client import QdrantClient
 # Project-specific
 from storage.keyword_index import BM25Index
 from search.hybrid import HybridSearch
-# FIXME: Consider using PipelineConfig for paths, model names, collection names, etc.
-# from ..utils.config import PipelineConfig
+from utils.config import PipelineConfig
 
 
-async def search_documents(query: str, mode: str = "hybrid", limit: int = 5):
+async def search_documents(query: str, mode: str = None, limit: int = None):
     """Search indexed documents."""
 
-    # FIXME: Initialize components using PipelineConfig
-    # config = PipelineConfig.from_yaml()
-    # embedding_model_name = config.openai.embedding_model
-    # qdrant_path = config.qdrant.path
-    # keyword_index_path = config.storage.keyword_index_path # Assuming you add this to config
-    # collection_name = config.qdrant.collection_name
-    # hybrid_alpha = config.search.hybrid_alpha # Assuming you add this
-
-    embedding_model_name = "text-embedding-3-small" # Placeholder
-    qdrant_path = "./qdrant_data" # Placeholder
-    keyword_index_path = "./keyword_index.db" # Placeholder
-    collection_name = "datasheets" # Placeholder
-    hybrid_alpha = 0.7 # Placeholder
+    # Initialize configuration
+    config = PipelineConfig.from_yaml()
+    
+    # Use config values with fallbacks for mode and limit
+    if mode is None:
+        mode = config.search.default_mode
+    if limit is None:
+        limit = config.search.default_limit
+    
+    # Get values from config
+    embedding_model_name = config.openai.embedding_model
+    qdrant_path = config.qdrant.path
+    keyword_index_path = config.storage.keyword_db_path
+    collection_name = config.qdrant.collection_name
+    hybrid_alpha = config.search.hybrid_alpha
 
 
     # Initialize components
@@ -42,7 +43,7 @@ async def search_documents(query: str, mode: str = "hybrid", limit: int = 5):
     bm25_index = BM25Index(db_path=keyword_index_path)
 
     if mode == "hybrid":
-        searcher = HybridSearch(qdrant_client, bm25_index, alpha=hybrid_alpha)
+        searcher = HybridSearch(qdrant_client, bm25_index, alpha=hybrid_alpha, collection_name=collection_name)
         results = await searcher.search(query, embedding_model, limit)
     elif mode == "vector":
         query_embedding = await embedding_model.aget_query_embedding(query)

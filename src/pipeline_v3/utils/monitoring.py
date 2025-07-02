@@ -147,9 +147,22 @@ class ProgressMonitor:
         }
         return summary
 
-    def save_report(self, filepath: str = "pipeline_report.json"):
-        """Save detailed report to file."""
-        # FIXME: filepath should be configurable, e.g., from PipelineConfig.monitoring.report_filepath
+    def save_report(self, filepath: Optional[str] = None):
+        """Save detailed report to file.
+        
+        Args:
+            filepath: Path to save report. If None, uses config.monitoring.report_file
+                     or defaults to "pipeline_report.json"
+        """
+        # Use provided filepath, or get from config, or use default
+        if filepath is None:
+            try:
+                from utils.config import PipelineConfig
+                config = PipelineConfig()
+                filepath = config.monitoring.report_file
+            except:
+                # If config loading fails, use default
+                filepath = "pipeline_report.json"
         report = {
             "summary": self.get_summary(),
             "documents": [
