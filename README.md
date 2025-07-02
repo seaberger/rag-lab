@@ -1,6 +1,8 @@
 # Production Document Pipeline v3 🚀
 
-A production-ready document processing pipeline with advanced queue management, intelligent document lifecycle operations, comprehensive CLI tools, and enterprise-grade reliability.
+A production-ready document processing pipeline with advanced queue management,
+intelligent document lifecycle operations, comprehensive CLI tools, and
+enterprise-grade reliability.
 
 [![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-brightgreen)](./src/pipeline_v3/test_cli_simple.py)
 [![Integration](https://img.shields.io/badge/integration-verified-brightgreen)](./src/pipeline_v3/quick_integration_test.py)
@@ -9,14 +11,101 @@ A production-ready document processing pipeline with advanced queue management, 
 
 ## 🎯 Overview
 
-Pipeline v3 delivers a complete, production-ready document processing system built on the stable v2.1 foundation. It adds enterprise-grade features including intelligent queue management, document lifecycle operations, and comprehensive CLI tools for production deployment.
+Pipeline v3 delivers a complete, production-ready document processing system
+built on the stable v2.1 foundation. It adds enterprise-grade features
+including intelligent queue management, document lifecycle operations, and
+comprehensive CLI tools for production deployment.
 
-### ✨ Key Capabilities
+## ⚠️ **CRITICAL: Shell Timeout & Queue System for Production** ⚠️
+
+> **🚨 WARNING: This timeout issue ONLY affects running scripts from within
+> bash shell sessions (like Warp, Claude Code, or terminal environments).
+> Direct script execution outside shells works normally.**
+
+**Shell environments have a 2-minute timeout, but PDF processing takes
+30-45 seconds per page!** This creates a critical production bottleneck:
+
+### 📊 **Processing Time Reality**
+
+- **Small PDF (1-2 pages)**: ~60-90 seconds ✅ **Safe for direct CLI**
+- **Medium PDF (3-4 pages)**: ~120-180 seconds ⚠️ **At timeout limit**  
+- **Large PDF (5+ pages)**: ~250+ seconds ❌ **WILL TIMEOUT**
+- **Multiple documents**: ~N × 60+ seconds ❌ **WILL TIMEOUT**
+
+### 🎯 **Decision Table: When to Use Queue vs Direct CLI**
+
+| Scenario | Direct CLI | Queue System | Reason |
+|----------|------------|--------------|--------|
+| **Single PDF ≤ 2 pages** | ✅ **Use** | Optional | Safe within 2-min timeout |
+| **Single PDF 3-4 pages** | ⚠️ **Risky** | ✅ **Recommended** | Near timeout boundary |
+| **Single PDF 5+ pages** | ❌ **Never** | ✅ **Required** | Will exceed timeout |
+| **Multiple documents** | ❌ **Never** | ✅ **Required** | Cumulative timeout risk |
+| **Production workloads** | ❌ **Never** | ✅ **Always** | Reliability essential |
+| **Interactive testing** | ✅ **OK** | Optional | Quick verification only |
+
+### 🏭 **Three Production Patterns**
+
+#### **Pattern 1: High-Volume Batch Processing**
+
+```bash
+# Start persistent queue with optimal workers
+python cli_main.py queue start --workers 8
+
+# Add documents in batches (queue handles timeouts)
+python cli_main.py add batch_docs/*.pdf --metadata source=production
+
+# Monitor progress without blocking
+python cli_main.py queue status --detailed
+```
+
+#### **Pattern 2: Continuous Document Pipeline**
+
+```bash
+# Set up always-running queue for incoming documents
+python cli_main.py queue start --workers 4 --persistent
+
+# Documents are processed as they arrive
+python cli_main.py add new_document.pdf  # Queued automatically
+
+# Check system health periodically
+python cli_main.py status --detailed
+```
+
+#### **Pattern 3: Mixed Interactive + Production**
+
+```bash
+# Quick status checks (direct CLI - safe)
+python cli_main.py status
+python cli_main.py search "query" --type hybrid
+
+# Document processing (queue - reliable)
+python cli_main.py queue start --workers 2
+python cli_main.py add document.pdf  # Routes to queue automatically
+```
+
+### 🛡️ **Queue System Benefits**
+
+- **Timeout Immunity**: No 2-minute shell limitations
+- **Persistent Jobs**: Survives crashes and restarts
+- **Parallel Processing**: Multiple documents simultaneously
+- **Progress Tracking**: Real-time monitoring
+- **Automatic Retries**: Handles transient failures
+- **Resource Management**: Prevents system overload
+
+**📖 See [Queue System Guide](./src/pipeline_v3/docs/QUEUE_SYSTEM_GUIDE.md) for complete documentation.**
+
+### ✨ Key Capabilities / Latest Features
 
 - **🔄 Queue-Based Processing** - Scalable concurrent document processing with job persistence
 - **📋 Document Lifecycle Management** - Intelligent add/update/remove with change detection
-- **🔍 Advanced Search** - Hybrid vector + keyword search with relevance scoring
-- **💻 Production CLI** - Complete command-line interface for all operations
+- **🗄️ Database Migration Framework** - Schema versioning with rollback support for safe upgrades (#26)
+- **🛡️ API Hardening** - Enhanced OpenAI integration with exponential backoff and circuit breakers (#28, #29)
+- **📄 Microsoft Office Support** - Full Word (.docx/.doc) and PowerPoint (.pptx/.ppt) processing (#31)
+- **🔍 Advanced Hybrid Search** - Multiple fusion methods (RRF, Adaptive, Weighted) with relevance scoring (#22)
+- **📊 Page-Range Processing** - Cost-optimized PDF processing with specific page selection
+- **🌐 URL Document Processing** - Direct HTTP/HTTPS document fetching with batch processing (#45)
+- **📁 Enhanced Directory Scanning** - Recursive traversal with pattern filtering and dry-run support (#33)
+- **💻 Enterprise CLI** - Consistent parameter design with profile support (#36)
 - **📊 System Monitoring** - Real-time status, metrics, and health checking
 - **🛠️ Enterprise Features** - Index management, consistency checking, and maintenance tools
 
@@ -156,7 +245,9 @@ src/pipeline_v3/
 
 ## 🚀 Quick Start
 
-> **📖 For detailed instructions, see the [User Manual](./src/pipeline_v3/USER_MANUAL.md)** | **🚀 For daily commands, see [Quick Reference](./src/pipeline_v3/QUICK_REFERENCE.md)**
+> **📖 For detailed instructions, see the [User Manual](./src/pipeline_v3/USER_MANUAL.md)**
+>
+> **🚀 For daily commands, see [Quick Reference](./src/pipeline_v3/QUICK_REFERENCE.md)**
 
 ### Prerequisites
 
@@ -168,47 +259,66 @@ uv sync
 cat .env  # Should contain OPENAI_API_KEY, LLAMA_CLOUD_API_KEY, etc.
 ```
 
-### Basic Usage
+### Quick Start (<10 lines)
 
 ```bash
 # Navigate to pipeline v3 directory
 cd src/pipeline_v3
 
-# Show all available commands
-python cli_main.py --help
+# Add documents with modern syntax
+python cli_main.py add document.pdf --document-type datasheet --processing-options keywords
 
-# Add documents to the pipeline
-python cli_main.py add document.pdf --metadata type=datasheet
-
-# Search documents
-python cli_main.py search "laser sensors" --type hybrid --top-k 5
+# Search with hybrid fusion
+python cli_main.py search "laser sensors" --type hybrid --fusion-method adaptive --top-k 5
 
 # Check system status
 python cli_main.py status --detailed
-
-# Manage processing queue
-python cli_main.py queue start --workers 8
-python cli_main.py queue status
 ```
 
-### Advanced Operations
+### Modern CLI Features
 
 ```bash
-# Batch document operations
-python cli_main.py add data/*.pdf --metadata source=batch_import
+# Document type classification
+python cli_main.py add manual.pdf --document-type manual --metadata version=2.0
+python cli_main.py add spec.pdf --document-type specification --processing-options enhanced-metadata
 
-# Queue management
-python cli_main.py queue start --workers 4
-python cli_main.py queue stop --wait
-python cli_main.py queue clear --confirm
+# Processing profiles (predefined configurations)
+python cli_main.py add catalog.pdf --profile comprehensive
+python cli_main.py add datasheet.pdf --profile standard-datasheet
 
-# System maintenance
-python cli_main.py maintenance --repair
-python cli_main.py maintenance --consistency-check
+# Directory filtering with patterns
+python cli_main.py add /docs --recursive --include-pattern "*.pdf" --exclude-pattern "**/test/**"
 
-# Configuration management
-python cli_main.py config list
-python cli_main.py config set queue.max_workers 8
+# URL batch processing
+python cli_main.py add dummy --url-file batch_urls.json --workers 3 --processing-options keywords
+
+# Page-range processing for large documents
+python cli_main.py add large_manual.pdf --pages "1-10,50-60" --document-type manual
+```
+
+### Advanced Batch Example
+
+```bash
+# Start persistent queue for production workloads
+python cli_main.py queue start --workers 8
+
+# Batch process mixed document types with filtering
+python cli_main.py add /company_docs --recursive \
+  --include-pattern "*.pdf" --include-pattern "*.docx" \
+  --exclude-pattern "**/archive/**" --exclude-pattern "*.tmp" \
+  --document-type auto --processing-options keywords,enhanced-metadata \
+  --metadata source=company_archive batch_date=$(date +%Y%m%d)
+
+# Process URLs from batch file with custom profile
+python cli_main.py add dummy --url-file external_docs.json \
+  --profile quick-scan --workers 4 --metadata source=external
+
+# Monitor batch progress
+python cli_main.py queue status --detailed
+
+# Advanced hybrid search with multiple fusion methods
+python cli_main.py search "compliance requirements" --fusion-method adaptive --top-k 10
+python cli_main.py search "PM10K specifications" --type keyword --filter '{"doc_ids": ["specific_doc"]}'
 ```
 
 ## 📋 Complete Feature Set
@@ -340,6 +450,56 @@ Pipeline v3 maintains full backward compatibility:
 - **📊 Health Monitoring** - Built-in consistency checks
 - **⚡ Performance Optimization** - Configurable concurrency and batching
 
+## 🏢 Enterprise-Grade Reliability
+
+Pipeline v3 delivers production-ready enterprise features ensuring system reliability, data integrity,
+and operational excellence at scale.
+
+### 🔄 Migration Framework
+- **Schema Versioning** - Automatic version tracking across all 4 SQLite databases
+- **Safe Upgrades** - Transaction-safe migrations with rollback support for seamless evolution
+- **Consistency Verification** - Cross-system integrity checks across SQLite, Qdrant, and JSONL stores
+- **Production-Safe** - Prevents breaking changes during system upgrades
+- **📖 Details:** [Migration System Guide](./src/pipeline_v3/migrations/README.md)
+
+### 🛡️ Enhanced Error Handling
+- **API Hardening** - Centralized OpenAI key management with intelligent retry logic and circuit breakers
+- **Exponential Backoff** - Sophisticated retry strategies with jitter to prevent thundering herd problems
+- **Graceful Degradation** - System continues operating even with partial component failures
+- **Comprehensive Logging** - Detailed error tracking with proper exit codes for automation
+- **📖 Details:** [API Hardening Guide](./src/pipeline_v3/docs/API_HARDENING.md)
+
+### 📊 Monitoring & Metrics
+- **Real-Time Progress** - Page-by-page processing updates for long-running operations
+- **Performance Tracking** - Document processing rates, search response times, and throughput metrics
+- **Health Checks** - Automated consistency verification and system validation
+- **JSON Output** - Machine-readable metrics for monitoring system integration
+- **Resource Monitoring** - Worker utilization, queue depth, and failure rate tracking
+
+### ⚙️ Configuration Management
+- **Hierarchical Config** - YAML-based configuration with environment-specific overrides
+- **Runtime Updates** - CLI-based configuration management without service restarts
+- **Profile Support** - Predefined configurations for different deployment scenarios
+- **Environment Variables** - Secure API key and credential management
+- **Performance Tuning** - Optimized settings for throughput vs. large document processing
+
+### 🚀 Batch Processing at Scale
+- **Queue-Based Architecture** - Persistent job management with SQLite backend surviving system restarts
+- **Parallel Processing** - Configurable worker pools with intelligent resource management
+- **Automatic Recovery** - Failed job retry with exponential backoff and circuit breaker patterns
+- **Progress Tracking** - Real-time monitoring of large batch operations
+- **Timeout Management** - Intelligent timeout handling for shell vs. API limitations
+- **📖 Details:** [Batch Processing Guide](./src/pipeline_v3/docs/BATCH_PROCESSING_GUIDE.md) | [Queue System Guide](./src/pipeline_v3/docs/QUEUE_SYSTEM_GUIDE.md)
+
+### 📋 Enterprise CLI Features
+- **Standardized Parameters** - Consistent `--document-type`, `--processing-options`, and `--profile` across all commands
+- **Automation Support** - JSON output for integration with CI/CD and monitoring systems
+- **Maintenance Commands** - Built-in system repair, consistency checks, and cleanup operations
+- **Batch Operations** - Glob pattern support with worker allocation and metadata management
+- **Configuration CLI** - Runtime configuration viewing and updating without service interruption
+
+**📖 Complete Enterprise Documentation:** [Enterprise Features Overview](./enterprise_features.md)
+
 ## 🚦 Production Readiness
 
 ### ✅ Completed
@@ -396,4 +556,6 @@ Pipeline v3 maintains full backward compatibility:
 
 ---
 
-**Pipeline v3** delivers a complete, production-ready document processing system with enterprise-grade reliability, comprehensive management tools, and proven performance with real LMC technical documents. 🎉
+**Pipeline v3** delivers a complete, production-ready document processing system with
+enterprise-grade reliability, comprehensive management tools, and proven performance with
+real LMC technical documents. 🎉

@@ -27,12 +27,11 @@ A comprehensive guide to using the Production Document Processing Pipeline v3 fo
 # 1. Navigate to project root
 cd /path/to/rag_lab
 
-# 2. Add your first document (with new Issue #9 features)
-uv run python -m src.pipeline_v3.cli_main add my_document.pdf --mode auto --metadata type=manual
+# 2. Add your first document (with modern CLI syntax)
+uv run python -m src.pipeline_v3.cli_main add my_document.pdf --document-type datasheet --processing-options keywords
 
-# 3. Search for content (Enhanced with Issue #22)
-uv run python -m src.pipeline_v3.cli_main search "important keyword" --top-k 5          # Hybrid RRF (best)
-uv run python -m src.pipeline_v3.cli_main search "PM10K specs" --fusion-method adaptive # Smart search
+# 3. Search for content (Enhanced hybrid search)
+uv run python -m src.pipeline_v3.cli_main search "important keyword" --fusion-method adaptive --top-k 5
 
 # 4. Check system status
 uv run python -m src.pipeline_v3.cli_main status
