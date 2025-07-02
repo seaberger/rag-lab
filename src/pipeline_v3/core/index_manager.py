@@ -10,6 +10,7 @@ import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
+from uuid import UUID
 
 try:
     from llama_index.core import Document, VectorStoreIndex, StorageContext, Settings
@@ -28,6 +29,9 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from core.registry import DocumentRegistry, DocumentState, IndexType, IndexRecord
+from core.transaction_coordinator import (
+    Checkpoint, OperationType, StorageSystem, TransactionOperation
+)
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 from utils.filter_utils import FilterBuilder
@@ -1029,6 +1033,256 @@ class IndexManager:
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return {"error": str(e)}
+    
+    async def verify_vector_index_state(self, doc_id: str) -> Dict[str, Any]:
+        """
+        Verify if a document exists in the vector index.
+        
+        Args:
+            doc_id: Document ID to check
+            
+        Returns:
+            Dict with:
+            - exists: bool - whether document has any vectors
+            - count: int - number of vectors for this document
+            - node_ids: List[str] - list of node IDs (optional)
+        """
+        try:
+            if not self.qdrant_client:
+                return {"exists": False, "count": 0, "error": "Vector store not available"}
+            
+            # Query Qdrant for points with this doc_id
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            
+            # Search for all points with this doc_id in their payload
+            result = self.qdrant_client.scroll(
+                collection_name=self.config.qdrant.collection_name,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="doc_id",
+                            match=MatchValue(value=doc_id)
+                        )
+                    ]
+                ),
+                limit=1000,  # Reasonable limit for document chunks
+                with_payload=True,
+                with_vectors=False
+            )
+            
+            points = result[0] if result and len(result) > 0 else []
+            node_ids = [str(point.id) for point in points]
+            
+            return {
+                "exists": len(points) > 0,
+                "count": len(points),
+                "node_ids": node_ids
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to verify vector index state for {doc_id}: {e}")
+            return {"exists": False, "count": 0, "error": str(e)}
+    
+    async def verify_keyword_index_state(self, doc_id: str) -> Dict[str, Any]:
+        """
+        Verify if a document exists in the keyword index.
+        
+        Args:
+            doc_id: Document ID to check
+            
+        Returns:
+            Dict with:
+            - exists: bool - whether document has any entries
+            - count: int - number of keyword entries
+        """
+        try:
+            if not self.keyword_conn:
+                return {"exists": False, "count": 0, "error": "Keyword index not available"}
+            
+            # Query keyword index for entries with this doc_id
+            cursor = self.keyword_conn.execute(
+                "SELECT COUNT(*) FROM keyword_index WHERE doc_id = ?",
+                (doc_id,)
+            )
+            count = cursor.fetchone()[0]
+            
+            return {
+                "exists": count > 0,
+                "count": count
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to verify keyword index state for {doc_id}: {e}")
+            return {"exists": False, "count": 0, "error": str(e)}
+    
+    async def delete_from_vector_index(self, doc_id: str) -> bool:
+        """
+        Delete a document from vector index only.
+        
+        Args:
+            doc_id: Document ID to delete
+            
+        Returns:
+            bool: Success status
+        """
+        try:
+            if not self.vector_store:
+                logger.warning("Vector store not available")
+                return False
+            
+            # Use the existing vector store delete method
+            # QdrantVectorStore.delete() expects ref_doc_id (document ID)
+            self.vector_store.delete(doc_id)
+            
+            logger.info(f"Deleted document {doc_id[:8]} from vector index")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to delete {doc_id} from vector index: {e}")
+            return False
+    
+    async def delete_from_keyword_index(self, doc_id: str) -> bool:
+        """
+        Delete a document from keyword index only.
+        
+        Args:
+            doc_id: Document ID to delete
+            
+        Returns:
+            bool: Success status
+        """
+        try:
+            if not self.keyword_conn:
+                logger.warning("Keyword index not available")
+                return False
+            
+            # Delete from keyword index
+            cursor = self.keyword_conn.execute(
+                "DELETE FROM keyword_index WHERE doc_id = ?",
+                (doc_id,)
+            )
+            
+            deleted_count = cursor.rowcount
+            self.keyword_conn.commit()
+            
+            if deleted_count > 0:
+                logger.info(f"Deleted {deleted_count} entries for document {doc_id[:8]} from keyword index")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to delete {doc_id} from keyword index: {e}")
+            return False
+    
+    # Transaction support methods for Issue #27
+    
+    def prepare_add_transaction(
+        self, 
+        operation: TransactionOperation, 
+        operation_id: UUID
+    ) -> Checkpoint:
+        """
+        Prepare an add document operation for transaction.
+        
+        Args:
+            operation: Transaction operation with document data
+            operation_id: Unique operation ID
+            
+        Returns:
+            Checkpoint with current state for rollback
+        """
+        # Capture current state for potential rollback
+        doc_id = operation.doc_id
+        
+        # Check if document already exists in indexes
+        vector_state = asyncio.run(self.verify_vector_index_state(doc_id))
+        keyword_state = asyncio.run(self.verify_keyword_index_state(doc_id))
+        
+        checkpoint = Checkpoint(
+            system_name="IndexManager",
+            operation_id=operation_id,
+            doc_id=doc_id,
+            operation_type=operation.operation_type,
+            state_before={
+                "vector_exists": vector_state.get("exists", False),
+                "vector_count": vector_state.get("count", 0),
+                "keyword_exists": keyword_state.get("exists", False),
+                "keyword_count": keyword_state.get("count", 0)
+            }
+        )
+        
+        # Store operation data for commit phase
+        # In a real implementation, this would be stored persistently
+        checkpoint.operation_data = operation.data
+        
+        return checkpoint
+    
+    def commit_transaction(self, checkpoint: Checkpoint) -> bool:
+        """
+        Commit a prepared transaction.
+        
+        Args:
+            checkpoint: Checkpoint from prepare phase
+            
+        Returns:
+            bool: Success status
+        """
+        try:
+            if checkpoint.operation_type == OperationType.ADD_DOCUMENT:
+                # Add to indexes using stored operation data
+                if hasattr(checkpoint, 'operation_data') and 'nodes' in checkpoint.operation_data:
+                    nodes = checkpoint.operation_data['nodes']
+                    doc_id = checkpoint.doc_id
+                    
+                    # Add to both indexes
+                    result = self.add_nodes(
+                        doc_id=doc_id,
+                        nodes=nodes,
+                        index_types=IndexType.BOTH
+                    )
+                    return result
+                    
+            elif checkpoint.operation_type == OperationType.DELETE_DOCUMENT:
+                # Delete from both indexes
+                success = True
+                success &= asyncio.run(self.delete_from_vector_index(checkpoint.doc_id))
+                success &= asyncio.run(self.delete_from_keyword_index(checkpoint.doc_id))
+                return success
+                
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to commit transaction: {e}")
+            return False
+    
+    def rollback_transaction(self, checkpoint: Checkpoint) -> bool:
+        """
+        Rollback a transaction to previous state.
+        
+        Args:
+            checkpoint: Checkpoint with state to restore
+            
+        Returns:
+            bool: Success status
+        """
+        try:
+            doc_id = checkpoint.doc_id
+            state_before = checkpoint.state_before
+            
+            # If document didn't exist before, remove it
+            if not state_before.get("vector_exists", False) and not state_before.get("keyword_exists", False):
+                asyncio.run(self.delete_from_vector_index(doc_id))
+                asyncio.run(self.delete_from_keyword_index(doc_id))
+                
+            # Note: Full rollback would require storing actual data
+            # This is a simplified version that removes added data
+            
+            logger.info(f"Rolled back transaction for document {doc_id[:8]}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to rollback transaction: {e}")
+            return False
     
     def close(self) -> None:
         """Close database connections."""
