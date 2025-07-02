@@ -810,6 +810,59 @@ class EnhancedPipeline:
             logger.error(f"Failed to get comprehensive status: {e}")
             return {"error": str(e)}
     
+    def get_status(self) -> Dict[str, Any]:
+        """Get pipeline status for CLI compatibility.
+        
+        Returns basic status information expected by the CLI status command.
+        For full system status, use get_comprehensive_status().
+        """
+        try:
+            # Get processing stats
+            stats = self.processing_stats.copy()
+            
+            # Determine current state
+            if self.is_processing:
+                state = "processing"
+            elif stats.get("processing_errors", 0) > 0:
+                state = "error"
+            else:
+                state = "idle"
+            
+            # Calculate derived metrics
+            total_processed = stats.get("documents_processed", 0)
+            if total_processed > 0:
+                success_rate = (total_processed - stats.get("processing_errors", 0)) / total_processed * 100
+                avg_time = stats.get("total_processing_time", 0.0) / total_processed
+            else:
+                success_rate = 100.0
+                avg_time = 0.0
+            
+            return {
+                "state": state,
+                "is_processing": self.is_processing,
+                "statistics": stats,
+                "metrics": {
+                    "success_rate": round(success_rate, 2),
+                    "average_processing_time": round(avg_time, 2),
+                    "documents_per_minute": round(total_processed / max(stats.get("total_processing_time", 1.0) / 60, 1), 2)
+                },
+                "components": {
+                    "cache": "enabled" if self.cache else "disabled",
+                    "embedding_model": self.config.openai.embedding_model,
+                    "vision_model": self.config.openai.vision_model,
+                    "max_workers": self.config.job_queue.max_concurrent
+                },
+                "timestamp": time.time()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get status: {e}")
+            return {
+                "state": "error",
+                "error": str(e),
+                "timestamp": time.time()
+            }
+    
     def get_update_recommendations(
         self,
         time_budget: float = 300.0,
