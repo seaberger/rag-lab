@@ -547,3 +547,141 @@ Based on the Pipeline v3 development priorities, issues will be addressed in the
 - ✅ **Top-Level Error Handling** (Issue #25) - **COMPLETED**
 
 **Foundation Completion**: Core reliability infrastructure established ✅
+
+---
+
+## 📋 Configuration & Implementation Gaps (NEW FINDINGS)
+
+### ISSUE-CONFIG-006: Missing SearchSettings Configuration
+**Priority**: MEDIUM  
+**GitHub Issue**: [Issue #49](https://github.com/seaberger/rag-lab/issues/49)  
+**Location**: `search/cli.py`, `utils/config.py`  
+**Impact**: Search parameters hardcoded, not configurable
+
+**Description**: Search functionality uses hardcoded values (hybrid_alpha, paths) with FIXME comments indicating these should come from configuration.
+
+**Fix**: Add SearchSettings dataclass to configuration system.
+
+### ISSUE-CONFIG-007: Hardcoded Qdrant Collection Names
+**Priority**: ~~HIGH~~ **SUPERSEDED**  
+**GitHub Issue**: ~~[Issue #52](https://github.com/seaberger/rag-lab/issues/52)~~ → [Issue #56](https://github.com/seaberger/rag-lab/issues/56)  
+**Location**: `search/hybrid.py`, `search/cli.py`  
+**Impact**: Search may query wrong collection
+
+**Description**: Collection name hardcoded as "datasheets" instead of using config value "datasheets_v3", could cause search failures.
+
+**Status**: **CLOSED** - Superseded by comprehensive multi-tenant collection support (Issue #56) which provides complete business group isolation with collection-aware storage and search.
+
+### ISSUE-CONFIG-008: Hardcoded Validation Parameters
+**Priority**: MEDIUM  
+**GitHub Issue**: [Issue #51](https://github.com/seaberger/rag-lab/issues/51)  
+**Location**: `utils/validation.py`  
+**Impact**: File type and size limits not configurable
+
+**Description**: Validation parameters (allowed_extensions, max_file_size) hardcoded with FIXME comments.
+
+**Fix**: Move validation parameters to ValidationSettings configuration.
+
+### ISSUE-CONFIG-009: Monitoring Report Path Hardcoded
+**Priority**: LOW  
+**GitHub Issue**: [Issue #50](https://github.com/seaberger/rag-lab/issues/50)  
+**Location**: `utils/monitoring.py` line 152  
+**Impact**: Report location not configurable
+
+**Description**: Report filepath hardcoded as "pipeline_report.json" despite config having report_file field.
+
+**Fix**: Use config.monitoring.report_file instead of hardcoded value.
+
+### ISSUE-IMPL-001: LlamaIndex MetadataFilters Not Implemented
+**Priority**: MEDIUM  
+**GitHub Issue**: [Issue #53](https://github.com/seaberger/rag-lab/issues/53)  
+**Location**: `core/index_manager.py` line 524  
+**Impact**: Inefficient filtering, performance issues
+
+**Description**: TODO comment indicates MetadataFilters not implemented, using post-processing instead of native vector store filtering.
+
+**Fix**: Implement proper LlamaIndex MetadataFilters for query-time filtering.
+
+### ISSUE-IMPL-002: Pairs Metadata Filtering Empty Implementation
+**Priority**: MEDIUM  
+**GitHub Issue**: [Issue #54](https://github.com/seaberger/rag-lab/issues/54)  
+**Location**: `utils/filter_utils.py` line 209  
+**Impact**: Pairs filtering only in post-processing
+
+**Description**: Empty pass statement for pairs filtering in vector metadata conversion.
+
+**Fix**: Implement pairs filtering logic for vector store queries.
+
+### ISSUE-CLEANUP-001: Outdated FIXME Comment
+**Priority**: LOW  
+**GitHub Issue**: [Issue #55](https://github.com/seaberger/rag-lab/issues/55)  
+**Location**: `core/pipeline.py` lines 47-53  
+**Impact**: Confusing documentation
+
+**Description**: FIXME comment references items that have been implemented elsewhere.
+
+**Fix**: Remove or update outdated comment.
+
+## Updated Priority Matrix
+
+### HIGH (Fix This Sprint)
+- ISSUE-SEC-001: SQL Injection Vulnerabilities
+- ISSUE-SEC-002: Path Traversal Vulnerabilities
+- ISSUE-SEC-003: SSRF Risk
+- ✅ ISSUE-ERR-001: No Top-Level Error Handling (**RESOLVED**)
+- ISSUE-ERR-004: Missing Input Validation
+- ISSUE-DATA-001: No Backup System
+- ✅ ISSUE-DATA-002: No Database Schema Versioning (**RESOLVED**)
+- ISSUE-DATA-003: No Cross-System Consistency
+- ISSUE-CONFIG-003: No Secrets Management
+- ~~ISSUE-CONFIG-007: Hardcoded Qdrant Collection Names~~ (Superseded by Issue #56)
+- ISSUE-TEST-001: No Formal Testing Framework
+- ISSUE-TEST-002: No CI/CD Automation
+- ISSUE-TEST-003: No Security Testing
+
+### MEDIUM (Fix Next Sprint)
+- ISSUE-SEC-004: Insecure Temporary File Handling
+- ISSUE-ERR-002: Inconsistent Error Handling Patterns
+- ISSUE-ERR-003: Swallowed Errors
+- ISSUE-ERR-005: No Recovery Mechanisms
+- ISSUE-DATA-004: Missing Disaster Recovery
+- ISSUE-DATA-005: No Corruption Detection
+- ISSUE-CONFIG-001: No Environment-Specific Configuration
+- ISSUE-CONFIG-002: No Configuration Validation
+- **ISSUE-CONFIG-006: Missing SearchSettings Configuration** (**NEW**)
+- **ISSUE-CONFIG-008: Hardcoded Validation Parameters** (**NEW**)
+- **ISSUE-IMPL-001: LlamaIndex MetadataFilters Not Implemented** (**NEW**)
+- **ISSUE-IMPL-002: Pairs Metadata Filtering Empty Implementation** (**NEW**)
+- ISSUE-TEST-004: No Performance Testing
+- ISSUE-OBS-001: No Metrics Collection
+- ISSUE-OBS-002: No Distributed Tracing
+- ISSUE-OBS-003: No Structured Logging
+- ISSUE-OBS-004: No Health Check Endpoints
+- ISSUE-ARCH-001: Tight Component Coupling
+- ISSUE-ARCH-003: No Rate Limiting
+
+### LOW (Future Improvements)
+- ISSUE-CONFIG-004: No Runtime Configuration Changes
+- ISSUE-CONFIG-005: No Dependency Injection Framework
+- **ISSUE-CONFIG-009: Monitoring Report Path Hardcoded** (**NEW**)
+- **ISSUE-CLEANUP-001: Outdated FIXME Comment** (**NEW**)
+- ISSUE-TEST-005: Inconsistent Mocking Strategies
+- ISSUE-OBS-005: No Monitoring Dashboards
+- ISSUE-ARCH-002: No Service Discovery Pattern
+- ISSUE-ARCH-004: No Circuit Breaker Patterns
+- ISSUE-ARCH-005: No Event-Driven Architecture
+
+## Updated Statistics
+- **Total Issues**: 35 (+7 new)
+- **✅ Resolved**: 2
+- **🔄 In Progress**: 0
+- **📋 Planned**: 32 (Issue #52 superseded by #56)
+- **🚨 Critical Remaining**: 1 (Issue #27)
+
+### Priority Breakdown
+- **High Priority**: 9 remaining (2 resolved, 1 superseded)
+- **Medium Priority**: 16 (+4 new)
+- **Low Priority**: 7 (+2 new)
+
+### New Enterprise Feature
+- **Issue #56**: Multi-tenant collection support - Comprehensive solution for business group isolation
