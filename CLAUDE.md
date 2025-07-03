@@ -2,6 +2,13 @@
 
 This file provides repository-wide context and navigation guidance for Claude Code development sessions.
 
+## 🚨 CRITICAL: OpenAI Models Configuration
+
+**ALWAYS use these exact model names - NO variations:**
+- **Vision Model**: `gpt-4.1` (NOT gpt-4o, NOT gpt-4-vision, NOT gpt-4.1-test)
+- **Keyword Model**: `gpt-4.1-mini` (NOT gpt-4o-mini)
+- **Embedding Model**: `text-embedding-3-small`
+
 ## 🎯 Current Development Focus: Pipeline v3
 
 **Active Area**: `src/pipeline_v3/` - Production-ready document processing system
@@ -20,7 +27,7 @@ cd src/pipeline_v3
 ## 📊 Project Status Overview
 
 ### ✅ **Production Ready Components**
-- **Pipeline v3**: Enterprise document processing with OpenAI Vision API
+- **Pipeline v3**: Enterprise document processing with OpenAI Vision API (gpt-4.1)
 - **Storage System**: JSONL artifacts with full datasheet parsing
 - **Search Engine**: Hybrid vector + keyword search with advanced fusion
 - **Queue Management**: Scalable concurrent processing

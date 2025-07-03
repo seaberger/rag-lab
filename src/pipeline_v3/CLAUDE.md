@@ -297,6 +297,7 @@ uv run python -m src.pipeline_v3.cli_main add "docs/*.pdf"  # Always use queue
 
 ## Important Notes ⚠️
 
+- **CRITICAL - OpenAI Models:** ALWAYS use exactly `gpt-4.1` for vision and `gpt-4.1-mini` for keywords. NO variations!
 - **Use uv from project root:** Critical for proper environment and imports
 - **Primary CLI:** Use `cli_main.py` for production with full v2.1 feature parity
 - **Enterprise CLI:** New parameters `--document-type`, `--processing-options`, `--profile` (Issue #36)

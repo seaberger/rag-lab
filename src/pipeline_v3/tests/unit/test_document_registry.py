@@ -8,13 +8,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-from core.registry import IndexType
-
+# Add parent directory for imports BEFORE importing project modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.registry import DocumentRegistry, DocumentState
+import pytest
 
+from core.registry import DocumentRegistry, DocumentState, IndexType
 from utils.config import PipelineConfig
 
 
