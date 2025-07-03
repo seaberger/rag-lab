@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -139,20 +140,20 @@ job_queue:
         assert doc_by_source.doc_id == doc_id
 
         # Test status updates - using update_document_state method
-        registry.update_document_state(doc_id, DocumentState.PROCESSING)
+        registry.update_document_state(doc_id, DocumentState.UPDATING)
         doc = registry.get_document(doc_id)
-        assert doc.status == "processing"
+        assert doc.state == "updating"
 
-        registry.update_document_state(doc_id, DocumentState.COMPLETED)
+        registry.update_document_state(doc_id, DocumentState.INDEXED)
         doc = registry.get_document(doc_id)
-        assert doc.status == "completed"
+        assert doc.state == "indexed"
 
         # Test index updates
         from core.registry import IndexType
         registry.mark_indexed(doc_id, IndexType.BOTH, chunk_count=5)
         doc = registry.get_document(doc_id)
-        assert doc.has_vector_index == True
-        assert doc.has_keyword_index == True
+        assert doc.vector_indexed == True
+        assert doc.keyword_indexed == True
 
         # Skip document updates - method not available
         # Would need to check actual registry API
@@ -165,18 +166,15 @@ job_queue:
         # Test statistics
         stats = registry.get_statistics()
         assert stats["total_documents"] == 1
-        assert stats["completed_documents"] == 1
-        assert stats["failed_documents"] == 0
+        assert stats["by_state"]["indexed"]["count"] == 1
+        # Health score might be less than 100 if we marked indexed without actual index entries
+        assert stats["consistency"]["health_score"] >= 90
 
-        # Test change detection
-        is_changed = registry.has_changed("test.pdf", 1024000, "2024-01-01")
-        assert not is_changed  # Same size
-
-        is_changed = registry.has_changed("test.pdf", 2048000, "2024-01-01")
-        assert is_changed  # Different size
+        # Change detection is handled by FingerprintManager, not Registry
+        # Tested separately in test_fingerprint_store_operations
 
         # Test deletion
-        registry.delete_document(doc_id)
+        registry.remove_document(doc_id)
         doc = registry.get_document(doc_id)
         assert doc is None
 
@@ -366,18 +364,17 @@ job_queue:
         monitor = ProgressMonitor()
 
         # Start tracking a document
-        monitor.start_document("doc1", "test.pdf")
+        monitor.start_document("doc1", "test.pdf", size_bytes=1024)
 
-        # Track stages
-        monitor.start_stage("doc1", "parsing")
-        time.sleep(0.01)  # Small delay
-        monitor.end_stage("doc1", "parsing")
+        # Track stages - update_stage records completed stage with duration
+        time.sleep(0.01)  # Small delay to simulate processing
+        monitor.update_stage("doc1", "parsing", duration=0.01)
 
         # Complete document
-        monitor.complete_document("doc1", chunks=5, size_bytes=1024)
+        monitor.complete_document("doc1", chunks=5)
 
-        # Get stats
-        stats = monitor.get_document_stats("doc1")
+        # Get stats directly from stats dict
+        stats = monitor.stats["doc1"]
         assert stats.doc_id == "doc1"
         assert stats.chunks == 5
         assert stats.size_bytes == 1024
@@ -393,14 +390,14 @@ job_queue:
         monitor.start_document("doc2", "error.pdf")
         monitor.fail_document("doc2", "Test error")
 
-        error_stats = monitor.get_document_stats("doc2")
+        error_stats = monitor.stats["doc2"]
         assert error_stats.error == "Test error"
 
-        # Check report generation
-        report = monitor.generate_report()
-        assert isinstance(report, dict)
-        assert "summary" in report
-        assert "documents" in report
+        # Check get_summary works
+        summary = monitor.get_summary()
+        assert isinstance(summary, dict)
+        assert summary["total_docs"] == 2
+        assert summary["failed_docs"] == 1
 
     def test_logging_initialization(self):
         """Test logging setup."""
