@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # metadata.py
 """
 Processes a list of LlamaIndex Document objects (typically output from parse.py)
@@ -212,7 +213,7 @@ async def create_origin_nodes(input_file_path):
                 logging.info("-" * 40)
                 logging.info(f"Text length: {len(doc.text)}")
                 logging.info("Sample content:")
-                logging.info(doc.text[:500] + "...")
+                logging.info("%s...", doc.text[:500])
                 logging.info("-" * 40)
 
         logging.info("\nStarting pipeline run...")
@@ -235,7 +236,7 @@ async def create_origin_nodes(input_file_path):
                 logging.info(f"Text length: {len(node.text)}")
                 logging.info(f"Metadata: {node.metadata}")
                 logging.info("Sample content:")
-                logging.info(node.text[:500] + "...")
+                logging.info("%s...", node.text[:500])
                 logging.info("-" * 40)
             return origin_nodes
         logging.info("No valid nodes were created. Check the extraction rules and validation.")

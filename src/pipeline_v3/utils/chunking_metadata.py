@@ -130,11 +130,11 @@ Return JSON format:
 }}"""
 
             @enhanced_retry_api_call(max_attempts=3, retry_type="batch")
-            async def call_batch_api():
+            async def call_batch_api(batch_prompt=prompt):
                 client = create_text_client()
                 return client.chat.completions.create(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": batch_prompt}],
                     temperature=0.1,
                     max_tokens=800,
                 )

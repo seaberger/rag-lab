@@ -91,8 +91,9 @@ def test_real_migration_files():
             print(f"   ✅ {db_type} migrations applied successfully")
 
         finally:
-            if os.path.exists(db_path):
-                os.unlink(db_path)
+            db_path_obj = Path(db_path)
+            if db_path_obj.exists():
+                db_path_obj.unlink()
 
     print("   ✅ PASSED - Real migration files integration")
     return True
@@ -187,8 +188,9 @@ def test_migration_sequence():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_error_recovery():
@@ -250,8 +252,9 @@ def test_migration_error_recovery():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_concurrent_migration_safety():
@@ -297,8 +300,9 @@ def test_concurrent_migration_safety():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def main():

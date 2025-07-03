@@ -53,7 +53,7 @@ def run_cli():
         sys.exit(126)
     except ConfigLoadError as e:
         if hasattr(e, "command_string") and e.command_string:
-            logger.error("Configuration error: %s | Command: %s", e, e.command_string)
+            logger.exception("Configuration error: %s | Command: %s", e, e.command_string)
         else:
             logger.exception("Configuration error")
         print("❌ Configuration error:", e)

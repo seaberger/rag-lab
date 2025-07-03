@@ -13,6 +13,7 @@ tests various error scenarios including:
 """
 
 import asyncio
+import contextlib
 import io
 import json
 import logging
@@ -150,7 +151,7 @@ with unittest.mock.patch.dict(sys.modules, {{'pipeline.enhanced_core': None}}):
             assert "dependency" in result.stdout.lower() or "Required dependency" in result.stdout
 
         finally:
-            os.unlink(temp_script)
+            Path(temp_script).unlink()
 
     def test_bad_config_path(self):
         """Test behavior with invalid config path."""
@@ -244,7 +245,7 @@ run_cli()
             # If it times out, that's also acceptable as it means the interrupt wasn't processed
             pass
         finally:
-            os.unlink(temp_script)
+            Path(temp_script).unlink()
 
     def test_invalid_arguments(self):
         """Test various invalid argument scenarios."""
@@ -318,7 +319,7 @@ with unittest.mock.patch('builtins.__import__', side_effect=ImportError("Missing
             assert "dependency" in result.stdout.lower()
 
         finally:
-            os.unlink(temp_script)
+            Path(temp_script).unlink()
 
     def test_connection_error_handling(self):
         """Test ConnectionError handling."""
@@ -418,13 +419,13 @@ print(f"LOG_FILE:{{log_file}}")
                     assert "Traceback" in log_content or "RuntimeError" in log_content
 
                     # Clean up
-                    os.unlink(log_file)
+                    Path(log_file).unlink()
 
             # Check that user-facing output doesn't contain full traceback
             assert "Traceback (most recent call last)" not in result.stdout
 
         finally:
-            os.unlink(temp_script)
+            Path(temp_script).unlink()
 
     @patch("sys.argv", ["cli_main.py", "status"])
     def test_cli_argument_error_with_command_string(self):
@@ -510,11 +511,8 @@ print(f"LOG_FILE:{{log_file}}")
                 await asyncio.sleep(0.1)
                 task.cancel()
 
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    # This is expected
-                    pass
 
 
 class TestCLIRegressionSubprocess:
@@ -715,7 +713,7 @@ def run_simple_tests():
             )
             if result.returncode == 0:
                 help_success += 1
-        except:
+        except Exception:
             pass
 
     if help_success == len(help_commands):

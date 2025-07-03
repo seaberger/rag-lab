@@ -311,8 +311,8 @@ class HybridRetrieverWithReranking(BaseRetriever):
 
             # --- Normalize scores ---
             if max_score > 0:
-                for node_id in node_scores:
-                    node_scores[node_id]["score"] /= max_score
+                for _node_id, node_data in node_scores.items():
+                    node_data["score"] /= max_score
 
             logger.info(
                 f"Completed score computation with {len(node_scores)} nodes and max score {max_score}"
@@ -728,7 +728,7 @@ def init_chat_engine() -> dict:
     # 4. Create the SYNC retriever
     try:
         retriever = _create_sync_retriever(cohere_api_key)
-    except Exception as e:
+    except Exception:
         logging.exception("Fatal Error: Could not create retriever")
         raise
 

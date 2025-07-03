@@ -27,7 +27,7 @@ class FilterBuilder:
             return {}
 
         if not isinstance(filters, dict):
-            raise ValueError("Filters must be a dictionary")
+            raise TypeError("Filters must be a dictionary")
 
         # Validate structure
         valid_sections = {

@@ -68,9 +68,8 @@ OPENAI_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")
 VECTOR_DB_PATH = os.getenv("QDRANT_LOCAL", "./qdrant_data")
 ARTEFACT_DIR = Path(os.getenv("ARTEFACT_DIR", "./artefacts"))
 ARTEFACT_DIR.mkdir(parents=True, exist_ok=True)
-POPPLER_PATH = (
-    os.getenv("POPPLER_PATH")
-    or (lambda: Path(shutil.which("pdfinfo")).parent if shutil.which("pdfinfo") else None)()
+POPPLER_PATH = os.getenv("POPPLER_PATH") or (
+    Path(shutil.which("pdfinfo")).parent if shutil.which("pdfinfo") else None
 )
 INLINE_PROMPT = """"""
 DEFAULT_GENERIC_PROMPT = "Extract all text as GitHub-flavoured Markdown."
@@ -260,7 +259,7 @@ async def ingest_sources(
             n.metadata.update({"doc_id": doc_id, "pairs": pairs})
         VectorStoreIndex.from_nodes(nodes, storage_context=storage, service_context=svc_ctx)
     print(
-        "Ingestion complete –",
+        "Ingestion complete -",
         len(list(ARTEFACT_DIR.glob("*.jsonl"))),
         "artefacts total.",
     )
@@ -293,7 +292,9 @@ if __name__ == "__main__":
     expanded = []
     for s in args.src:
         if s.startswith("@"):
-            expanded += [l.strip() for l in Path(s[1:]).read_text().splitlines() if l.strip()]
+            expanded += [
+                line.strip() for line in Path(s[1:]).read_text().splitlines() if line.strip()
+            ]
         else:
             expanded.append(s)
     try:

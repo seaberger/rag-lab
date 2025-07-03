@@ -216,8 +216,9 @@ with patch('cli.management.main', side_effect=KeyboardInterrupt()):
             print("     Test timed out (this might be expected)")
             return True  # Accept timeout as a form of success
         finally:
-            if os.path.exists(temp_script):
-                os.unlink(temp_script)
+            temp_script_path = Path(temp_script)
+            if temp_script_path.exists():
+                temp_script_path.unlink()
 
     def test_dependency_error_simulation(self):
         """Test dependency error handling."""
@@ -272,8 +273,9 @@ with patch('cli.management.CORE_AVAILABLE', False):
             return False
 
         finally:
-            if os.path.exists(temp_script):
-                os.unlink(temp_script)
+            temp_script_path = Path(temp_script)
+            if temp_script_path.exists():
+                temp_script_path.unlink()
 
     def test_value_error_handling(self):
         """Test ValueError handling (invalid argument values)."""
@@ -367,8 +369,9 @@ else:
             return False
 
         finally:
-            if os.path.exists(temp_script):
-                os.unlink(temp_script)
+            temp_script_path = Path(temp_script)
+            if temp_script_path.exists():
+                temp_script_path.unlink()
 
     def test_comprehensive_help_commands(self):
         """Test comprehensive list of help commands."""

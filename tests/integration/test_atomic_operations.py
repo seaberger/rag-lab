@@ -15,6 +15,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.pipeline_v3.core.consistency_checker import RepairStrategy
 from src.pipeline_v3.core.index_manager_atomic import AtomicIndexManager
 from src.pipeline_v3.core.registry import DocumentState, IndexType
 from src.pipeline_v3.utils.config import PipelineConfig

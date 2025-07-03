@@ -22,7 +22,6 @@ Commands:
 
 import argparse
 import asyncio
-import glob
 import json
 import logging
 import sys
@@ -561,7 +560,28 @@ Examples:
 
             # Handle glob patterns
             try:
-                matches = glob.glob(source, recursive=recursive)
+                # Use Path.glob for better portability
+                path = Path(source)
+                if "*" in source or "?" in source or "[" in source:
+                    # It's a glob pattern
+                    base_path = Path.cwd()
+                    pattern = source
+                    if "/" in source or "\\" in source:
+                        # Extract base path from pattern
+                        parts = source.replace("\\", "/").split("/")
+                        for i, part in enumerate(parts):
+                            if "*" in part or "?" in part or "[" in part:
+                                base_path = Path("/".join(parts[:i])) if i > 0 else Path.cwd()
+                                pattern = "/".join(parts[i:])
+                                break
+
+                    if recursive and "**" not in pattern:
+                        pattern = f"**/{pattern}"
+
+                    matches = [str(p) for p in base_path.glob(pattern)]
+                else:
+                    # Not a glob pattern, treat as literal path
+                    matches = [source] if Path(source).exists() else []
                 if matches:
                     # Filter to supported file types
                     supported_extensions = [

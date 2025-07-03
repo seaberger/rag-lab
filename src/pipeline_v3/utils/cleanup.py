@@ -54,7 +54,7 @@ def cleanup_temp_resources() -> None:
 
 
 @contextmanager
-def temporary_file(suffix: str | None = None, prefix: str | None = None, dir: Path | None = None):
+def temporary_file(suffix: str | None = None, prefix: str | None = None, dir: Path | None = None):  # noqa: A002
     """
     Context manager for creating and cleaning up temporary files.
 
@@ -89,7 +89,9 @@ def temporary_file(suffix: str | None = None, prefix: str | None = None, dir: Pa
 
 @contextmanager
 def temporary_directory(
-    suffix: str | None = None, prefix: str | None = None, dir: Path | None = None
+    suffix: str | None = None,
+    prefix: str | None = None,
+    dir: Path | None = None,  # noqa: A002
 ):
     """
     Context manager for creating and cleaning up temporary directories.

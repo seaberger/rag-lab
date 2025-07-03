@@ -46,7 +46,7 @@ from typing import Any
 # Import Document and Node types for verification
 # Make it optional
 try:
-    from llama_index.core.schema import BaseNode, Document, TextNode
+    from llama_index.core.schema import BaseNode, Document
 
     VALID_OBJECT_TYPES: tuple[type, ...] = (
         Document,

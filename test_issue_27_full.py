@@ -46,7 +46,7 @@ async def check_system_state():
     try:
         info = client.get_collection("datasheets_v3")
         print(f"\nQdrant collection: {info.points_count} points")
-    except:
+    except Exception:
         print("\nQdrant collection: Not found or empty")
 
     # Check keyword index

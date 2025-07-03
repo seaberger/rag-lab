@@ -58,8 +58,9 @@ def test_migration_manager_basic():
         print("   ✅ PASSED - MigrationManager initialization")
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_application():
@@ -100,8 +101,9 @@ def test_migration_application():
         print("   ✅ PASSED - Migration application")
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_rollback():
@@ -149,8 +151,9 @@ def test_migration_rollback():
         print("   ✅ PASSED - Migration rollback")
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_database_base_integration():

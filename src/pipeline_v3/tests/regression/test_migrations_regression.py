@@ -77,8 +77,9 @@ def test_migration_idempotency():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_schema_migrations_table_integrity():
@@ -149,8 +150,9 @@ def test_schema_migrations_table_integrity():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_checksum_verification():
@@ -193,8 +195,9 @@ def test_migration_checksum_verification():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_rollback_consistency():
@@ -252,8 +255,9 @@ def test_migration_rollback_consistency():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_transaction_atomicity():
@@ -305,8 +309,9 @@ def test_migration_transaction_atomicity():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def test_migration_version_sequence():
@@ -360,8 +365,9 @@ def test_migration_version_sequence():
         return True
 
     finally:
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        db_path_obj = Path(db_path)
+        if db_path_obj.exists():
+            db_path_obj.unlink()
 
 
 def main():

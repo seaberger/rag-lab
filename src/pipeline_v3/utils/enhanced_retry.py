@@ -63,7 +63,9 @@ class RetryConfig:
 class RetryableError(Exception):
     """Exception that indicates an operation should be retried."""
 
-    def __init__(self, message: str, error_type: ErrorType, original_error: Exception | None = None):
+    def __init__(
+        self, message: str, error_type: ErrorType, original_error: Exception | None = None
+    ):
         super().__init__(message)
         self.error_type = error_type
         self.original_error = original_error
@@ -265,7 +267,7 @@ class EnhancedRetry:
         # Add jitter to prevent thundering herd
         if self.config.jitter:
             jitter_amount = delay * self.config.jitter_range
-            jitter = random.uniform(-jitter_amount, jitter_amount)
+            jitter = random.uniform(-jitter_amount, jitter_amount)  # noqa: S311
             delay += jitter
             delay = max(0.1, delay)  # Ensure positive delay
 

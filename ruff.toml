@@ -129,6 +129,7 @@ ignore = [
     # Non-critical rules we're ignoring for now
     "PLC0415", # Import outside top-level (many are intentional lazy imports)
     "TRY401",  # Verbose log messages (style preference)
+    "TRY301",  # Abstract raise to inner function (style preference)
     "EXE001",  # Shebang not executable (utility scripts)
     "S301",    # Pickle usage (required for our node storage)
     "PTH100",  # os.path.abspath

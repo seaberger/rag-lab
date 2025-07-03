@@ -8,7 +8,7 @@ from typing import Any
 
 # Attempt to import LlamaIndex types, handle if not installed
 try:
-    from llama_index.core.schema import BaseNode, NodeRelationship, TextNode
+    from llama_index.core.schema import BaseNode, NodeRelationship
 
     NODE_CLASSES = (BaseNode,)  # Check against BaseNode
 except ImportError:

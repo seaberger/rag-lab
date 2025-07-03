@@ -726,7 +726,7 @@ class IndexManager:
         )[:top_k]
 
         results = []
-        for node_id, data in sorted_items:
+        for _node_id, data in sorted_items:
             result = data["result"].copy()
             result["normalized_score"] = data["rrf_score"]
             result["fusion_score"] = data["rrf_score"]

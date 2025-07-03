@@ -1,4 +1,4 @@
-# #!/usr/bin/env python3
+#!/usr/bin/env python3
 # """
 # Processes PDF and Markdown documents for ingestion into a RAG system.
 
@@ -652,7 +652,6 @@
 #             f"An unexpected error occurred during execution: {e}", exc_info=True
 #         )
 #         print(f"An unexpected error occurred: {e}")
-#!/usr/bin/env python3
 """
 Processes PDF and Markdown documents for ingestion into a RAG system.
 
