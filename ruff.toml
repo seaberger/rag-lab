@@ -21,6 +21,13 @@ exclude = [
     "qdrant_data_v3",
     "storage_data_v3",
     "data",
+    # Exclude backup directories
+    "**/backups/",
+    "**/backup/",
+    "**/legacy_backup/",
+    "**/*_backup.py",
+    # Exclude standalone test files in root
+    "test_*.py",
 ]
 
 # Target Python 3.12+
