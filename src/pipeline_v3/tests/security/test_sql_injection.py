@@ -136,7 +136,7 @@ class TestSQLInjectionProtection:
 
             # Verify FTS table still exists and has data
             # Access connection directly for testing
-            cursor = keyword_index.conn.execute("SELECT COUNT(*) FROM documents_fts")
+            cursor = keyword_index.conn.execute("SELECT COUNT(*) FROM documents")
             count = cursor.fetchone()[0]
             assert count > 0  # Our test document should still be there
 

@@ -13,6 +13,7 @@ from pathlib import Path
 # import numpy as np # numpy seems unused in this file, commenting out.
 from llama_index.core.schema import TextNode  # Added TextNode
 
+from utils.common_utils import logger
 from utils.config import PipelineConfig
 
 
@@ -101,28 +102,79 @@ class BM25Index:
         # Normalize whitespace
         return " ".join(text.split())
 
+    def _escape_fts5_query(self, query: str) -> str:
+        """Escape FTS5 special characters to prevent syntax errors and injection."""
+        if not query or not query.strip():
+            return ""
+
+        # Remove/escape FTS5 special characters that can cause syntax errors
+        # FTS5 special chars: " (quotes), ' (single quotes), () (parentheses), * (wildcards), - (NOT operator)
+
+        # First, remove any existing quotes to prevent quote injection
+        query = query.replace('"', " ").replace("'", " ")
+
+        # Remove other FTS5 operators and SQL special characters that could be injection attempts
+        query = re.sub(r"[(){}[\]<>|&^~`;,=]", " ", query)
+
+        # Remove SQL injection patterns
+        query = re.sub(r"[-]{2,}.*$", " ", query)  # Remove SQL comments (-- )
+        query = re.sub(r"/\*.*?\*/", " ", query, flags=re.DOTALL)  # Remove /* */ comments
+
+        # Remove common SQL keywords that shouldn't appear in search
+        sql_keywords = [
+            "DROP",
+            "DELETE",
+            "INSERT",
+            "UPDATE",
+            "CREATE",
+            "ALTER",
+            "UNION",
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "TABLE",
+            "DATABASE",
+            "SCHEMA",
+        ]
+        for keyword in sql_keywords:
+            query = re.sub(rf"\b{keyword}\b", " ", query, flags=re.IGNORECASE)
+
+        # Clean up whitespace and normalize
+        query = " ".join(query.split())
+
+        # If query is empty after cleaning, return a safe default
+        if not query.strip():
+            return "placeholder_safe_query"
+
+        return query
+
     def search(self, query: str, limit: int = 10) -> list[dict]:
         """BM25 search using SQLite FTS5."""
-        # Clean query
-        clean_query = self._clean_text(query)
+        # Escape query for FTS5 safety
+        clean_query = self._escape_fts5_query(query)
 
-        # Search with BM25 ranking
-        results = self.conn.execute(
-            """
-            SELECT
-                doc_id,
-                chunk_id,
-                text,
-                keywords,
-                metadata,
-                bm25(documents) as score
-            FROM documents
-            WHERE documents MATCH ?
-            ORDER BY score
-            LIMIT ?
-        """,
-            (clean_query, limit),
-        ).fetchall()
+        # Search with BM25 ranking with error handling
+        try:
+            results = self.conn.execute(
+                """
+                SELECT
+                    doc_id,
+                    chunk_id,
+                    text,
+                    keywords,
+                    metadata,
+                    bm25(documents) as score
+                FROM documents
+                WHERE documents MATCH ?
+                ORDER BY score
+                LIMIT ?
+            """,
+                (clean_query, limit),
+            ).fetchall()
+        except sqlite3.OperationalError as e:
+            # If FTS5 query still fails, return empty results instead of crashing
+            logger.warning(f"FTS5 search failed for query '{query}': {e}")
+            return []
 
         return [
             {

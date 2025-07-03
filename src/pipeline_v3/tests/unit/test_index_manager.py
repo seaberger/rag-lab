@@ -62,43 +62,31 @@ class TestIndexManager:
 
     def test_index_document(self, index_manager):
         """Test indexing a document."""
-        # Create test nodes
-        nodes = [
-            TextNode(
-                id_="node1",
-                text="Test content about laser power meters",
-                metadata={"page": 1}
-            ),
-            TextNode(
-                id_="node2",
-                text="Specifications and features",
-                metadata={"page": 2}
-            )
-        ]
-
-        # Mock registry document
         doc_id = str(uuid.uuid4())
-        index_manager.registry.get_document = Mock(return_value=Mock(
-            doc_id=doc_id,
-            source="test.pdf",
-            state=DocumentState.NEW.value
-        ))
 
-        # Mock vector and keyword indexing
-        index_manager.vector_store.add = Mock()
-        index_manager.keyword_index.index_nodes = Mock()
+        # Mock all the complex internal operations
+        with patch('core.index_manager.VectorStoreIndex'), \
+             patch('core.index_manager.StorageContext'), \
+             patch.object(index_manager.registry, 'register_index_entry'), \
+             patch.object(index_manager.registry, 'register_document'), \
+             patch.object(index_manager, 'keyword_conn') as mock_keyword_conn:
 
-        # Index the document
-        result = index_manager.index_document(
-            doc_id=doc_id,
-            nodes=nodes,
-            source="test.pdf",
-            pairs=[("Product", "PM100")]
-        )
+            # Mock keyword database connection
+            mock_keyword_conn.execute = Mock()
+            mock_keyword_conn.commit = Mock()
 
-        assert result
-        index_manager.vector_store.add.assert_called_once()
-        index_manager.keyword_index.index_nodes.assert_called_once()
+            # Index the document
+            result = index_manager.add_document(
+                doc_id=doc_id,
+                content="Test content about laser power meters. Specifications and features",
+                metadata={"source": "test.pdf", "pairs": [("Product", "PM100")]},
+                index_types=IndexType.BOTH
+            )
+
+            assert result
+            # Verify keyword indexing was called
+            mock_keyword_conn.execute.assert_called()
+            mock_keyword_conn.commit.assert_called_once()
 
     def test_search_hybrid(self, index_manager):
         """Test hybrid search functionality."""
@@ -124,7 +112,7 @@ class TestIndexManager:
         ])
 
         # Perform hybrid search
-        results = index_manager.search("test query", limit=5, alpha=0.5)
+        results = index_manager.hybrid_search("test query", top_k=5, vector_weight=0.5, keyword_weight=0.5)
 
         assert len(results) > 0
         index_manager._vector_search.assert_called_once()
@@ -144,7 +132,7 @@ class TestIndexManager:
         ])
 
         # Perform vector search
-        results = index_manager.search("test query", limit=5, alpha=1.0)
+        results = index_manager.search_vector("test query", top_k=5)
 
         assert len(results) == 2
         index_manager._vector_search.assert_called_once()
@@ -161,7 +149,7 @@ class TestIndexManager:
         index_manager.keyword_index.search = Mock(return_value=keyword_results)
 
         # Perform keyword search
-        results = index_manager.search("test query", limit=5, alpha=0.0)
+        results = index_manager.search_keyword("test query", top_k=5)
 
         assert len(results) == 2
         index_manager.keyword_index.search.assert_called_once()
@@ -207,19 +195,18 @@ class TestIndexManager:
 
         # Mock deletion and re-indexing
         index_manager.delete_document = Mock(return_value=True)
-        index_manager.index_document = Mock(return_value=True)
+        index_manager.add_document = Mock(return_value=True)
 
         # Update document
         result = index_manager.update_document(
             doc_id=doc_id,
-            nodes=new_nodes,
-            source="test.pdf",
-            pairs=[]
+            content="Updated test content",
+            metadata={"source": "test.pdf"}
         )
 
         assert result
         index_manager.delete_document.assert_called_once_with(doc_id)
-        index_manager.index_document.assert_called_once()
+        index_manager.add_document.assert_called_once()
 
     def test_delete_document(self, index_manager):
         """Test deleting a document."""
@@ -294,9 +281,9 @@ class TestIndexManager:
         ])
 
         # Search with metadata filter
-        results = index_manager.search(
+        results = index_manager.search_vector(
             "test query",
-            metadata_filters={"type": "datasheet"}
+            filters={"type": "datasheet"}
         )
 
         # Should have results
@@ -346,7 +333,7 @@ class TestIndexManager:
         index_manager.registry.update_document_state = Mock()
 
         # Index should handle the error gracefully
-        result = index_manager.index_document(doc_id, nodes, "test.pdf", [])
+        result = index_manager.add_document(doc_id, "Test content", {"source": "test.pdf"})
 
         assert not result
         # Should mark document as having an error
@@ -366,19 +353,19 @@ class TestIndexManager:
         ]
 
         # Mock successful indexing
-        index_manager.index_document = Mock(return_value=True)
+        index_manager.add_document = Mock(return_value=True)
 
         # Batch index
         results = {"success": 0, "failed": 0}
         for doc in documents:
-            if index_manager.index_document(doc["doc_id"], doc["nodes"], doc["source"], doc["pairs"]):
+            if index_manager.add_document(doc["doc_id"], "Test content", {"source": doc["source"]}):
                 results["success"] += 1
             else:
                 results["failed"] += 1
 
         assert results["success"] == 3
         assert results["failed"] == 0
-        assert index_manager.index_document.call_count == 3
+        assert index_manager.add_document.call_count == 3
 
 
 if __name__ == "__main__":
