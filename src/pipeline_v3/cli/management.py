@@ -1072,7 +1072,7 @@ Examples:
         """Handle maintenance operations."""
         if args.repair:
             print("Running index repair...")
-            result = await self.index_manager.repair_indexes()
+            result = self.index_manager.repair_indexes()
             print(f"Repair completed: {result}")
 
         if args.cleanup:
@@ -1082,7 +1082,7 @@ Examples:
 
         if args.consistency_check:
             print("Running consistency check...")
-            result = await self.index_manager.verify_consistency()
+            result = self.index_manager.verify_consistency()
             print(f"Consistency check: {result}")
 
     async def handle_config(self, args):
