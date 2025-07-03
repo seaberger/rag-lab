@@ -291,13 +291,19 @@ class TestJobManager:
         job_manager.update_job_status(job1_id, JobStatusPersistent.COMPLETED)
         job_manager.update_job_status(job2_id, JobStatusPersistent.PROCESSING)
 
-        # List by status
-        pending_jobs = job_manager.list_jobs(status=JobStatusPersistent.PENDING)
+        # Verify job3_id status before listing
+        job3 = job_manager.get_job(job3_id)
+        assert job3 is not None, f"Job {job3_id} not found"
+        assert job3.status == JobStatusPersistent.PENDING.value, f"Job {job3_id} has status {job3.status}, expected {JobStatusPersistent.PENDING.value}"
+
+        # List by status - use larger limit to ensure we get our job
+        pending_jobs = job_manager.list_jobs(status=JobStatusPersistent.PENDING, limit=1000)
+
         # Find our specific job in the list (there may be others from previous tests)
         pending_job_ids = [job.job_id for job in pending_jobs]
-        assert job3_id in pending_job_ids
+        assert job3_id in pending_job_ids, f"Job {job3_id} not found in pending jobs"
 
-        completed_jobs = job_manager.list_jobs(status=JobStatusPersistent.COMPLETED)
+        completed_jobs = job_manager.list_jobs(status=JobStatusPersistent.COMPLETED, limit=1000)
         completed_job_ids = [job.job_id for job in completed_jobs]
         assert job1_id in completed_job_ids
 
