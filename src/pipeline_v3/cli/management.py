@@ -1014,7 +1014,7 @@ Examples:
             print("Queue stopped")
 
         elif args.queue_action == "status":
-            status = await self.queue.get_status()
+            status = self.queue.get_status()
 
             if args.detailed:
                 print(self._format_output(status, args.json))

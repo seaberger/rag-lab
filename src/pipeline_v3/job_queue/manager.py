@@ -408,3 +408,51 @@ class DocumentQueue:
             self.pending.put(job)
 
         return cancelled
+
+    async def start(self, max_workers: int | None = None) -> None:
+        """Start queue processing with optional worker count override.
+
+        Args:
+            max_workers: Override default worker count (for CLI compatibility)
+        """
+        if max_workers and max_workers != self.max_workers:
+            logger.info(f"Overriding worker count: {self.max_workers} -> {max_workers}")
+            self.max_workers = max_workers
+            self.worker_semaphore = asyncio.Semaphore(max_workers)
+
+        await self.start_processing()
+
+    async def stop(self, wait_for_completion: bool = False) -> None:
+        """Stop queue processing.
+
+        Args:
+            wait_for_completion: Whether to wait for current jobs to complete
+        """
+        self.is_shutdown = True
+
+        if wait_for_completion and self.workers:
+            logger.info("Waiting for workers to complete current jobs...")
+            await asyncio.gather(*self.workers, return_exceptions=True)
+        else:
+            # Cancel all workers immediately
+            for worker in self.workers:
+                worker.cancel()
+
+        self.workers.clear()
+        logger.info("Queue processing stopped")
+
+    async def clear_all_jobs(self) -> int:
+        """Clear all pending jobs.
+
+        Returns:
+            Number of jobs cleared
+        """
+        cleared_count = 0
+
+        # Clear pending queue
+        while not self.pending.empty():
+            self.pending.get()  # Remove job from queue
+            cleared_count += 1
+
+        logger.info(f"Cleared {cleared_count} pending jobs")
+        return cleared_count
