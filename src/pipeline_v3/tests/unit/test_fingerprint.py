@@ -43,10 +43,10 @@ class TestFingerprintManager:
         assert fp.modified_time > 0
         assert fp.metadata_hash is not None
 
-    def test_store_and_retrieve_fingerprint(self, fingerprint_manager, temp_dir):
+    def test_store_and_retrieve_fingerprint(self, fingerprint_manager, test_base_dir):
         """Test storing and retrieving a fingerprint."""
         # Create test file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         test_file.write_text("test content")
 
         # Compute fingerprint
@@ -62,10 +62,10 @@ class TestFingerprintManager:
         assert retrieved.size == fp.size
         assert retrieved.doc_id == "test123"
 
-    def test_update_fingerprint(self, fingerprint_manager, temp_dir):
+    def test_update_fingerprint(self, fingerprint_manager, test_base_dir):
         """Test updating an existing fingerprint."""
         # Create test file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         test_file.write_text("original content")
 
         # Store initial fingerprint
@@ -84,12 +84,12 @@ class TestFingerprintManager:
         assert retrieved.content_hash == fp2.content_hash
         assert retrieved.size == len("modified content")
 
-    def test_list_fingerprints(self, fingerprint_manager, temp_dir):
+    def test_list_fingerprints(self, fingerprint_manager, test_base_dir):
         """Test listing all fingerprints."""
         # Create multiple test files
         files = []
         for i in range(3):
-            test_file = Path(temp_dir) / f"test{i}.pdf"
+            test_file = test_base_dir / f"test{i}.pdf"
             test_file.write_text(f"content {i}")
             files.append(test_file)
 
@@ -105,10 +105,10 @@ class TestFingerprintManager:
         expected_sources = {str(f.resolve()) for f in files}
         assert sources == expected_sources
 
-    def test_fingerprint_metadata(self, fingerprint_manager, temp_dir):
+    def test_fingerprint_metadata(self, fingerprint_manager, test_base_dir):
         """Test fingerprint with metadata hash."""
         # Create test file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         test_file.write_text("test content")
 
         # Compute fingerprint with metadata
@@ -123,10 +123,10 @@ class TestFingerprintManager:
         # Metadata hash should be different (with metadata includes filename, size, etc.)
         assert fp_with_meta.metadata_hash != fp_without_meta.metadata_hash
 
-    def test_check_changes(self, fingerprint_manager, temp_dir):
+    def test_check_changes(self, fingerprint_manager, test_base_dir):
         """Test change detection."""
         # Create test file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         test_file.write_text("original content")
 
         # Initial fingerprint
@@ -144,13 +144,13 @@ class TestFingerprintManager:
         has_changed = fingerprint_manager.has_changed(test_file)
         assert has_changed
 
-    def test_cleanup_old_fingerprints(self, fingerprint_manager, temp_dir):
+    def test_cleanup_old_fingerprints(self, fingerprint_manager, test_base_dir):
         """Test cleanup of old fingerprints."""
         # Create test files
-        old_file = Path(temp_dir) / "old.pdf"
+        old_file = test_base_dir / "old.pdf"
         old_file.write_text("old content")
 
-        new_file = Path(temp_dir) / "new.pdf"
+        new_file = test_base_dir / "new.pdf"
         new_file.write_text("new content")
 
         # Store fingerprints
@@ -176,11 +176,11 @@ class TestFingerprintManager:
         # New fingerprint should still exist
         assert fingerprint_manager.get_fingerprint(new_file) is not None
 
-    def test_get_statistics(self, fingerprint_manager, temp_dir):
+    def test_get_statistics(self, fingerprint_manager, test_base_dir):
         """Test fingerprint statistics."""
         # Create test files with different statuses
         for i in range(5):
-            test_file = Path(temp_dir) / f"test{i}.pdf"
+            test_file = test_base_dir / f"test{i}.pdf"
             test_file.write_text(f"content {i}")
 
             fp = FingerprintManager.compute_fingerprint(test_file)
@@ -196,12 +196,12 @@ class TestFingerprintManager:
         assert stats["total_documents"] - stats["processed"] == 2
         assert stats["average_size_bytes"] > 0
 
-    def test_batch_check_changes(self, fingerprint_manager, temp_dir):
+    def test_batch_check_changes(self, fingerprint_manager, test_base_dir):
         """Test batch change checking."""
         # Create multiple test files
         files = []
         for i in range(3):
-            test_file = Path(temp_dir) / f"test{i}.pdf"
+            test_file = test_base_dir / f"test{i}.pdf"
             test_file.write_text(f"content {i}")
             files.append(test_file)
 
@@ -218,10 +218,10 @@ class TestFingerprintManager:
         assert not fingerprint_manager.has_changed(files[1])
         assert fingerprint_manager.get_fingerprint(files[2]) is None  # New file
 
-    def test_fingerprint_persistence(self, fingerprint_manager, temp_dir):
+    def test_fingerprint_persistence(self, fingerprint_manager, test_base_dir):
         """Test that fingerprints persist across manager instances."""
         # Create test file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         test_file.write_text("test content")
 
         # Store fingerprint
@@ -242,23 +242,18 @@ class TestFingerprintManager:
 class TestChangeDetector:
     """Test suite for ChangeDetector."""
 
-    @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test files and databases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
 
     @pytest.fixture
-    def change_detector(self, temp_dir):
+    def change_detector(self, test_base_dir):
         """Create a test change detector."""
         config = PipelineConfig()
-        config.fingerprint.storage_path = str(Path(temp_dir) / "test_fingerprints.db")
+        config.fingerprint.storage_path = str(test_base_dir / "test_fingerprints.db")
         return ChangeDetector(config=config)
 
-    def test_detect_new_file(self, change_detector, temp_dir):
+    def test_detect_new_file(self, change_detector, test_base_dir):
         """Test detection of new files."""
         # Create a test file
-        test_file = Path(temp_dir) / "new.pdf"
+        test_file = test_base_dir / "new.pdf"
         content = "test content"
         test_file.write_text(content)
 
@@ -267,10 +262,10 @@ class TestChangeDetector:
         assert analysis.change_type == ChangeType.NEW_DOCUMENT
         assert analysis.update_strategy == UpdateStrategy.FULL_REINDEX
 
-    def test_detect_modified_file(self, change_detector, temp_dir):
+    def test_detect_modified_file(self, change_detector, test_base_dir):
         """Test detection of modified files."""
         # Create and register a file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         original_content = "original content"
         test_file.write_text(original_content)
 
@@ -294,10 +289,10 @@ class TestChangeDetector:
         assert analysis.change_type in [ChangeType.MINOR_UPDATE, ChangeType.MAJOR_UPDATE, ChangeType.COMPLETE_REWRITE]
         assert analysis.update_strategy == UpdateStrategy.FULL_REINDEX
 
-    def test_detect_unchanged_file(self, change_detector, temp_dir):
+    def test_detect_unchanged_file(self, change_detector, test_base_dir):
         """Test detection of unchanged files."""
         # Create and register a file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         content = "test content"
         test_file.write_text(content)
 
@@ -322,10 +317,10 @@ class TestChangeDetector:
         assert analysis.change_type in [ChangeType.NO_CHANGE, ChangeType.COMPLETE_REWRITE]
         assert analysis.update_strategy in [UpdateStrategy.SKIP, UpdateStrategy.FULL_REINDEX]
 
-    def test_detect_metadata_only_change(self, change_detector, temp_dir):
+    def test_detect_metadata_only_change(self, change_detector, test_base_dir):
         """Test detection of metadata-only changes."""
         # Create and register a file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         content = "test content"
         test_file.write_text(content)
 
@@ -348,12 +343,12 @@ class TestChangeDetector:
         # Due to the placeholder _simulate_old_chunks method, it will detect changes
         assert analysis.change_type in [ChangeType.NO_CHANGE, ChangeType.MINOR_UPDATE, ChangeType.COMPLETE_REWRITE]
 
-    def test_batch_change_detection(self, change_detector, temp_dir):
+    def test_batch_change_detection(self, change_detector, test_base_dir):
         """Test batch change detection."""
         # Create multiple files
         documents = []
         for i in range(5):
-            file = Path(temp_dir) / f"file{i}.pdf"
+            file = test_base_dir / f"file{i}.pdf"
             content = f"content {i}"
             file.write_text(content)
             documents.append({"source": str(file), "content": content})
@@ -392,12 +387,12 @@ class TestChangeDetector:
         assert analysis.update_strategy == UpdateStrategy.FULL_REINDEX
         assert analysis.confidence == 0.0
 
-    def test_get_update_recommendations(self, change_detector, temp_dir):
+    def test_get_update_recommendations(self, change_detector, test_base_dir):
         """Test getting update recommendations."""
         # Create test files
         files = []
         for i in range(4):
-            file = Path(temp_dir) / f"file{i}.pdf"
+            file = test_base_dir / f"file{i}.pdf"
             if i < 3:  # Don't create the last file
                 file.write_text(f"content {i}")
             files.append(str(file))

@@ -18,12 +18,12 @@ import yaml
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.index_manager import IndexManager
-from core.registry import DocumentRegistry
-from job_queue.manager import DocumentQueue
-from pipeline.enhanced_core import EnhancedPipeline
-from utils.config import PipelineConfig
-from utils.monitoring import ProgressMonitor
+from pipeline_v3.core.index_manager import IndexManager
+from pipeline_v3.core.registry import DocumentRegistry
+from pipeline_v3.job_queue.manager import DocumentQueue
+from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
+from pipeline_v3.utils.config import PipelineConfig
+from pipeline_v3.utils.monitoring import ProgressMonitor
 
 
 class TestE2EIntegration:
@@ -292,7 +292,7 @@ class TestSmokeIntegration:
     async def smoke_test_environment(self, tmp_path):
         """Set up lightweight test environment for smoke tests."""
         # Use our improved config creation with unique ID for smoke tests
-        from conftest import create_test_config
+        from ..conftest import create_test_config
         config = create_test_config(tmp_path, environment="smoke", unique_id=None)
 
         # Smoke test settings - optimized for speed
@@ -376,7 +376,7 @@ class TestDatabaseIsolation:
     @pytest.mark.asyncio
     async def test_environment_isolation(self, test_base_dir):
         """Test that different environments have isolated databases."""
-        from tests.conftest import create_test_config, clear_test_databases
+        from ..conftest import create_test_config, clear_test_databases
 
         # Create two different environments
         config1 = create_test_config(test_base_dir, "env1")
@@ -418,7 +418,7 @@ class TestDatabaseIsolation:
     @pytest.mark.asyncio
     async def test_database_cleanup(self, test_config, test_pipeline):
         """Test that database cleanup works properly."""
-        from tests.conftest import clear_test_databases
+        from ..conftest import clear_test_databases
 
         pipeline = test_pipeline
 

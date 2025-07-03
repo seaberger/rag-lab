@@ -46,7 +46,7 @@ class TestSearchIntegration:
 
         # Cleanup handled by conftest.py centralized cleanup
         try:
-            from tests.conftest import cleanup_qdrant_resources
+            from ..conftest import cleanup_qdrant_resources
             cleanup_qdrant_resources(index_manager)
         except ImportError:
             # Manual cleanup if import fails

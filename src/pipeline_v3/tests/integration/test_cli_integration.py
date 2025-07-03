@@ -58,7 +58,7 @@ class TestCLIIntegration:
             yield cli
 
             # Cleanup Qdrant resources from all components
-            from conftest import cleanup_qdrant_resources
+            from ..conftest import cleanup_qdrant_resources
             cleanup_qdrant_resources(cli.pipeline)
             cleanup_qdrant_resources(cli.index_manager)
 

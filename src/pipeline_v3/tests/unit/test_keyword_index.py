@@ -355,7 +355,7 @@ class TestBM25Index:
         results = keyword_index.search("optical measurement")
         assert len(results) > 0
 
-    def test_persistence(self, keyword_index, temp_dir):
+    def test_persistence(self, keyword_index, test_config):
         """Test that index persists across instances."""
         # Index a node
         nodes = [TextNode(id_="persist1", text="Persistent document content about lasers")]

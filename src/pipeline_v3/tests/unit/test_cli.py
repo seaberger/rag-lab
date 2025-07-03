@@ -232,11 +232,12 @@ class TestCLI:
         args.queue_action = "status"
         args.detailed = False
         args.json = False
-        cli.queue.get_status.return_value = {
+        # get_status should be synchronous, not async
+        cli.queue.get_status = MagicMock(return_value={
             "state": "running",
             "pending_jobs": 5,
             "active_jobs": 2,
-        }
+        })
 
         await cli.handle_queue(args)
         cli.queue.get_status.assert_called()

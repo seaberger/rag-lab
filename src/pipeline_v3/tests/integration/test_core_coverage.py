@@ -469,6 +469,11 @@ job_queue:
         """Test database migration framework."""
         # Test migration sequence
         db_path = os.path.join(test_base_dir, "test_migrations.db")
+
+        # Remove existing database if it exists
+        if os.path.exists(db_path):
+            os.unlink(db_path)
+
         manager = MigrationManager(db_path)
 
         # Create test migrations
@@ -518,6 +523,10 @@ job_queue:
         migrations_dir = migrations_base / "registry"
         if migrations_dir.exists():
             db_path = os.path.join(test_base_dir, "test_registry.db")
+
+            # Remove existing database if it exists
+            if os.path.exists(db_path):
+                os.unlink(db_path)
 
             # Load migrations
             migrations = load_migrations_from_sql_files(migrations_dir)
