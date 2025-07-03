@@ -62,7 +62,7 @@ async def fetch_document(source: str | Path) -> tuple[Path, str, bytes]:
     import aiohttp
 
     # Handle URL sources
-    if isinstance(source, str) and (source.startswith("http://") or source.startswith("https://")):
+    if isinstance(source, str) and (source.startswith(("http://", "https://"))):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(source) as response:
@@ -338,7 +338,7 @@ async def ingest_sources(
             # Index nodes in vector store
             try:
                 index_start = time.time()
-                index = VectorStoreIndex(nodes, storage_context=storage)
+                VectorStoreIndex(nodes, storage_context=storage)
                 progress.update_stage(doc_id, "vector_indexing", time.time() - index_start)
                 logger.info(f"Vector indexed {len(nodes)} nodes for {doc_id}")
             except Exception as e:

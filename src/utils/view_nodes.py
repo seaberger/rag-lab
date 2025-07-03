@@ -55,7 +55,7 @@ def display_nodes(
             for key in sorted_keys:
                 value = metadata[key]
                 # Pretty print if value is list/dict (like 'pairs')
-                if isinstance(value, (list, dict)):
+                if isinstance(value, list | dict):
                     try:
                         value_str = json.dumps(value, indent=2)
                         print(f"  - {key}:\n{value_str}")

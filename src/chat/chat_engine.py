@@ -1,6 +1,7 @@
 # --- START OF FILE chat_engine.py ---
 # --- Imports for LlamaIndex components ---
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -220,8 +221,8 @@ class SQLiteFTSRetriever(BaseRetriever):
                         logging.exception(f"Failed to decode metadata JSON for node_id: {node_id}")
             return nodes
 
-        except sqlite3.Error as e:
-            logging.exception(f"SQLite error during FTS query: {e}")
+        except sqlite3.Error:
+            logging.exception("SQLite error during FTS query")
             return []
         finally:
             if conn:
@@ -338,8 +339,8 @@ class HybridRetrieverWithReranking(BaseRetriever):
                         f"Reranking complete, returning {min(len(reranked_nodes), final_top_n)} nodes"
                     )
                     return reranked_nodes[:final_top_n]
-                except Exception as e:
-                    logger.error(f"Error during reranking: {e}. Returning initial sorted results.")
+                except Exception:
+                    logger.exception("Error during reranking. Returning initial sorted results.")
                     return initial_results_for_rerank[:final_top_n]
 
             # --- Return top N if no reranker or reranking failed ---
@@ -348,8 +349,8 @@ class HybridRetrieverWithReranking(BaseRetriever):
             )
             return initial_results_for_rerank[:final_top_n]
 
-        except Exception as e:
-            logger.error(f"Error in hybrid retrieval: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error in hybrid retrieval")
             raise
 
 
@@ -370,10 +371,8 @@ def create_or_load_sqlite_db(nodes_path, db_path):
                 return  # DB looks okay
         except Exception as e:
             logging.warning(f"Error checking existing DB {db_path}: {e}. Recreating.")
-            try:
+            with contextlib.suppress(Exception):
                 conn_check.close()
-            except Exception:
-                pass
             if os.path.exists(db_path):
                 os.remove(db_path)
 
@@ -413,8 +412,8 @@ def create_or_load_sqlite_db(nodes_path, db_path):
                 inserted_count += 1
             else:
                 skipped_count += 1
-        except Exception as e:
-            logging.exception(f"Error inserting node {getattr(node, 'node_id', 'UNKNOWN')}: {e}")
+        except Exception:
+            logging.exception(f"Error inserting node {getattr(node, 'node_id', 'UNKNOWN')}")
             skipped_count += 1
     if skipped_count > 0:
         logging.info(f"Skipped {skipped_count} nodes (likely duplicates).")
@@ -427,8 +426,8 @@ def create_or_load_sqlite_db(nodes_path, db_path):
             )
             conn.commit()
             logging.info("FTS index population complete.")
-        except Exception as e:
-            logging.exception(f"Error populating FTS index: {e}")
+        except Exception:
+            logging.exception("Error populating FTS index")
             conn.rollback()
     elif skipped_count == len(nodes) and skipped_count > 0:
         logging.info("No new nodes inserted, FTS index assumed up-to-date.")
@@ -460,8 +459,8 @@ def _init_settings():
             Settings.callback_manager = CallbackManager([])  # Initialize empty manager
 
         logger.info("Settings initialized (LLM & Embed Model only).")
-    except Exception as e:
-        logger.error(f"Error initializing OpenAI models: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Error initializing OpenAI models")
         raise
 
 
@@ -522,8 +521,8 @@ def _init_langfuse() -> LlamaIndexInstrumentor | None:
                 try:
                     LANGFUSE_INSTRUMENTOR.flush()
                     logger.info("atexit: Langfuse flush complete.")
-                except Exception as e:
-                    logger.error(f"atexit: Error flushing Langfuse: {e}")
+                except Exception:
+                    logger.exception("atexit: Error flushing Langfuse")
 
         # Ensure only one atexit handler is registered
         exit_handlers = getattr(atexit, "_exithandlers", [])
@@ -537,12 +536,10 @@ def _init_langfuse() -> LlamaIndexInstrumentor | None:
         logger.info("Langfuse setup complete using LlamaIndexInstrumentor.")
         return instrumentor
 
-    except ImportError as ie:
-        logger.error(
-            f"Langfuse package not found: {ie}. Please install with 'pip install langfuse'"
-        )
-    except Exception as e:
-        logger.error(f"Error initializing Langfuse Instrumentor: {e}", exc_info=True)
+    except ImportError:
+        logger.exception("Langfuse package not found. Please install with 'pip install langfuse'")
+    except Exception:
+        logger.exception("Error initializing Langfuse Instrumentor")
 
     LANGFUSE_INSTRUMENTOR = None  # Ensure it's None on error
     return None
@@ -591,10 +588,10 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
         try:
             qdrant_client_instance.get_collection(collection_name=QDRANT_COLLECTION_NAME)
             logging.info(f"Found Qdrant collection '{QDRANT_COLLECTION_NAME}'.")
-        except Exception as e:
+        except Exception:
             # Be more specific if possible, e.g., qdrant_client.http.exceptions.UnexpectedResponse
             logging.exception(
-                f"Qdrant collection '{QDRANT_COLLECTION_NAME}' not found in DB at {qdrant_db_path}. Error: {e}"
+                f"Qdrant collection '{QDRANT_COLLECTION_NAME}' not found in DB at {qdrant_db_path}"
             )
             raise ValueError(
                 f"Collection '{QDRANT_COLLECTION_NAME}' not found. Ensure DB was created correctly."
@@ -623,8 +620,8 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
             # Don't pass callback_manager again - it's already in the index
         )
 
-    except Exception as e:
-        logging.exception(f"Error creating vector retriever from persistent Qdrant: {e}")
+    except Exception:
+        logging.exception("Error creating vector retriever from persistent Qdrant")
         import traceback
 
         traceback.print_exc()
@@ -640,8 +637,8 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
             top_n=RERANK_TOP_N,
             # CohereRerank doesn't accept callback_manager
         )
-    except Exception as e:
-        logging.exception(f"Error initializing Cohere Reranker: {e}. Reranking will be disabled.")
+    except Exception:
+        logging.exception("Error initializing Cohere Reranker. Reranking will be disabled.")
         reranker = None
 
     logging.info("Initializing Hybrid Retriever...")
@@ -718,21 +715,21 @@ def init_chat_engine() -> dict:
             # raise FileNotFoundError(f"Required node file '{nodes_pickle_path}' not found for SQLite DB.")
         else:
             create_or_load_sqlite_db(nodes_pickle_path, sqlite_db_path)
-    except FileNotFoundError as e:
-        logging.exception(f"Fatal Error during SQLite setup: {e}.")
+    except FileNotFoundError:
+        logging.exception("Fatal Error during SQLite setup.")
         raise
-    except sqlite3.Error as e:  # More specific exception
-        logging.exception(f"Error during SQLite DB creation/check: {e}")
+    except sqlite3.Error:  # More specific exception
+        logging.exception("Error during SQLite DB creation/check")
         raise  # Stop execution if DB fails
-    except Exception as e:  # Catch other potential errors like pickle load
-        logging.exception(f"Unexpected error during SQLite setup: {e}")
+    except Exception:  # Catch other potential errors like pickle load
+        logging.exception("Unexpected error during SQLite setup")
         raise
 
     # 4. Create the SYNC retriever
     try:
         retriever = _create_sync_retriever(cohere_api_key)
     except Exception as e:
-        logging.exception(f"Fatal Error: Could not create retriever: {e}")
+        logging.exception("Fatal Error: Could not create retriever")
         raise
 
     # 6. Create the Chat Engine (using sync retriever)
@@ -765,8 +762,8 @@ Example Response: "My responses are based on the official technical information 
             # Do not make up information. Be specific when referring to product names or technical details found in the context.""",
         )
         logger.info("Chat Engine Initialized Successfully.")
-    except Exception as e:
-        logger.error(f"Fatal Error: Could not create chat engine: {e}")
+    except Exception:
+        logger.exception("Fatal Error: Could not create chat engine")
         raise
 
     # 7. Return components
@@ -851,7 +848,7 @@ def generate_sync_response(query: str, chat_engine, instrumentor=None) -> str:
             logger.info(f"Generated response of length {len(response.response)}")
             return response.response
     except Exception as e:
-        logger.error(f"Error generating synchronous response: {e}", exc_info=True)
+        logger.exception("Error generating synchronous response")
         return f"Error: {e!s}"
 
 
@@ -917,8 +914,8 @@ async def generate_response(
                 try:
                     trace.update(input=trace_input)
                     logger.info(f"Updated trace with input for {trace_id}")
-                except Exception as input_err:
-                    logger.error(f"Failed to update trace with input for {trace_id}: {input_err}")
+                except Exception:
+                    logger.exception(f"Failed to update trace with input for {trace_id}")
 
                 # --- Execute Synchronous Chat ---
                 logger.info(f"Executing chat_engine.chat() within trace {trace_id}")
@@ -968,10 +965,8 @@ async def generate_response(
                         metadata=trace_meta,
                     )
                     logger.info(f"Updated trace with output and metadata for {trace_id}")
-                except Exception as meta_err:
-                    logger.error(
-                        f"Failed to update trace output/metadata for {trace_id}: {meta_err}"
-                    )
+                except Exception:
+                    logger.exception(f"Failed to update trace output/metadata for {trace_id}")
 
             # --- Flush AFTER the observe block ---
             # This ensures the trace (including metadata) is complete before sending
@@ -1013,7 +1008,7 @@ async def generate_response(
         return result
 
     except Exception as e:
-        logger.error(f"Error during chat (Trace ID: {trace_id}): {e}", exc_info=True)
+        logger.exception(f"Error during chat (Trace ID: {trace_id})")
         return {"error": True, "response": f"An error occurred: {e!s}"}
 
     finally:
@@ -1060,10 +1055,8 @@ async def generate_streaming_response(
                 try:
                     trace.update(input=trace_input)
                     logger.info(f"Updated trace with input for {trace_id}")
-                except Exception as input_update_err:
-                    logger.error(
-                        f"Failed to update trace with input for {trace_id}: {input_update_err}"
-                    )
+                except Exception:
+                    logger.exception(f"Failed to update trace with input for {trace_id}")
 
                 logger.info(f"Calling chat_engine.astream_chat() within trace {trace_id}")
                 try:
@@ -1097,10 +1090,7 @@ async def generate_streaming_response(
                         yield {"type": "sources", "content": source_nodes_data}
 
                 except Exception as stream_err:
-                    logger.error(
-                        f"Error *during* astream_chat or iteration: {stream_err}",
-                        exc_info=True,
-                    )
+                    logger.exception("Error *during* astream_chat or iteration")
                     yield {
                         "type": "error",
                         "content": f"Error during streaming: {stream_err}",
@@ -1119,10 +1109,8 @@ async def generate_streaming_response(
                 try:
                     trace.update(output=trace_output, metadata=trace_meta)
                     logger.info(f"Updated trace with output/metadata for {trace_id}")
-                except Exception as final_update_err:
-                    logger.error(
-                        f"Failed to update trace output/metadata for {trace_id}: {final_update_err}"
-                    )
+                except Exception:
+                    logger.exception(f"Failed to update trace output/metadata for {trace_id}")
 
             # Flush AFTER observe block
             logger.info(f"Flushing instrumentor for trace_id: {trace_id}")
@@ -1143,17 +1131,14 @@ async def generate_streaming_response(
                     pass
 
             except Exception as e:
-                logger.error(f"Error during non-traced streaming: {e}", exc_info=True)
+                logger.exception("Error during non-traced streaming")
                 yield {"type": "error", "content": f"Error processing stream: {e}"}
 
         # Signal completion
         yield {"type": "done", "content": ""}
 
     except Exception as e:
-        logger.error(
-            f"Outer error during async streaming (Trace ID: {trace_id}): {e}",
-            exc_info=True,
-        )
+        logger.exception(f"Outer error during async streaming (Trace ID: {trace_id})")
         yield {"type": "error", "content": f"An unexpected error occurred: {e!s}"}
         yield {"type": "done", "content": ""}  # Ensure done signal
 

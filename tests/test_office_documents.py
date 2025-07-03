@@ -260,7 +260,7 @@ class TestOfficeDocuments:
             # Verify source display
             if hybrid_results:
                 has_source = all("source" in r and r["source"] != "unknown" for r in hybrid_results)
-                sources = list(set(r.get("source", "unknown") for r in hybrid_results))
+                sources = list({r.get("source", "unknown") for r in hybrid_results})
                 self.log_test(
                     "Search results show document sources", has_source, f"Sources: {sources}"
                 )

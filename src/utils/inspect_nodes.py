@@ -21,7 +21,7 @@ except ImportError:
     LLAMAINDEX_INSTALLED = False
 
 
-def display_nodes(file_path: str, limit: int = None, show_full_text: bool = False):
+def display_nodes(file_path: str, limit: int | None = None, show_full_text: bool = False):
     """Loads nodes from a pickle file and displays their details."""
     path = Path(file_path)
     if not path.is_file():

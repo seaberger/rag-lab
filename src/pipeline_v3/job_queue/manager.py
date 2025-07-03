@@ -176,7 +176,7 @@ class DocumentQueue:
                 # Get next job (non-blocking check)
                 try:
                     job = self.pending.get_nowait()
-                except:
+                except Exception:
                     # No job available - check if we should exit
                     if self.pending.empty() and not self.processing:
                         # No jobs pending or processing, worker can exit
@@ -288,7 +288,7 @@ class DocumentQueue:
                 job = self.pending.get_nowait()
                 job.status = JobStatus.CANCELLED
                 self.failed[job.job_id] = job
-            except:
+            except Exception:
                 break
 
         logger.info("Document queue shutdown complete")

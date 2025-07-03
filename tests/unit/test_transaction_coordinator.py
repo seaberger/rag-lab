@@ -28,7 +28,7 @@ from src.pipeline_v3.core.transaction_coordinator import (
 class MockStorageSystem(StorageSystem):
     """Mock storage system for testing"""
 
-    def __init__(self, name: str, should_fail: str = None, delay: float = 0):
+    def __init__(self, name: str, should_fail: str | None = None, delay: float = 0):
         super().__init__(name)
         self.should_fail = should_fail  # 'prepare', 'commit', 'rollback', or None
         self.delay = delay
@@ -348,11 +348,11 @@ class TestTransactionCoordinator:
     async def test_invalid_operation_validation(self):
         """Test that invalid operations are rejected"""
         systems = [MockStorageSystem("System1")]
-        coordinator = TransactionCoordinator(systems)
+        TransactionCoordinator(systems)
 
         # Missing required doc_id
         with pytest.raises(ValueError):
-            operation = TransactionOperation(
+            TransactionOperation(
                 operation_type=OperationType.ADD_DOCUMENT,
                 doc_id="",  # Invalid
                 data={},
@@ -360,7 +360,7 @@ class TestTransactionCoordinator:
 
         # Missing required data for ADD_DOCUMENT
         with pytest.raises(ValueError):
-            operation = TransactionOperation(
+            TransactionOperation(
                 operation_type=OperationType.ADD_DOCUMENT,
                 doc_id="test",
                 data={"content": "test"},  # Missing nodes and file_path

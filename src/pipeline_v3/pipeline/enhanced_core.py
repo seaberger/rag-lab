@@ -164,7 +164,7 @@ class EnhancedPipeline:
                             logger.error(
                                 f"Document has {page_count} pages. Consider using --timeout or --timeout-per-page to increase limits."
                             )
-                        except:
+                        except Exception:
                             pass
                     raise
                 except Exception as e:

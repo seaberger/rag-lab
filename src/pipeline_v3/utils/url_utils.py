@@ -59,8 +59,8 @@ def extract_urls_from_markdown(file_path: Path) -> list[str]:
         logger.info(f"Extracted {len(unique_urls)} URLs from markdown file: {file_path}")
         return unique_urls
 
-    except Exception as e:
-        logger.exception(f"Failed to extract URLs from markdown file {file_path}: {e}")
+    except Exception:
+        logger.exception(f"Failed to extract URLs from markdown file {file_path}")
         return []
 
 
@@ -119,11 +119,11 @@ def extract_urls_from_json(file_path: Path) -> list[str]:
         logger.info(f"Extracted {len(unique_urls)} URLs from JSON file: {file_path}")
         return unique_urls
 
-    except json.JSONDecodeError as e:
-        logger.exception(f"Invalid JSON in file {file_path}: {e}")
+    except json.JSONDecodeError:
+        logger.exception(f"Invalid JSON in file {file_path}")
         return []
-    except Exception as e:
-        logger.exception(f"Failed to extract URLs from JSON file {file_path}: {e}")
+    except Exception:
+        logger.exception(f"Failed to extract URLs from JSON file {file_path}")
         return []
 
 
@@ -191,8 +191,8 @@ def create_url_batch_file(urls: list[str], output_path: Path, format_type: str =
         logger.info(f"Created {format_type} batch file with {len(urls)} URLs: {output_path}")
         return True
 
-    except Exception as e:
-        logger.exception(f"Failed to create batch file {output_path}: {e}")
+    except Exception:
+        logger.exception(f"Failed to create batch file {output_path}")
         return False
 
 
@@ -247,7 +247,8 @@ def validate_url_list(urls: list[str]) -> dict[str, Any]:
             results["statistics"]["domains"][domain] = (
                 results["statistics"]["domains"].get(domain, 0) + 1
             )
-        except:
+        except Exception:
+            # Ignore URL parsing errors for statistics
             pass
 
     return results

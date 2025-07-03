@@ -154,8 +154,8 @@ def create_persistent_qdrant_db():
         logging.info(
             f"VectorStoreIndex population step completed for {len(index.docstore.docs)} docs."
         )
-    except Exception as e:
-        logging.error(f"Error during VectorStoreIndex population: {e}", exc_info=True)
+    except Exception:
+        logging.exception("Error during VectorStoreIndex population")
         raise
 
     # --- Verification Step ---
@@ -198,8 +198,8 @@ def create_persistent_qdrant_db():
                 logging.info("Verification Passed: Sample vectors look okay.")
         else:
             logging.warning("Verification Skipped: Collection empty.")
-    except Exception as e:
-        logging.error(f"Error during verification: {e}", exc_info=True)
+    except Exception:
+        logging.exception("Error during verification")
 
     logging.info("--- Qdrant database creation script finished ---")
 

@@ -1,4 +1,5 @@
 import pickle
+import sys
 
 from llama_index.core import (
     Document,
@@ -12,10 +13,10 @@ try:
         parsed_docs: list[Document] = pickle.load(f)
 except FileNotFoundError:
     print(f"Error: Pickle file not found at {pickle_file}")
-    exit()
+    sys.exit()
 except Exception as e:
     print(f"Error loading pickle file: {e}")
-    exit()
+    sys.exit()
 
 # Inspect the structure of the parsed document list
 if parsed_docs and isinstance(parsed_docs, list):

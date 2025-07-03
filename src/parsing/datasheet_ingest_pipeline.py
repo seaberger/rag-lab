@@ -39,9 +39,9 @@ import os
 import shutil
 import tempfile
 import textwrap
-from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import aiohttp
 from llama_index.core import (
@@ -57,6 +57,9 @@ from openai import OpenAI
 from pdf2image import convert_from_path
 from qdrant_client import QdrantClient
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # ---------------------------------------------------------------------------
 # CONFIG & CONSTANTS

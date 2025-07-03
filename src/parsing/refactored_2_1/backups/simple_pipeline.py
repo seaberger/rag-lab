@@ -102,7 +102,7 @@ def pdf_to_data_uris(pdf_path: Path, dpi: int = 150, poppler_path: str | None = 
         return data_uris
 
     except Exception as e:
-        logger.error(f"Failed to convert PDF {pdf_path} to data URIs: {e}")
+        logger.exception(f"Failed to convert PDF {pdf_path} to data URIs: {e}")
         raise ValueError(f"PDF conversion failed: {e}")
 
 
@@ -331,7 +331,7 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
         with open(config_path) as f:
             return yaml.safe_load(f) or {}
     except Exception as e:
-        logger.error(f"Failed to load config: {e}")
+        logger.exception(f"Failed to load config: {e}")
         return {}
 
 
@@ -347,7 +347,7 @@ def load_prompt(prompt_path: Path | None = None) -> str:
     try:
         return prompt_path.read_text(encoding="utf-8")
     except Exception as e:
-        logger.error(f"Failed to load prompt: {e}")
+        logger.exception(f"Failed to load prompt: {e}")
         return "Extract content from this document as GitHub-flavored Markdown."
 
 
@@ -460,7 +460,7 @@ async def main():
                 print(f"   • {model}: {part}")
 
     except Exception as e:
-        logger.error(f"❌ Processing failed: {e}")
+        logger.exception(f"❌ Processing failed: {e}")
         sys.exit(1)
 
 

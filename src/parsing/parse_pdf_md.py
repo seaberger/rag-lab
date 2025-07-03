@@ -999,11 +999,8 @@ async def process_pdf_documents_parallel(
                 logging.exception(
                     f"Timeout error ({timeout_seconds}s) on attempt {attempt + 1} for PDF {fname.name}"
                 )
-            except Exception as e:
-                logging.error(
-                    f"Error on attempt {attempt + 1} for PDF {fname.name}: {e!s}",
-                    exc_info=True,
-                )
+            except Exception:
+                logging.exception(f"Error on attempt {attempt + 1} for PDF {fname.name}")
             if attempt < max_retries - 1:
                 backoff_time = 2**attempt
                 logging.info(f"Retrying {fname.name} in {backoff_time} seconds...")
@@ -1091,8 +1088,8 @@ def process_markdown_file(file_path: Path) -> list[Document]:
         }
         logging.info(f"✅ Successfully processed Markdown file {file_path.name}")
         return [doc]
-    except Exception as e:
-        logging.error(f"❌ Error processing Markdown file {file_path.name}: {e}", exc_info=True)
+    except Exception:
+        logging.exception(f"❌ Error processing Markdown file {file_path.name}")
         return []
 
 
@@ -1145,9 +1142,9 @@ async def main(
         input_path = Path(input_dir)
         if not input_path.is_dir():
             raise FileNotFoundError(f"Input directory {input_dir} not found.")
-        pdf_files_to_process = sorted(list(input_path.rglob("*.pdf")))
-        md_files_to_process = sorted(list(input_path.rglob("*.md")))
-        md_files_to_process.extend(sorted(list(input_path.rglob("*.markdown"))))
+        pdf_files_to_process = sorted(input_path.rglob("*.pdf"))
+        md_files_to_process = sorted(input_path.rglob("*.md"))
+        md_files_to_process.extend(sorted(input_path.rglob("*.markdown")))
         if not pdf_files_to_process and not md_files_to_process:
             print(f"No PDF or Markdown files found in {input_dir} (recursive search).")
             return
@@ -1305,5 +1302,5 @@ if __name__ == "__main__":
         logging.exception(f"Execution failed due to missing library: {e}")
         print(f"Error: Missing required library - {e}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred during execution: {e}", exc_info=True)
+        logging.exception("An unexpected error occurred during execution")
         print(f"An unexpected error occurred: {e}")

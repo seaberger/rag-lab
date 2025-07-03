@@ -668,7 +668,7 @@ def _get_heading_level(style_name: str) -> int:
             if len(parts) > 1 and parts[1].isdigit():
                 return int(parts[1])
         return 1  # Default to H1 if can't determine
-    except:
+    except Exception:
         return 1
 
 

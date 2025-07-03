@@ -19,7 +19,7 @@ from utils.config import PipelineConfig
 class BM25Index:
     """BM25 keyword index with SQLite FTS5 backend."""
 
-    def __init__(self, db_path: str = None, config: PipelineConfig = None):
+    def __init__(self, db_path: str | None = None, config: PipelineConfig = None):
         # Use config if provided, otherwise use parameter or default
         if config and hasattr(config, "storage"):
             self.db_path = config.storage.keyword_db_path

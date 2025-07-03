@@ -401,11 +401,8 @@ async def process_documents_parallel(
                 logging.exception(
                     f"Timeout error ({timeout_seconds}s) on attempt {attempt + 1} for {fname.name}"
                 )
-            except Exception as e:
-                logging.error(
-                    f"Error on attempt {attempt + 1} for {fname.name}: {e!s}",
-                    exc_info=True,
-                )
+            except Exception:
+                logging.exception(f"Error on attempt {attempt + 1} for {fname.name}")
             if attempt < max_retries - 1:
                 backoff_time = 2**attempt
                 logging.info(f"Retrying {fname.name} in {backoff_time} seconds...")
@@ -488,7 +485,7 @@ async def main(
         input_path = Path(input_dir)
         if not input_path.is_dir():
             raise FileNotFoundError(f"Input directory {input_dir} not found.")
-        pdf_files = sorted(list(input_path.rglob("*.pdf")))
+        pdf_files = sorted(input_path.rglob("*.pdf"))
         if not pdf_files:
             print(f"No PDF files found in {input_dir} (recursive search).")
             return
@@ -502,8 +499,8 @@ async def main(
     # Create the parser template
     try:
         parser_template = create_parser()
-    except Exception as e:
-        logging.error(f"Failed to create LlamaParse instance: {e}", exc_info=True)
+    except Exception:
+        logging.exception("Failed to create LlamaParse instance")
         return
 
     # Process documents in parallel
@@ -525,9 +522,9 @@ async def main(
     total_docs_generated = len(processed_docs)
     successful_files_sources = set()
     if processed_docs:
-        successful_files_sources = set(
+        successful_files_sources = {
             doc.metadata.get("source") for doc in processed_docs if doc.metadata.get("source")
-        )
+        }
     successful_files = len(successful_files_sources)
     failed_files = total_files_attempted - successful_files
 
@@ -615,5 +612,5 @@ if __name__ == "__main__":
         logging.exception(f"Execution failed due to file or value error: {e}")
         print(f"Error: {e}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred during execution: {e}", exc_info=True)
+        logging.exception("An unexpected error occurred during execution")
         print(f"An unexpected error occurred: {e}")

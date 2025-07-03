@@ -105,7 +105,7 @@ class TestConsistencyChecker:
         checker = setup_checker["checker"]
         registry = setup_checker["registry"]
         index_manager = setup_checker["index_manager"]
-        fingerprint_manager = setup_checker["fingerprint_manager"]
+        setup_checker["fingerprint_manager"]
         storage_dir = setup_checker["storage_dir"]
 
         # Add consistent documents
@@ -156,7 +156,7 @@ class TestConsistencyChecker:
         """Test detection of documents missing from indexes"""
         checker = setup_checker["checker"]
         registry = setup_checker["registry"]
-        index_manager = setup_checker["index_manager"]
+        setup_checker["index_manager"]
         storage_dir = setup_checker["storage_dir"]
 
         # Add document to registry but not indexes
@@ -215,7 +215,7 @@ class TestConsistencyChecker:
     async def test_repair_trust_registry(self, setup_checker):
         """Test repair using TRUST_REGISTRY strategy"""
         checker = setup_checker["checker"]
-        registry = setup_checker["registry"]
+        setup_checker["registry"]
         index_manager = setup_checker["index_manager"]
         storage_dir = setup_checker["storage_dir"]
 
@@ -278,7 +278,7 @@ class TestConsistencyChecker:
         checker = setup_checker["checker"]
         registry = setup_checker["registry"]
         index_manager = setup_checker["index_manager"]
-        fingerprint_manager = setup_checker["fingerprint_manager"]
+        setup_checker["fingerprint_manager"]
 
         # Create partially inconsistent document
         doc_id = "partial_doc"

@@ -71,7 +71,7 @@ def find_pickle_files(input_dir: str) -> list[Path]:
         raise FileNotFoundError(f"Input directory not found: {input_path}")
 
     print(f"Searching for .pkl files recursively in: {input_path.resolve()}")
-    pickle_files = sorted(list(input_path.rglob("*.pkl")))
+    pickle_files = sorted(input_path.rglob("*.pkl"))
 
     if not pickle_files:
         print("No .pkl files found in the specified directory.")

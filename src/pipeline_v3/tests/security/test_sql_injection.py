@@ -71,7 +71,7 @@ class TestSQLInjectionProtection:
         # Test each malicious input
         for malicious_input in malicious_inputs:
             # Should handle malicious file paths safely
-            doc_id = registry.register_document(
+            registry.register_document(
                 source=malicious_input,
                 content_hash=f"test_hash_{malicious_input}",
                 size=1000,
@@ -80,7 +80,7 @@ class TestSQLInjectionProtection:
             )
 
             # Should handle malicious metadata safely
-            doc_id2 = registry.register_document(
+            registry.register_document(
                 source=f"test_{malicious_input}.pdf",
                 content_hash=f"test_hash2_{malicious_input}",
                 size=1000,

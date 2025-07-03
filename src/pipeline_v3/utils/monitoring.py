@@ -153,7 +153,7 @@ class ProgressMonitor:
 
                 config = PipelineConfig()
                 filepath = config.monitoring.report_file
-            except:
+            except Exception:
                 # If config loading fails, use default
                 filepath = "pipeline_report.json"
         report = {

@@ -88,7 +88,7 @@ async def test_with_real_api():
 
         # Convert all pages to data URIs
         data_uris = []
-        for i, image in enumerate(images):
+        for _i, image in enumerate(images):
             buf = io.BytesIO()
             image.save(buf, format="JPEG", quality=85)
             img_bytes = buf.getvalue()
@@ -154,7 +154,7 @@ Then provide the full document content as GitHub-flavored Markdown."""
         ]
 
         # Add all images to the request
-        for i, data_uri in enumerate(data_uris):
+        for _i, data_uri in enumerate(data_uris):
             parts.append({"type": "input_image", "image_url": data_uri})
 
         print("   📤 Sending request to OpenAI...")

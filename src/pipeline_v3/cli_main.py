@@ -39,43 +39,39 @@ def run_cli():
         sys.exit(130)
     except CLIArgumentError as e:
         if hasattr(e, "command_string") and e.command_string:
-            logger.error("CLI argument error: %s | Command: %s", e, e.command_string, exc_info=True)
+            logger.exception("CLI argument error | Command: %s", e.command_string)
         else:
-            logger.error("CLI argument error: %s", e, exc_info=True)
+            logger.exception("CLI argument error")
         print("❌ Invalid arguments:", e)
         sys.exit(128)
     except DependencyError as e:
         if hasattr(e, "command_string") and e.command_string:
-            logger.critical(
-                "Dependency error: %s | Command: %s", e, e.command_string, exc_info=True
-            )
+            logger.critical("Dependency error: %s | Command: %s", e, e.command_string)
         else:
-            logger.critical("Dependency error: %s", e, exc_info=True)
+            logger.critical("Dependency error: %s", e)
         print("❌ Dependency error:", e)
         sys.exit(126)
     except ConfigLoadError as e:
         if hasattr(e, "command_string") and e.command_string:
-            logger.error(
-                "Configuration error: %s | Command: %s", e, e.command_string, exc_info=True
-            )
+            logger.error("Configuration error: %s | Command: %s", e, e.command_string)
         else:
-            logger.error("Configuration error: %s", e, exc_info=True)
+            logger.exception("Configuration error")
         print("❌ Configuration error:", e)
         sys.exit(127)
     except FileNotFoundError as e:
-        logger.error("File not found: %s", e, exc_info=True)
+        logger.exception("File not found")
         print("❌ File not found:", e)
         sys.exit(127)
     except ImportError as e:
-        logger.critical("Missing dependency: %s", e, exc_info=True)
+        logger.critical("Missing dependency: %s", e)
         print("❌ Required dependency not installed. See log for details.")
         sys.exit(126)
     except ConnectionError as e:
-        logger.error("Network error: %s", e, exc_info=True)
+        logger.exception("Network error")
         print("❌ Network error:", e)
         sys.exit(1)
     except ValueError as e:
-        logger.error("Invalid argument: %s", e, exc_info=True)
+        logger.exception("Invalid argument")
         print("❌ Invalid argument:", e)
         sys.exit(128)
     except Exception:

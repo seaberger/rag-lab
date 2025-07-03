@@ -41,7 +41,7 @@ async def simulate_failure_scenario():
 
     # Create storage adapters
     registry_adapter = RegistryAdapter(registry)
-    vector_adapter = QdrantAdapter(config)
+    QdrantAdapter(config)
     keyword_adapter = KeywordIndexAdapter(Path("keyword_index_v3.db"))
     storage_adapter = StorageArtifactsAdapter(Path("storage_data_v3"))
     fingerprint_adapter = FingerprintAdapter(fingerprint_manager)
@@ -136,7 +136,7 @@ async def demonstrate_successful_transaction():
     # Initialize components
     config = PipelineConfig()
     registry = DocumentRegistry(config)
-    index_manager = IndexManager(config, registry=registry)
+    IndexManager(config, registry=registry)
     fingerprint_manager = FingerprintManager(config)
 
     # Create storage adapters (all working properly)

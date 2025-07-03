@@ -34,5 +34,5 @@ async def ingest_sources(
             progress.complete_document(doc_id, len(nodes))
 
         except Exception as e:
-            logger.error(f"Failed to process {src}: {e}")
+            logger.exception(f"Failed to process {src}: {e}")
             progress.fail_document(doc_id, str(e))

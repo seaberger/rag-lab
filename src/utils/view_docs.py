@@ -70,7 +70,7 @@ def display_documents(
             f"--- File {file_idx}/{num_files_limit}: {file_name} ({total_sections_in_file} sections total{limit_msg}) ---"
         )
 
-        for section_idx, doc in enumerate(sections_to_display, start=1):
+        for _section_idx, doc in enumerate(sections_to_display, start=1):
             global_doc_index += 1
 
             # Get metadata safely
