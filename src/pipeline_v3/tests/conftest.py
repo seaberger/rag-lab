@@ -9,6 +9,7 @@ import shutil
 
 # Add parent directory for imports
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -23,12 +24,18 @@ from pipeline_v3.utils.config import PipelineConfig
 TEST_ENVIRONMENT = "test_env"
 
 
-def create_test_config(base_path: Path, environment: str = TEST_ENVIRONMENT) -> PipelineConfig:
-    """Create a test configuration with isolated databases."""
+def create_test_config(
+    base_path: Path, environment: str = TEST_ENVIRONMENT, unique_id: str | None = None
+) -> PipelineConfig:
+    """Create a test configuration with isolated databases and unique collection names."""
     config = PipelineConfig()
 
-    # Create environment-specific paths
-    env_path = base_path / environment
+    # Generate unique identifier for this test instance
+    if unique_id is None:
+        unique_id = str(uuid.uuid4())[:8]
+
+    # Create environment-specific paths with unique ID
+    env_path = base_path / f"{environment}_{unique_id}"
     env_path.mkdir(exist_ok=True)
 
     # Override all database and storage paths
@@ -38,7 +45,8 @@ def create_test_config(base_path: Path, environment: str = TEST_ENVIRONMENT) -> 
 
     config.cache.directory = str(env_path / "cache")
     config.qdrant.path = str(env_path / "qdrant_data")
-    config.qdrant.collection_name = f"datasheets_{environment}"
+    # Create unique collection name per test to avoid conflicts
+    config.qdrant.collection_name = f"datasheets_{environment}_{unique_id}"
 
     config.job_queue.job_storage_path = str(env_path / "jobs.db")
     config.fingerprint.storage_path = str(env_path / "fingerprints.db")
@@ -49,6 +57,34 @@ def create_test_config(base_path: Path, environment: str = TEST_ENVIRONMENT) -> 
     config.chunking.chunk_overlap = 50
 
     return config
+
+
+def cleanup_qdrant_resources(pipeline_or_index_manager):
+    """Properly cleanup Qdrant connections and resources."""
+    try:
+        # Handle both pipeline and index_manager objects
+        if hasattr(pipeline_or_index_manager, "index_manager"):
+            index_manager = pipeline_or_index_manager.index_manager
+        else:
+            index_manager = pipeline_or_index_manager
+
+        # Close Qdrant client connection if it exists
+        if hasattr(index_manager, "qdrant_client") and index_manager.qdrant_client:
+            try:
+                index_manager.qdrant_client.close()
+            except Exception as e:
+                print(f"Warning: Error closing Qdrant client: {e}")
+
+        # Clear vector store reference
+        if hasattr(index_manager, "vector_store"):
+            index_manager.vector_store = None
+
+        # Clear client reference
+        if hasattr(index_manager, "qdrant_client"):
+            index_manager.qdrant_client = None
+
+    except Exception as e:
+        print(f"Warning: Error during Qdrant cleanup: {e}")
 
 
 def clear_test_databases(config: PipelineConfig):
@@ -117,10 +153,15 @@ def test_config(test_base_dir):
 
 @pytest_asyncio.fixture
 async def test_pipeline(test_config):
-    """Provide an initialized test pipeline."""
+    """Provide an initialized test pipeline with proper cleanup."""
     pipeline = EnhancedPipeline(test_config)
     yield pipeline
-    # No cleanup needed - databases cleared by test_config fixture
+
+    # Proper cleanup of Qdrant resources
+    cleanup_qdrant_resources(pipeline)
+
+    # Optional: Clear databases if needed for this specific test
+    # clear_test_databases(test_config)
 
 
 @pytest_asyncio.fixture
@@ -147,6 +188,8 @@ async def populated_pipeline(test_pipeline, test_config):
         pipeline.test_doc_id = result.get("doc_id") if result else None
 
     yield pipeline
+
+    # Cleanup is handled by test_pipeline fixture
 
 
 @pytest.fixture

@@ -150,20 +150,15 @@ class TestSearchIntegration:
             # Generate embedding
             embedding = await mock_embeddings.get_embeddings(doc["content"])
 
-            # Add to vector index
-            await search_components["index_manager"].add_to_vector_index(
-                doc_id=doc["doc_id"],
-                content=doc["content"],
-                embedding=embedding,
-                metadata=doc["metadata"]
-            )
+            # Add document to both indexes using IndexManager.add_document
+            from core.registry import IndexType
 
-            # Add to keyword index
-            await search_components["index_manager"].add_to_keyword_index(
+            # Add to both vector and keyword indexes
+            search_components["index_manager"].add_document(
                 doc_id=doc["doc_id"],
                 content=doc["content"],
                 metadata=doc["metadata"],
-                keywords=doc["keywords"]
+                index_types=IndexType.BOTH
             )
 
     @pytest.mark.asyncio
@@ -180,9 +175,8 @@ class TestSearchIntegration:
         ]
 
         for query, expected_docs in queries:
-            query_embedding = await mock_embeddings.get_embeddings(query)
-            results = await search_components["index_manager"].vector_search(
-                query_embedding=query_embedding,
+            results = search_components["index_manager"].search_vector(
+                query=query,
                 top_k=3
             )
 
@@ -205,7 +199,7 @@ class TestSearchIntegration:
         ]
 
         for query, expected_docs in exact_queries:
-            results = await search_components["index_manager"].keyword_search(
+            results = search_components["index_manager"].search_keyword(
                 query=query,
                 top_k=5
             )
@@ -215,7 +209,7 @@ class TestSearchIntegration:
                 assert expected_id in result_ids, f"Expected {expected_id} for keyword '{query}'"
 
         # Test phrase search
-        phrase_results = await search_components["index_manager"].keyword_search(
+        phrase_results = search_components["index_manager"].search_keyword(
             query="power meter",
             top_k=3
         )
@@ -297,12 +291,12 @@ class TestSearchIntegration:
         query_embedding = await mock_embeddings.get_embeddings(query)
 
         # Get results from different search types
-        vector_results = await search_components["index_manager"].vector_search(
+        vector_results = search_components["index_manager"].search_vector(
             query_embedding=query_embedding,
             top_k=5
         )
 
-        keyword_results = await search_components["index_manager"].keyword_search(
+        keyword_results = search_components["index_manager"].search_keyword(
             query=query,
             top_k=5
         )
@@ -330,12 +324,12 @@ class TestSearchIntegration:
         query_embedding = await mock_embeddings.get_embeddings(query)
 
         # Search empty indexes
-        vector_results = await search_components["index_manager"].vector_search(
+        vector_results = search_components["index_manager"].search_vector(
             query_embedding=query_embedding,
             top_k=5
         )
 
-        keyword_results = await search_components["index_manager"].keyword_search(
+        keyword_results = search_components["index_manager"].search_keyword(
             query=query,
             top_k=5
         )
@@ -412,7 +406,7 @@ class TestSearchIntegration:
 
         # Test with extremely long query (keyword search)
         very_long_query = " ".join(["word"] * 1000)
-        results = await search_components["index_manager"].keyword_search(
+        results = search_components["index_manager"].search_keyword(
             query=very_long_query,
             top_k=5
         )
@@ -436,7 +430,7 @@ class TestSearchIntegration:
 
         for query in special_queries:
             # Should not crash
-            results = await search_components["index_manager"].keyword_search(
+            results = search_components["index_manager"].search_keyword(
                 query=query,
                 top_k=3
             )

@@ -206,7 +206,7 @@ class TestE2EIntegration:
         assert "total_documents" in registry_stats
 
         # Test index status
-        index_status = pipeline.index_manager.get_status()
+        index_status = pipeline.index_manager.get_statistics()
         assert isinstance(index_status, dict)
 
     @pytest.mark.asyncio
@@ -271,7 +271,7 @@ class TestE2EIntegration:
         assert result is not None
 
         # Step 2: Search for content
-        search_results = await pipeline.search(
+        search_results = pipeline.search(
             "measurement",
             search_type="hybrid",
             top_k=5
@@ -280,9 +280,9 @@ class TestE2EIntegration:
 
         # Step 3: Verify system status shows the document
         status = pipeline.get_comprehensive_status()
-        assert status["documents"]["total"] >= 1
-        assert status["indexes"]["vector"]["count"] >= 0
-        assert status["indexes"]["keyword"]["count"] >= 0
+        assert status["registry"]["total_documents"] >= 1
+        assert status["indexes"]["vector_index"]["points_count"] >= 0
+        assert status["indexes"]["keyword_index"]["entry_count"] >= 0
 
 
 class TestSmokeIntegration:
