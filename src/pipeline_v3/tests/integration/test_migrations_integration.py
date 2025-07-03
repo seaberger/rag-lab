@@ -5,7 +5,6 @@ Integration tests for database migration framework.
 Tests the migration system working with real database components.
 """
 
-import os
 import sys
 import tempfile
 from pathlib import Path

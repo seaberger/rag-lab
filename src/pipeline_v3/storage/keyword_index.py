@@ -99,8 +99,7 @@ class BM25Index:
         # Remove markdown formatting
         text = re.sub(r"[#*`\[\]()]", " ", text)
         # Normalize whitespace
-        text = " ".join(text.split())
-        return text
+        return " ".join(text.split())
 
     def search(self, query: str, limit: int = 10) -> list[dict]:
         """BM25 search using SQLite FTS5."""

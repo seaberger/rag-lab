@@ -6,7 +6,6 @@ Ensures migration system doesn't break existing functionality and
 prevents known migration issues from recurring.
 """
 
-import os
 import sys
 import tempfile
 from pathlib import Path

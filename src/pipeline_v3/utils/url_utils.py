@@ -98,9 +98,12 @@ def extract_urls_from_json(file_path: Path) -> list[str]:
                 # Check for common URL field names
                 url_fields = ["url", "link", "href", "src", "uri"]
                 for field in url_fields:
-                    if field in obj and isinstance(obj[field], str):
-                        if obj[field].startswith(("http://", "https://")):
-                            urls.append(obj[field])
+                    if (
+                        field in obj
+                        and isinstance(obj[field], str)
+                        and obj[field].startswith(("http://", "https://"))
+                    ):
+                        urls.append(obj[field])
 
                 # Recursively check all values
                 for value in obj.values():

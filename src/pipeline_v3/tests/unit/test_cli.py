@@ -11,6 +11,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -130,6 +132,7 @@ class TestCLI:
         assert "item1" in list_output
         assert "item2" in list_output
 
+    @pytest.mark.asyncio
     async def test_handle_add(self):
         """Test document addition handling."""
         cli = self.create_test_cli()
@@ -153,6 +156,7 @@ class TestCLI:
             "test.pdf", metadata={"type": "datasheet"}, force=False, index_types="both"
         )
 
+    @pytest.mark.asyncio
     async def test_handle_search(self):
         """Test search functionality."""
         cli = self.create_test_cli()
@@ -187,6 +191,7 @@ class TestCLI:
             "laser sensors", search_type="hybrid", top_k=5, filter_dict=None
         )
 
+    @pytest.mark.asyncio
     async def test_handle_queue_operations(self):
         """Test queue management operations."""
         cli = self.create_test_cli()
@@ -219,6 +224,7 @@ class TestCLI:
         await cli.handle_queue(args)
         cli.queue.get_status.assert_called()
 
+    @pytest.mark.asyncio
     async def test_handle_status(self):
         """Test system status reporting."""
         cli = self.create_test_cli()
@@ -243,6 +249,7 @@ class TestCLI:
         cli.registry.get_statistics.assert_called_once()
         cli.index_manager.get_status.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_handle_maintenance(self):
         """Test maintenance operations."""
         cli = self.create_test_cli()
@@ -267,6 +274,7 @@ class TestCLI:
         await cli.handle_maintenance(args)
         cli.index_manager.verify_consistency.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_handle_config(self):
         """Test configuration management."""
         cli = self.create_test_cli()
@@ -313,6 +321,7 @@ class TestCLI:
         assert "key" in result
         assert result["key"] == "value"
 
+    @pytest.mark.asyncio
     async def test_json_output_mode(self):
         """Test JSON output formatting."""
         cli = self.create_test_cli()

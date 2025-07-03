@@ -114,8 +114,7 @@ async def generate_context(node_text, max_retries=3):
             )
 
             # Extract the content from the response
-            context = response.choices[0].message.content.strip()
-            return context
+            return response.choices[0].message.content.strip()
 
         except Exception as e:
             logging.exception(f"Error on attempt {attempt + 1}/{max_retries}: {e!s}")

@@ -5,7 +5,6 @@ Unit tests for database migration framework.
 Tests the MigrationManager and DatabaseBase classes in isolation.
 """
 
-import os
 import sys
 import tempfile
 from pathlib import Path

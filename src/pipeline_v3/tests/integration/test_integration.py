@@ -17,13 +17,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    from core.index_manager import IndexManager
-    from core.registry import DocumentRegistry
-    from job_queue.manager import DocumentQueue
+    from core.index_manager import IndexManager  # noqa: F401
+    from core.registry import DocumentRegistry  # noqa: F401
+    from job_queue.manager import DocumentQueue  # noqa: F401
     from pipeline.enhanced_core import EnhancedPipeline
 
     from utils.config import PipelineConfig
-    from utils.monitoring import ProgressMonitor
+    from utils.monitoring import ProgressMonitor  # noqa: F401
 
     IMPORTS_AVAILABLE = True
 except ImportError as e:
