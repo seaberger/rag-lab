@@ -34,20 +34,6 @@ class TestCLIIntegration:
             yield tmpdir
 
     @pytest.fixture
-    def test_config(self, temp_dir):
-        """Create test configuration."""
-        config = PipelineConfig()
-        # Override paths for testing
-        config.storage.base_dir = temp_dir
-        config.cache.directory = os.path.join(temp_dir, "cache")
-        config.storage.document_registry_path = os.path.join(temp_dir, "registry.db")
-        config.storage.keyword_db_path = os.path.join(temp_dir, "keyword.db")
-        config.fingerprint.storage_path = os.path.join(temp_dir, "fingerprint.db")
-        config.job_queue.job_storage_path = os.path.join(temp_dir, "jobs.db")
-        config.qdrant.path = os.path.join(temp_dir, "qdrant")
-        return config
-
-    @pytest.fixture
     def cli_instance(self, test_config):
         """Create CLI instance with test config."""
         with patch("cli.management.PipelineConfig") as mock_config_class:
@@ -70,6 +56,11 @@ class TestCLIIntegration:
             cli.queue = DocumentQueue(config=test_config)
 
             yield cli
+
+            # Cleanup Qdrant resources from all components
+            from conftest import cleanup_qdrant_resources
+            cleanup_qdrant_resources(cli.pipeline)
+            cleanup_qdrant_resources(cli.index_manager)
 
     @pytest.fixture
     def mock_openai_for_cli(self):

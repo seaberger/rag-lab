@@ -6,9 +6,7 @@ and uses parameterized queries throughout.
 """
 
 import re
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -18,38 +16,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.registry import DocumentRegistry
 from storage.keyword_index import BM25Index as KeywordIndex
+from utils.config import PipelineConfig
 
 
 class TestSQLInjectionProtection:
     """Test suite for SQL injection protection."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test databases."""
-        temp_dir = tempfile.mkdtemp()
-        yield temp_dir
-        shutil.rmtree(temp_dir)
-
-    @pytest.fixture
-    def registry(self, temp_dir):
+    def registry(self, test_config):
         """Create a test document registry."""
-        # DocumentRegistry uses config to determine db path
-        # For testing, we'll patch the config
-        from utils.config import PipelineConfig
-
-        config = PipelineConfig()
-        config.storage.document_registry_path = str(Path(temp_dir) / "test_registry.db")
-        return DocumentRegistry(config=config)
+        return DocumentRegistry(config=test_config)
 
     @pytest.fixture
-    def keyword_index(self, temp_dir):
+    def keyword_index(self, test_config):
         """Create a test keyword index."""
-        # KeywordIndex uses config to determine db path
-        from utils.config import PipelineConfig
-
-        config = PipelineConfig()
-        config.storage.keyword_index_path = str(Path(temp_dir) / "test_keywords.db")
-        return KeywordIndex(config=config)
+        return KeywordIndex(config=test_config)
 
     @pytest.mark.security
     def test_registry_add_document_sql_injection(self, registry):

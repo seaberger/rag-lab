@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -25,19 +24,11 @@ class TestCacheManager:
     """Test suite for CacheManager functionality."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for cache."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    @pytest.fixture
-    def cache(self, temp_dir):
+    def cache(self, test_config):
         """Create a test cache instance."""
-        config = PipelineConfig()
-        config.cache.directory = temp_dir
-        config.cache.ttl_days = 7
-        config.cache.compress = True
-        return CacheManager(config=config)
+        test_config.cache.ttl_days = 7
+        test_config.cache.compress = True
+        return CacheManager(config=test_config)
 
     def _get_hash(self, content: str) -> str:
         """Generate hash for testing."""

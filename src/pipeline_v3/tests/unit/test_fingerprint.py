@@ -6,7 +6,6 @@ Tests cover fingerprint generation, storage, and change detection logic.
 
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -25,22 +24,14 @@ class TestFingerprintManager:
     """Test suite for FingerprintManager."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test databases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    @pytest.fixture
-    def fingerprint_manager(self, temp_dir):
+    def fingerprint_manager(self, test_config):
         """Create a test fingerprint manager."""
-        config = PipelineConfig()
-        config.fingerprint.storage_path = str(Path(temp_dir) / "test_fingerprints.db")
-        return FingerprintManager(config=config)
+        return FingerprintManager(config=test_config)
 
-    def test_compute_fingerprint(self, temp_dir):
+    def test_compute_fingerprint(self, test_base_dir):
         """Test fingerprint computation."""
         # Create a test file
-        test_file = Path(temp_dir) / "test.pdf"
+        test_file = test_base_dir / "test.pdf"
         test_file.write_text("test content")
 
         # Compute fingerprint

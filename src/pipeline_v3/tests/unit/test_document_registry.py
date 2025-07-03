@@ -5,7 +5,6 @@ Tests cover document registration, state tracking, and lifecycle management.
 """
 
 import sys
-import tempfile
 from pathlib import Path
 
 # Add parent directory for imports BEFORE importing project modules
@@ -21,17 +20,9 @@ class TestDocumentRegistry:
     """Test suite for DocumentRegistry."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test databases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    @pytest.fixture
-    def registry(self, temp_dir):
+    def registry(self, test_config):
         """Create a test document registry."""
-        config = PipelineConfig()
-        config.storage.document_registry_path = str(Path(temp_dir) / "test_registry.db")
-        return DocumentRegistry(config=config)
+        return DocumentRegistry(config=test_config)
 
     def test_register_document(self, registry):
         """Test basic document registration."""

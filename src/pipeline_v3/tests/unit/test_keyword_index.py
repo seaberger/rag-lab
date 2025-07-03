@@ -6,7 +6,6 @@ Tests cover keyword indexing, search functionality, and SQL injection protection
 
 import sqlite3
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -23,17 +22,9 @@ class TestBM25Index:
     """Test suite for BM25Index."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test databases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    @pytest.fixture
-    def keyword_index(self, temp_dir):
+    def keyword_index(self, test_config):
         """Create a test keyword index."""
-        config = PipelineConfig()
-        config.storage.keyword_db_path = str(Path(temp_dir) / "test_keyword.db")
-        return BM25Index(config=config)
+        return BM25Index(config=test_config)
 
     def test_index_nodes(self, keyword_index):
         """Test indexing nodes to the database."""

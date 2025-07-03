@@ -5,7 +5,6 @@ Tests cover job creation, state management, and queue operations.
 """
 
 import sys
-import tempfile
 import uuid
 from pathlib import Path
 
@@ -65,18 +64,10 @@ class TestDocumentQueue:
     """Test suite for DocumentQueue manager."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test databases."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    @pytest.fixture
-    def queue(self, temp_dir):
+    def queue(self, test_config):
         """Create a test document queue."""
-        config = PipelineConfig()
-        config.job_queue.max_concurrent = 2
-        config.job_queue.db_path = str(Path(temp_dir) / "test_jobs.db")
-        queue = DocumentQueue(config=config)
+        test_config.job_queue.max_concurrent = 2
+        queue = DocumentQueue(config=test_config)
         return queue
 
     @pytest.mark.asyncio
@@ -227,11 +218,9 @@ class TestJobManager:
             yield temp_dir
 
     @pytest.fixture
-    def job_manager(self, temp_dir):
+    def job_manager(self, test_config):
         """Create a test job manager."""
-        config = PipelineConfig()
-        config.job_queue.db_path = str(Path(temp_dir) / "test_jobs.db")
-        return JobManager(config=config)
+        return JobManager(config=test_config)
 
     def test_create_job(self, job_manager):
         """Test creating a persistent job."""

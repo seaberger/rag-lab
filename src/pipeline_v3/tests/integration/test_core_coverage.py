@@ -36,25 +36,8 @@ from core.migrations import Migration, MigrationManager, load_migrations_from_sq
 class TestCoreCoverage:
     """Tests to boost coverage of core modules."""
 
-    @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield tmpdir
 
-    @pytest.fixture
-    def test_config(self, temp_dir):
-        """Create test configuration."""
-        config = PipelineConfig()
-        config.storage.base_dir = temp_dir
-        config.cache.directory = os.path.join(temp_dir, "cache")
-        config.storage.document_registry_path = os.path.join(temp_dir, "registry.db")
-        config.fingerprint.storage_path = os.path.join(temp_dir, "fingerprint.db")
-        config.job_queue.job_storage_path = os.path.join(temp_dir, "jobs.db")
-
-        return config
-
-    def test_pipeline_config_comprehensive(self, temp_dir):
+    def test_pipeline_config_comprehensive(self, test_base_dir):
         """Comprehensive test of PipelineConfig."""
         # Test default initialization
         config = PipelineConfig()
@@ -92,7 +75,7 @@ storage:
 job_queue:
   max_concurrent: 8
 """
-        yaml_file = os.path.join(temp_dir, "config.yaml")
+        yaml_file = os.path.join(test_base_dir, "config.yaml")
         with open(yaml_file, "w") as f:
             f.write(yaml_content)
 
@@ -178,12 +161,12 @@ job_queue:
         doc = registry.get_document(doc_id)
         assert doc is None
 
-    def test_fingerprint_store_operations(self, test_config, temp_dir):
+    def test_fingerprint_store_operations(self, test_config, test_base_dir):
         """Test FingerprintManager functionality."""
         store = FingerprintManager(config=test_config)
 
         # Create a test file
-        test_file = os.path.join(temp_dir, "test.pdf")
+        test_file = os.path.join(test_base_dir, "test.pdf")
         with open(test_file, "wb") as f:
             f.write(b"test content")
 
@@ -418,10 +401,10 @@ job_queue:
         finally:
             sys.argv = original_argv
 
-    def test_environment_setup(self, temp_dir):
+    def test_environment_setup(self, test_base_dir):
         """Test environment utilities."""
         # Create a test .env file
-        env_file = os.path.join(temp_dir, ".env")
+        env_file = os.path.join(test_base_dir, ".env")
         with open(env_file, "w") as f:
             f.write("TEST_KEY=test_value\n")
             f.write("OPENAI_API_KEY=test_key\n")
@@ -429,18 +412,18 @@ job_queue:
         # Change to temp dir and test
         original_cwd = os.getcwd()
         try:
-            os.chdir(temp_dir)
+            os.chdir(test_base_dir)
             setup_environment()
             # Note: Can't easily test env vars are set without affecting test environment
         finally:
             os.chdir(original_cwd)
 
-    def test_validation_utilities(self, temp_dir):
+    def test_validation_utilities(self, test_base_dir):
         """Test document validation functionality."""
         validator = DocumentValidator()
 
         # Test file validation
-        test_file = os.path.join(temp_dir, "test.pdf")
+        test_file = os.path.join(test_base_dir, "test.pdf")
         with open(test_file, "w") as f:
             f.write("test")
 
@@ -463,14 +446,14 @@ job_queue:
         except ValidationError as e:
             assert "Invalid URL scheme" in str(e)
 
-    def test_cleanup_and_resource_management(self, temp_dir):
+    def test_cleanup_and_resource_management(self, test_base_dir):
         """Test cleanup utilities and resource management."""
         # Get resource manager
         manager = get_resource_manager()
         assert manager is not None
 
         # Register a temp file
-        temp_file = os.path.join(temp_dir, "temp_resource.txt")
+        temp_file = os.path.join(test_base_dir, "temp_resource.txt")
         with open(temp_file, "w") as f:
             f.write("temp")
 
@@ -482,10 +465,10 @@ job_queue:
         # Test cleanup function
         cleanup_temp_resources()
 
-    def test_database_migrations(self, temp_dir):
+    def test_database_migrations(self, test_base_dir):
         """Test database migration framework."""
         # Test migration sequence
-        db_path = os.path.join(temp_dir, "test_migrations.db")
+        db_path = os.path.join(test_base_dir, "test_migrations.db")
         manager = MigrationManager(db_path)
 
         # Create test migrations
@@ -523,7 +506,7 @@ job_queue:
 
         manager.close()
 
-    def test_real_migration_files(self, temp_dir):
+    def test_real_migration_files(self, test_base_dir):
         """Test loading and applying real migration files."""
         # Get the real migrations directory
         migrations_base = Path(__file__).parent.parent.parent / "migrations"
@@ -534,7 +517,7 @@ job_queue:
         # Test one database type (registry)
         migrations_dir = migrations_base / "registry"
         if migrations_dir.exists():
-            db_path = os.path.join(temp_dir, "test_registry.db")
+            db_path = os.path.join(test_base_dir, "test_registry.db")
 
             # Load migrations
             migrations = load_migrations_from_sql_files(migrations_dir)

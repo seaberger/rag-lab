@@ -5,7 +5,6 @@ Tests cover index management, CRUD operations, and search functionality.
 """
 
 import sys
-import tempfile
 import uuid
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -25,39 +24,24 @@ class TestIndexManager:
     """Test suite for IndexManager."""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for test storage."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    @pytest.fixture
-    def config(self, temp_dir):
-        """Create test configuration."""
-        config = PipelineConfig()
-        config.storage.qdrant_path = str(Path(temp_dir) / "qdrant_test")
-        config.storage.keyword_db_path = str(Path(temp_dir) / "keyword_test.db")
-        config.storage.document_registry_path = str(Path(temp_dir) / "registry_test.db")
-        return config
-
-    @pytest.fixture
-    def index_manager(self, config):
+    def index_manager(self, test_config):
         """Create test index manager."""
         with patch("qdrant_client.QdrantClient"):
             with patch("llama_index.embeddings.openai.OpenAIEmbedding"):
                 with patch("llama_index.vector_stores.qdrant.QdrantVectorStore"):
-                    manager = IndexManager(config=config)
+                    manager = IndexManager(config=test_config)
                     # Mock the vector store methods
                     manager.vector_store = Mock()
                     manager.keyword_index = Mock()
                     return manager
 
-    def test_initialization(self, config):
+    def test_initialization(self, test_config):
         """Test index manager initialization."""
         with patch("qdrant_client.QdrantClient"):
             with patch("llama_index.embeddings.openai.OpenAIEmbedding"):
                 with patch("llama_index.vector_stores.qdrant.QdrantVectorStore"):
-                    manager = IndexManager(config=config)
-                    assert manager.config == config
+                    manager = IndexManager(config=test_config)
+                    assert manager.config == test_config
                     assert manager.registry is not None
 
     def test_index_document(self, index_manager):

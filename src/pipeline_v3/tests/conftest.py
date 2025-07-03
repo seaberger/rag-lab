@@ -239,6 +239,8 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
     config.addinivalue_line("markers", "requires_api: marks tests that require API keys")
+    config.addinivalue_line("markers", "security: marks security-focused tests")
+    config.addinivalue_line("markers", "unit: marks unit tests (fast, isolated)")
 
 
 # Skip tests if no API key

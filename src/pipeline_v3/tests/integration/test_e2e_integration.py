@@ -291,23 +291,12 @@ class TestSmokeIntegration:
     @pytest_asyncio.fixture
     async def smoke_test_environment(self, tmp_path):
         """Set up lightweight test environment for smoke tests."""
-        # Initialize configuration with smoke test settings
-        config = PipelineConfig()
-
-        # Update storage paths for testing
-        config.storage.base_dir = str(tmp_path / "smoke_storage")
-        config.storage.keyword_db_path = str(tmp_path / "smoke_keyword.db")
-        config.storage.document_registry_path = str(tmp_path / "smoke_registry.db")
-
-        # Update cache path
-        config.cache.directory = str(tmp_path / "smoke_cache")
-
-        # Update Qdrant path
-        config.qdrant.path = str(tmp_path / "smoke_qdrant")
+        # Use our improved config creation with unique ID for smoke tests
+        from conftest import create_test_config
+        config = create_test_config(tmp_path, environment="smoke", unique_id=None)
 
         # Smoke test settings - optimized for speed
         config.job_queue.max_concurrent = 1  # Single threaded
-        config.job_queue.job_storage_path = str(tmp_path / "smoke_jobs.db")
         config.fingerprint.storage_path = str(tmp_path / "smoke_fingerprints.db")
 
         # Smaller chunks for faster processing
