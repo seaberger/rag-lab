@@ -133,16 +133,16 @@ Consider refactoring FingerprintManager to:
 class FingerprintManager:
     def add_fingerprint(self, doc_id: str, source_path: str, fingerprint: str) -> bool:
         """Add with both doc_id and source path"""
-        
+
     def get_fingerprint_by_id(self, doc_id: str) -> Optional[DocumentFingerprint]:
         """Query by doc_id"""
-        
+
     def get_fingerprint_by_path(self, source_path: str) -> Optional[DocumentFingerprint]:
         """Query by source path (backward compatibility)"""
-        
+
     def remove_fingerprint(self, doc_id: str) -> bool:
         """Delete by doc_id"""
-        
+
     def begin_transaction(self) -> Transaction:
         """Support transactions"""
 ```
@@ -157,6 +157,6 @@ These issues don't prevent the system from working but they:
 
 The current implementation works around these issues, but addressing them would significantly improve system reliability and maintainability.
 
-**Created**: 2025-01-13  
-**Context**: Discovered during Issue #27 (Cross-System Consistency Guarantees) implementation  
+**Created**: 2025-01-13
+**Context**: Discovered during Issue #27 (Cross-System Consistency Guarantees) implementation
 **Priority**: Medium - System works but with limitations

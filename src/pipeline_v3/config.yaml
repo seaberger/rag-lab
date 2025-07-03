@@ -29,7 +29,7 @@ batch:
   enabled: true
   threshold: 10
 
-# Job queue management (NEW in v3)  
+# Job queue management (NEW in v3)
 job_queue:
   max_concurrent: 10
   job_persistence: true

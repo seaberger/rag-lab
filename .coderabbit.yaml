@@ -9,16 +9,16 @@ early_access: false
 reviews:
   # Use assertive profile for production-ready system
   profile: "assertive"
-  
+
   # Request changes when critical issues found
   request_changes_workflow: true
-  
+
   # Enable comprehensive review features
   high_level_summary: true
   poem: false  # Disable poems for professional reviews
   review_status: true
   collapse_walkthrough: false
-  
+
   # Custom review instructions for the project
   instructions: |
     Focus on the following aspects when reviewing code:
@@ -29,7 +29,7 @@ reviews:
     5. **API Integration**: Check OpenAI API calls for proper error handling and retry logic
     6. **Testing**: Ensure new features have corresponding tests
     7. **Type Safety**: Verify proper type hints and validation
-    
+
     Key areas of concern:
     - Document processing pipeline reliability
     - Cross-system transaction consistency
@@ -72,7 +72,7 @@ path_instructions:
       - Proper error propagation and context preservation
       - Resource cleanup in finally blocks
       - Thread safety for concurrent operations
-  
+
   - path: "src/pipeline_v3/storage/**"
     instructions: |
       Check for:
@@ -80,7 +80,7 @@ path_instructions:
       - Proper parameterized queries
       - Atomic operations across multiple storage systems
       - Data consistency guarantees
-  
+
   - path: "src/pipeline_v3/pipeline/**"
     instructions: |
       Verify:
@@ -88,7 +88,7 @@ path_instructions:
       - Proper timeout handling
       - Resource cleanup for temporary files
       - Queue management and job state transitions
-  
+
   - path: "tests/**"
     instructions: |
       Ensure:
@@ -102,11 +102,11 @@ tools:
   # Python-specific linting
   ruff:
     enabled: true
-  
+
   # Security scanning
   semgrep:
     enabled: true
-  
+
   # Type checking
   mypy:
     enabled: true

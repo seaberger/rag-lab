@@ -28,7 +28,7 @@ comprehensive CLI tools for production deployment.
 ### 📊 **Processing Time Reality**
 
 - **Small PDF (1-2 pages)**: ~60-90 seconds ✅ **Safe for direct CLI**
-- **Medium PDF (3-4 pages)**: ~120-180 seconds ⚠️ **At timeout limit**  
+- **Medium PDF (3-4 pages)**: ~120-180 seconds ⚠️ **At timeout limit**
 - **Large PDF (5+ pages)**: ~250+ seconds ❌ **WILL TIMEOUT**
 - **Multiple documents**: ~N × 60+ seconds ❌ **WILL TIMEOUT**
 
@@ -134,7 +134,7 @@ rag_lab/
 ├── src/
 │   ├── pipeline_v3/                   # 🚀 Production Pipeline v3
 │   │   ├── README.md                  # Technical overview
-│   │   ├── USER_MANUAL.md             # Complete user guide  
+│   │   ├── USER_MANUAL.md             # Complete user guide
 │   │   ├── QUICK_REFERENCE.md         # Command cheat sheet
 │   │   ├── cli_main.py                # CLI entry point
 │   │   ├── cli/                       # Management interface
@@ -143,16 +143,16 @@ rag_lab/
 │   │   ├── search/                    # Hybrid search
 │   │   ├── storage/                   # Storage layer
 │   │   └── utils/                     # Utilities
-│   │   
+│   │
 │   ├── parsing/refactored_2_1/        # 📚 Stable Pipeline v2.1
 │   │   ├── README_SIMPLE.md           # Simple pipeline guide
 │   │   ├── cli_with_updated_doc_flow.py
 │   │   ├── pipeline/                  # Core components
 │   │   ├── search/                    # Search functionality
 │   │   └── storage/                   # Storage systems
-│   │   
+│   │
 │   └── parsing/README_v2.md           # Original v2 documentation
-│   
+│
 ├── data/sample_docs/                  # Sample PDF documents
 ├── tests/                             # Test suites
 ├── pyproject.toml                     # Project configuration
@@ -190,7 +190,7 @@ Your one-stop resource for using Pipeline v3 effectively:
 ### 🚀 **[Quick Reference](./src/pipeline_v3/QUICK_REFERENCE.md)** - Command Cheat Sheet
 Essential commands for daily use:
 - Core document operations
-- Search type comparisons  
+- Search type comparisons
 - Configuration shortcuts
 - Performance tips
 - JSON output for automation
@@ -212,7 +212,7 @@ src/pipeline_v3/
 ├── cli_main.py                  # CLI entry point
 ├── cli/                         # Command-line interface
 │   ├── management.py            # Main CLI management
-│   ├── commands/                # Command modules  
+│   ├── commands/                # Command modules
 │   └── utils/                   # CLI utilities
 ├── pipeline/
 │   └── enhanced_core.py         # Production pipeline implementation
@@ -325,11 +325,11 @@ python cli_main.py search "PM10K specifications" --type keyword --filter '{"doc_
 
 ### ✅ Phase 1: Queue & Fingerprinting System
 - **DocumentQueue** - Async processing with configurable concurrency
-- **FingerprintManager** - Content-based change detection  
+- **FingerprintManager** - Content-based change detection
 - **JobManager** - Persistent job tracking with SQLite
 - **Tests:** 3/3 passing
 
-### ✅ Phase 2: Index Lifecycle Management  
+### ✅ Phase 2: Index Lifecycle Management
 - **DocumentRegistry** - Central state tracking with consistency checking
 - **IndexManager** - Advanced CRUD for vector/keyword indexes
 - **ChangeDetector** - Intelligent update strategies (6 change types)
@@ -352,7 +352,7 @@ The pipeline provides three search modes:
 python cli_main.py search "thermopile detector" --type keyword --top-k 3
 ```
 
-### Vector Search  
+### Vector Search
 ```bash
 python cli_main.py search "laser measurement accuracy" --type vector --top-k 5
 ```
@@ -378,7 +378,7 @@ python cli_main.py queue status --detailed
 
 ### Performance Metrics
 - Document processing rates
-- Search response times  
+- Search response times
 - Index consistency status
 - Queue throughput
 - Storage utilization
@@ -400,7 +400,7 @@ queue:
 storage:
   base_dir: "./storage_data_v3"
   keyword_db_path: "./keyword_index_v3.db"
-  
+
 chunking:
   chunk_size: 1024
   chunk_overlap: 128
@@ -413,7 +413,7 @@ chunking:
 # CLI functionality tests
 python test_cli_simple.py
 
-# Integration tests with real documents  
+# Integration tests with real documents
 python quick_integration_test.py
 
 # Search verification
@@ -422,7 +422,7 @@ python verify_real_search.py
 
 ### Test Results
 - **CLI Tests:** 4/4 passing ✅
-- **Integration Tests:** 7/7 passing ✅  
+- **Integration Tests:** 7/7 passing ✅
 - **Real Document Processing:** Verified with LMC documents ✅
 - **Search Functionality:** 4/5 queries successful ✅
 
@@ -431,7 +431,7 @@ python verify_real_search.py
 Pipeline v3 maintains full backward compatibility:
 
 - **✅ Data Formats** - Same JSONL artifact format
-- **✅ Vector Store** - Compatible with existing Qdrant collections  
+- **✅ Vector Store** - Compatible with existing Qdrant collections
 - **✅ Keyword Index** - Compatible with SQLite FTS5 databases
 - **✅ Configuration** - Extends v2.1 config with new sections
 - **✅ Storage** - Isolated v3 paths prevent conflicts
@@ -446,7 +446,7 @@ Pipeline v3 maintains full backward compatibility:
 
 ### Production Features
 - **🔄 Graceful Degradation** - Works without optional dependencies
-- **🛡️ Error Recovery** - Automatic retry and resume capabilities  
+- **🛡️ Error Recovery** - Automatic retry and resume capabilities
 - **📊 Health Monitoring** - Built-in consistency checks
 - **⚡ Performance Optimization** - Configurable concurrency and batching
 
@@ -515,14 +515,14 @@ and operational excellence at scale.
 ### 🎯 Ready For
 - **Production Deployment** - Enterprise-ready features
 - **Large Document Collections** - Scalable processing
-- **Automated Workflows** - JSON API support  
+- **Automated Workflows** - JSON API support
 - **Team Usage** - Multi-user CLI tools
 - **System Integration** - Standardized interfaces
 
 ## 🤝 Contributing
 
 1. **Development Status:** See [`DEVELOPMENT_STATUS.md`](./DEVELOPMENT_STATUS.md)
-2. **Phase 3 Plan:** See [`PHASE3_PLAN.md`](./PHASE3_PLAN.md)  
+2. **Phase 3 Plan:** See [`PHASE3_PLAN.md`](./PHASE3_PLAN.md)
 3. **Architecture:** See [`docs/architecture.md`](./docs/architecture.md)
 
 ## 📞 Getting Started & Support

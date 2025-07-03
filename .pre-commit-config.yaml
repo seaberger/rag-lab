@@ -1,0 +1,76 @@
+# Pre-commit hooks for RAG Lab
+# Run code quality checks locally before committing
+
+repos:
+  # General file fixes
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-docstring-first
+      - id: debug-statements
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Python code formatting with ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.1
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Run the formatter
+      - id: ruff-format
+
+  # Type checking with mypy (temporarily disabled - too many errors to fix now)
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.16.1
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies:
+  #         - types-PyYAML
+  #         - types-tqdm
+  #         - types-aiofiles
+  #       args: [--config-file=mypy.ini]
+  #       files: ^src/pipeline_v3/
+
+  # Security scanning with bandit (temporarily disabled - too many false positives)
+  # - repo: https://github.com/PyCQA/bandit
+  #   rev: '1.8.5'
+  #   hooks:
+  #     - id: bandit
+  #       args: ['-r', 'src/pipeline_v3']
+  #       files: ^src/pipeline_v3/.*\.py$
+
+  # Check for secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: .*\.(lock|example)$
+
+# Configuration
+default_language_version:
+  python: python3.12
+
+# Don't run on these files
+exclude: |
+  (?x)^(
+    .*\.(pyc|pyo|egg-info|lock)|
+    \.(git|mypy_cache|pytest_cache|ruff_cache)/|
+    (cache_v3|qdrant_data_v3|storage_data_v3|data)/|
+    (build|dist|htmlcov)/
+  )
+
+# Always run all hooks
+fail_fast: false

@@ -3,11 +3,11 @@
 This folder contains deprecated CLI interfaces that have been replaced by the consolidated CLI.
 
 ## Files:
--  - Original temporary CLI, replaced by 
+-  - Original temporary CLI, replaced by
 
 ## Migration:
 All functionality has been moved to the main CLI at  with enhanced features:
-- Document classification modes  
+- Document classification modes
 - Batch processing
 - Custom prompts
 - URL support

@@ -55,7 +55,7 @@
 python cli_main.py config set queue.max_workers 8
 python cli_main.py config set queue.job_timeout 7200
 
-# Production batch processing  
+# Production batch processing
 python cli_main.py queue start --workers 6
 python cli_main.py add "import/*.pdf" --document-type auto
 

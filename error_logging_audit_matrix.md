@@ -5,7 +5,7 @@ This document provides a comprehensive audit of error handling and logging patte
 
 ## Files Analyzed
 - `cli_main.py`
-- `cli/management.py` 
+- `cli/management.py`
 - `utils/common_utils.py`
 - `job_queue/manager.py`
 - `pipeline/enhanced_core.py`
@@ -22,7 +22,7 @@ This document provides a comprehensive audit of error handling and logging patte
 |------|------------|------------------|----------|
 | 23 | No error handling | Direct import and call to `main()` | No exception handling - relies on downstream error handling |
 
-#### cli/management.py  
+#### cli/management.py
 | Line | Error Type | Current Behavior | Analysis |
 |------|------------|------------------|----------|
 | 40 | ImportError | `print()` warning, continue execution | ✅ Graceful degradation with warning |

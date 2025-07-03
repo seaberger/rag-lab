@@ -60,7 +60,7 @@ logger.debug("Exit code: 0, stdout contains expected text")
 def setup_test_logging():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     test_log_file = f"test_results_{timestamp}.log"
-    
+
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -75,7 +75,7 @@ def setup_test_logging():
 
 ## 🧪 **Types of Testing (What We Implemented)**
 
-### 1. **Unit Tests** 
+### 1. **Unit Tests**
 Test individual functions/methods in isolation
 ```python
 def test_help_command():
@@ -208,9 +208,9 @@ tests/
 def test_case(self, name: str, test_func):
     import time
     start_time = time.time()
-    
+
     result = test_func()
-    
+
     duration = time.time() - start_time
     logger.info(f"Test '{name}' completed in {duration:.2f}s")
 ```

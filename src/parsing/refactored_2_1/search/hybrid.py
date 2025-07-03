@@ -2,13 +2,10 @@
 Hybrid search combining vector similarity and BM25.
 """
 
-from typing import Dict, List # Tuple was unused
-
 # import numpy as np # numpy seems unused
-from llama_index.embeddings.openai import OpenAIEmbedding # For type hinting
-from qdrant_client import QdrantClient # For type hinting
-
-from storage.keyword_index import BM25Index # For type hinting
+from llama_index.embeddings.openai import OpenAIEmbedding  # For type hinting
+from qdrant_client import QdrantClient  # For type hinting
+from storage.keyword_index import BM25Index  # For type hinting
 
 # FIXME: Consider using PipelineConfig for collection_name
 # from ..utils.config import PipelineConfig
@@ -17,9 +14,7 @@ from storage.keyword_index import BM25Index # For type hinting
 class HybridSearch:
     """Combine vector and keyword search."""
 
-    def __init__(
-        self, vector_store: QdrantClient, keyword_index: BM25Index, alpha: float = 0.5
-    ):
+    def __init__(self, vector_store: QdrantClient, keyword_index: BM25Index, alpha: float = 0.5):
         """
         Args:
             alpha: Weight for vector search (1-alpha for BM25)
@@ -30,7 +25,7 @@ class HybridSearch:
 
     async def search(
         self, query: str, embedding_model: OpenAIEmbedding, limit: int = 10
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Perform hybrid search."""
 
         # Vector search
@@ -53,23 +48,17 @@ class HybridSearch:
         combined_scores = {}
 
         # Add vector scores (normalized)
-        max_vector_score = (
-            max([r.score for r in vector_results]) if vector_results else 1.0
-        )
+        max_vector_score = max([r.score for r in vector_results]) if vector_results else 1.0
         for result in vector_results:
             chunk_id = result.id
             normalized_score = result.score / max_vector_score
             combined_scores[chunk_id] = self.alpha * normalized_score
 
         # Add BM25 scores (normalized)
-        max_bm25_score = (
-            max([r["score"] for r in keyword_results]) if keyword_results else 1.0
-        )
+        max_bm25_score = max([r["score"] for r in keyword_results]) if keyword_results else 1.0
         for result in keyword_results:
             chunk_id = result["chunk_id"]
-            normalized_score = (
-                abs(result["score"]) / max_bm25_score
-            )  # BM25 scores can be negative
+            normalized_score = abs(result["score"]) / max_bm25_score  # BM25 scores can be negative
 
             if chunk_id in combined_scores:
                 combined_scores[chunk_id] += (1 - self.alpha) * normalized_score
@@ -77,9 +66,7 @@ class HybridSearch:
                 combined_scores[chunk_id] = (1 - self.alpha) * normalized_score
 
         # Sort by combined score
-        sorted_results = sorted(
-            combined_scores.items(), key=lambda x: x[1], reverse=True
-        )[:limit]
+        sorted_results = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:limit]
 
         # Fetch full results
         results = []

@@ -2,12 +2,13 @@
 Progress monitoring and basic metrics collection.
 """
 
-import time
-from datetime import datetime
-from typing import Dict, Any, Optional, Callable
-from dataclasses import dataclass, field
-from collections import defaultdict
 import json
+import time
+from collections import defaultdict
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
 
 
 @dataclass
@@ -17,19 +18,19 @@ class DocumentStats:
     doc_id: str
     source: str
     start_time: float = field(default_factory=time.time)
-    end_time: Optional[float] = None
+    end_time: float | None = None
     chunks: int = 0
     size_bytes: int = 0
     cached: bool = False
-    error: Optional[str] = None
-    stages: Dict[str, float] = field(default_factory=dict)
+    error: str | None = None
+    stages: dict[str, float] = field(default_factory=dict)
 
 
 class ProgressMonitor:
     """Track progress and collect metrics."""
 
-    def __init__(self, callback: Optional[Callable] = None):
-        self.stats: Dict[str, DocumentStats] = {}
+    def __init__(self, callback: Callable | None = None):
+        self.stats: dict[str, DocumentStats] = {}
         self.global_stats = {
             "total_docs": 0,
             "processed_docs": 0,
@@ -44,9 +45,7 @@ class ProgressMonitor:
 
     def start_document(self, doc_id: str, source: str, size_bytes: int = 0):
         """Mark document processing start."""
-        self.stats[doc_id] = DocumentStats(
-            doc_id=doc_id, source=source, size_bytes=size_bytes
-        )
+        self.stats[doc_id] = DocumentStats(doc_id=doc_id, source=source, size_bytes=size_bytes)
         self.global_stats["total_docs"] += 1
         self.global_stats["total_bytes"] += size_bytes
 
@@ -56,7 +55,7 @@ class ProgressMonitor:
                 {"doc_id": doc_id, "source": source, "progress": self.get_progress()},
             )
 
-    def update_stage(self, doc_id: str, stage: str, duration: Optional[float] = None):
+    def update_stage(self, doc_id: str, stage: str, duration: float | None = None):
         """Update processing stage."""
         if doc_id in self.stats:
             self.stats[doc_id].stages[stage] = (
@@ -91,8 +90,7 @@ class ProgressMonitor:
                     "document_complete",
                     {
                         "doc_id": doc_id,
-                        "duration": self.stats[doc_id].end_time
-                        - self.stats[doc_id].start_time,
+                        "duration": self.stats[doc_id].end_time - self.stats[doc_id].start_time,
                         "chunks": chunks,
                         "cached": cached,
                     },
@@ -109,7 +107,7 @@ class ProgressMonitor:
             if self.callback:
                 self.callback("document_failed", {"doc_id": doc_id, "error": error})
 
-    def get_progress(self) -> Dict[str, Any]:
+    def get_progress(self) -> dict[str, Any]:
         """Get current progress statistics."""
         elapsed = time.time() - self.global_stats["start_time"]
         processed = self.global_stats["processed_docs"]
@@ -122,15 +120,11 @@ class ProgressMonitor:
             "percentage": (processed / total * 100) if total > 0 else 0,
             "elapsed_seconds": elapsed,
             "rate_per_minute": (processed / elapsed * 60) if elapsed > 0 else 0,
-            "eta_seconds": (elapsed / processed * (total - processed))
-            if processed > 0
-            else None,
-            "cache_hit_rate": (self.global_stats["cache_hits"] / processed)
-            if processed > 0
-            else 0,
+            "eta_seconds": (elapsed / processed * (total - processed)) if processed > 0 else None,
+            "cache_hit_rate": (self.global_stats["cache_hits"] / processed) if processed > 0 else 0,
         }
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get final summary statistics."""
         summary = {
             **self.global_stats,
@@ -140,9 +134,7 @@ class ProgressMonitor:
             )
             / max(1, self.global_stats["processed_docs"]),
             "stage_averages": {
-                stage: sum(times) / len(times)
-                for stage, times in self.stage_times.items()
-                if times
+                stage: sum(times) / len(times) for stage, times in self.stage_times.items() if times
             },
         }
         return summary
@@ -156,9 +148,7 @@ class ProgressMonitor:
                 {
                     "doc_id": stats.doc_id,
                     "source": stats.source,
-                    "duration": stats.end_time - stats.start_time
-                    if stats.end_time
-                    else None,
+                    "duration": stats.end_time - stats.start_time if stats.end_time else None,
                     "chunks": stats.chunks,
                     "cached": stats.cached,
                     "error": stats.error,

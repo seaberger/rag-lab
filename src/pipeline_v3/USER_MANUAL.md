@@ -72,10 +72,10 @@ uv run python -m src.pipeline_v3.cli_main status
    ```bash
    # Copy and edit .env file
    cp .env.example .env
-   
+
    # Required for vector search
    OPENAI_API_KEY=your_openai_key_here
-   
+
    # Optional for parsing
    LLAMA_CLOUD_API_KEY=your_llama_key_here
    ```
@@ -598,12 +598,12 @@ Examples:
   python cli_main.py search "laser measurement"
   python cli_main.py search "calibration" --type keyword --top-k 5
   python cli_main.py search "PM10K sensor specs" --type vector
-  
+
   # Advanced hybrid search with fusion methods
   python cli_main.py search "thermopile calibration" --type hybrid --fusion-method rrf
   python cli_main.py search "PM10K specifications" --fusion-method adaptive
   python cli_main.py search "laser power measurement" --fusion-method weighted
-  
+
   # Filtering examples (basic doc_ids filtering available)
   python cli_main.py search "sensor" --filter '{"doc_ids": ["abc123", "def456"]}'
 ```
@@ -613,7 +613,7 @@ Examples:
 # Start queue processing
 python cli_main.py queue start [--workers NUMBER]
 
-# Stop queue processing  
+# Stop queue processing
 python cli_main.py queue stop [--wait]
 
 # Show queue status
@@ -661,7 +661,7 @@ Pipeline v3 provides comprehensive error handling with standardized exit codes f
 ❌ Required dependency not installed. See log for details.
 # Install with: uv sync
 
-# Invalid API credentials  
+# Invalid API credentials
 ❌ Dependency error: OpenAI API key validation failed
 # Fix: Check OPENAI_API_KEY in .env file
 ```
@@ -789,7 +789,7 @@ python cli_main.py search "thermopile detector" --type keyword
 
 **Use Cases:**
 - "PM10K datasheet"
-- "LabMax Touch specifications" 
+- "LabMax Touch specifications"
 - "USB interface requirements"
 
 #### 3. Hybrid Search (Recommended)
@@ -925,7 +925,7 @@ python cli_main.py search "sensor specifications accuracy" --type hybrid --fusio
 #### Search Type Indicators
 Results show which index(es) found the content:
 - `vector`: Found only in vector search
-- `keyword`: Found only in keyword search  
+- `keyword`: Found only in keyword search
 - `hybrid`: Found in both indexes (usually higher quality)
 
 ---
@@ -1051,7 +1051,7 @@ The framework manages schema versions for all Pipeline v3 databases:
 # Check all database schema versions
 uv run python -c "
 from src.pipeline_v3.core.registry import DocumentRegistry
-from src.pipeline_v3.core.keyword_index import KeywordIndex  
+from src.pipeline_v3.core.keyword_index import KeywordIndex
 from src.pipeline_v3.core.fingerprint import FingerprintStore
 from src.pipeline_v3.job_queue.storage import JobStorage
 
@@ -1099,13 +1099,13 @@ When adding new schema changes:
    -- 002_new_feature.sql
    -- Migration: 002_new_feature
    -- Description: Add new feature table
-   
+
    CREATE TABLE new_feature (
        id INTEGER PRIMARY KEY,
        name TEXT NOT NULL,
        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    );
-   
+
    CREATE INDEX idx_new_feature_name ON new_feature(name);
    ```
 
@@ -1114,7 +1114,7 @@ When adding new schema changes:
    -- 002_new_feature.down.sql
    -- Rollback: 002_new_feature
    -- Description: Remove new feature table
-   
+
    DROP INDEX IF EXISTS idx_new_feature_name;
    DROP TABLE IF EXISTS new_feature;
    ```
@@ -1338,7 +1338,7 @@ python cli_main.py search "laser power detection" --type hybrid
 # For CPU-intensive tasks
 python cli_main.py config set queue.max_workers 4
 
-# For I/O-intensive tasks  
+# For I/O-intensive tasks
 python cli_main.py config set queue.max_workers 8
 ```
 

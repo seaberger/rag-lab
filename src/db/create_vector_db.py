@@ -1,16 +1,16 @@
 # --- START OF create_vector_db.py ---
+import logging
 import os
 import pickle
-import logging
-import time
 from pathlib import Path
+
 from dotenv import load_dotenv
-from llama_index.core import VectorStoreIndex, StorageContext, Settings
-from llama_index.vector_stores.qdrant import QdrantVectorStore
+from llama_index.core import Settings, StorageContext, VectorStoreIndex
 from llama_index.embeddings.openai import OpenAIEmbedding
-from tqdm import tqdm
+from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
+from tqdm import tqdm
 
 # --- Configuration ---
 
@@ -55,7 +55,7 @@ def create_persistent_qdrant_db():
         embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=openai_api_key)
         Settings.embed_model = embed_model
     except Exception as e:
-        logging.error(f"Failed to init embedding model: {e}")
+        logging.exception(f"Failed to init embedding model: {e}")
         raise
 
     # --- Load Nodes ---
@@ -90,15 +90,11 @@ def create_persistent_qdrant_db():
         logging.info("Nodes need new embeddings.")
 
     if not has_existing_embeddings:
-        logging.info(
-            f"Starting explicit embedding generation for {len(nodes)} nodes..."
-        )
+        logging.info(f"Starting explicit embedding generation for {len(nodes)} nodes...")
         embedding_errors = 0
         for node in tqdm(nodes, desc="Generating Embeddings"):
             try:
-                node_content = (
-                    node.get_content()
-                )  # Or node.get_content(metadata_mode="all")
+                node_content = node.get_content()  # Or node.get_content(metadata_mode="all")
                 node.embedding = embed_model.get_text_embedding(node_content)
                 if len(node.embedding) != VECTOR_SIZE:
                     logging.warning(
@@ -106,12 +102,10 @@ def create_persistent_qdrant_db():
                     )
                     embedding_errors += 1
             except Exception as e:
-                logging.error(f"Failed to embed node {node.node_id or 'Unknown'}: {e}")
+                logging.exception(f"Failed to embed node {node.node_id or 'Unknown'}: {e}")
                 node.embedding = None
                 embedding_errors += 1
-        logging.info(
-            f"Finished explicit embedding generation. Errors: {embedding_errors}"
-        )
+        logging.info(f"Finished explicit embedding generation. Errors: {embedding_errors}")
         if embedding_errors > 0:
             logging.warning("Some nodes failed to embed.")
         has_existing_embeddings = True  # Mark true now
@@ -130,20 +124,16 @@ def create_persistent_qdrant_db():
         if any(c.name == QDRANT_COLLECTION_NAME for c in collections):
             logging.warning(f"Recreating existing collection: {QDRANT_COLLECTION_NAME}")
             client.delete_collection(collection_name=QDRANT_COLLECTION_NAME)
-        logging.info(
-            f"Creating collection '{QDRANT_COLLECTION_NAME}' (Size: {VECTOR_SIZE})"
-        )
+        logging.info(f"Creating collection '{QDRANT_COLLECTION_NAME}' (Size: {VECTOR_SIZE})")
         client.create_collection(
             collection_name=QDRANT_COLLECTION_NAME,
             vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
     except Exception as e:
-        logging.error(f"Error managing Qdrant collection: {e}")
+        logging.exception(f"Error managing Qdrant collection: {e}")
         raise
 
-    vector_store = QdrantVectorStore(
-        client=client, collection_name=QDRANT_COLLECTION_NAME
-    )
+    vector_store = QdrantVectorStore(client=client, collection_name=QDRANT_COLLECTION_NAME)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
     # --- Populate Qdrant ---
@@ -176,7 +166,7 @@ def create_persistent_qdrant_db():
         num_points = count_result.count
         logging.info(f"Qdrant point count: {num_points}")
         if num_points != len(nodes_to_index):
-            logging.warning(f"Point count mismatch!")
+            logging.warning("Point count mismatch!")
         if num_points > 0:
             logging.info("Retrieving sample points with vectors...")
             scroll_result, _ = client.scroll(

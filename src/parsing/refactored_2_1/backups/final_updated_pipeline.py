@@ -13,9 +13,7 @@ async def ingest_sources(
 
     # Initialize components
     config = PipelineConfig(config_file)
-    embedding_manager = EmbeddingManager(
-        model=config.embedding_model, chunk_size=config.chunk_size
-    )
+    embedding_manager = EmbeddingManager(model=config.embedding_model, chunk_size=config.chunk_size)
     bm25_index = BM25Index(db_path="./keyword_index.db")
 
     # ... existing code ...

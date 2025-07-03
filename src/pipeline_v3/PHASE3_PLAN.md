@@ -16,7 +16,7 @@ pipeline update <path> [--metadata key=value] [--force]
 pipeline remove <path> [--index-type vector|keyword|both]
 pipeline search <query> [--type vector|keyword|hybrid] [--top-k N]
 
-# Queue Management  
+# Queue Management
 pipeline queue start [--workers N]
 pipeline queue stop [--wait]
 pipeline queue status [--detailed]
@@ -96,7 +96,7 @@ pipeline setup optimize [--hardware auto|cpu|gpu]
 - [ ] Add search functionality
 - [ ] Create configuration management
 
-### Week 2: Queue & System Management  
+### Week 2: Queue & System Management
 - [ ] Implement queue management commands
 - [ ] Add system status and maintenance
 - [ ] Create batch operation tools

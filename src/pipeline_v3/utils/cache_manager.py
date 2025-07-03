@@ -8,21 +8,20 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 # Add current directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
+    from utils.common_utils import DependencyError, logger
     from utils.config import PipelineConfig
-    from utils.common_utils import logger, DependencyError
 except ImportError as e:
     raise DependencyError(f"Import error: {e}. Make sure you're running from the correct directory")
 
 
 class CacheCleaner:
     """Utility to clear various cache and storage components."""
-    
+
     def __init__(self, config_file: str = "config.yaml"):
         """Initialize with configuration."""
         try:
@@ -31,7 +30,7 @@ class CacheCleaner:
             logger.warning(f"Could not load config from {config_file}: {e}")
             logger.info("Using default cache locations")
             self.config = None
-    
+
     def get_cache_locations(self) -> dict:
         """Get all cache and storage locations."""
         if self.config:
@@ -41,7 +40,7 @@ class CacheCleaner:
                 "vector_db": Path(self.config.qdrant.path),
                 "keyword_index": Path(self.config.storage.keyword_db_path),
                 "processing_reports": Path("processing_report.json"),
-                "pipeline_logs": Path("pipeline.log")
+                "pipeline_logs": Path("pipeline.log"),
             }
         else:
             # Default locations when config is not available
@@ -51,16 +50,16 @@ class CacheCleaner:
                 "vector_db": Path("./qdrant_data"),
                 "keyword_index": Path("./keyword_index.db"),
                 "processing_reports": Path("processing_report.json"),
-                "pipeline_logs": Path("pipeline.log")
+                "pipeline_logs": Path("pipeline.log"),
             }
-        
+
         return locations
-    
+
     def check_cache_status(self) -> dict:
         """Check the status and size of all cache locations."""
         locations = self.get_cache_locations()
         status = {}
-        
+
         for name, path in locations.items():
             if path.exists():
                 if path.is_dir():
@@ -72,98 +71,102 @@ class CacheCleaner:
                             "exists": True,
                             "type": "directory",
                             "files": total_files,
-                            "size_mb": round(total_size / (1024*1024), 2)
+                            "size_mb": round(total_size / (1024 * 1024), 2),
                         }
                     except PermissionError:
-                        status[name] = {"exists": True, "type": "directory", "error": "Permission denied"}
+                        status[name] = {
+                            "exists": True,
+                            "type": "directory",
+                            "error": "Permission denied",
+                        }
                 else:
                     try:
                         size = path.stat().st_size
                         status[name] = {
                             "exists": True,
                             "type": "file",
-                            "size_mb": round(size / (1024*1024), 2)
+                            "size_mb": round(size / (1024 * 1024), 2),
                         }
                     except PermissionError:
-                        status[name] = {"exists": True, "type": "file", "error": "Permission denied"}
+                        status[name] = {
+                            "exists": True,
+                            "type": "file",
+                            "error": "Permission denied",
+                        }
             else:
                 status[name] = {"exists": False}
-        
+
         return status
-    
+
     def clear_api_cache(self) -> bool:
         """Clear API response cache (LZ4 compressed JSON files)."""
         locations = self.get_cache_locations()
         cache_dir = locations["api_cache"]
-        
+
         try:
             if cache_dir.exists():
                 shutil.rmtree(cache_dir)
                 logger.info(f"✅ Cleared API cache: {cache_dir}")
                 return True
-            else:
-                logger.info(f"API cache directory doesn't exist: {cache_dir}")
-                return True
+            logger.info(f"API cache directory doesn't exist: {cache_dir}")
+            return True
         except Exception as e:
             logger.error(f"❌ Failed to clear API cache: {e}")
             return False
-    
+
     def clear_storage_artifacts(self) -> bool:
         """Clear document artifacts (JSONL files)."""
         locations = self.get_cache_locations()
         storage_dir = locations["storage_artifacts"]
-        
+
         try:
             if storage_dir.exists():
                 shutil.rmtree(storage_dir)
                 logger.info(f"✅ Cleared storage artifacts: {storage_dir}")
                 return True
-            else:
-                logger.info(f"Storage directory doesn't exist: {storage_dir}")
-                return True
+            logger.info(f"Storage directory doesn't exist: {storage_dir}")
+            return True
         except Exception as e:
             logger.error(f"❌ Failed to clear storage artifacts: {e}")
             return False
-    
+
     def clear_vector_database(self) -> bool:
         """Clear Qdrant vector database."""
         locations = self.get_cache_locations()
         vector_db_dir = locations["vector_db"]
-        
+
         try:
             if vector_db_dir.exists():
                 shutil.rmtree(vector_db_dir)
                 logger.info(f"✅ Cleared vector database: {vector_db_dir}")
                 return True
-            else:
-                logger.info(f"Vector database doesn't exist: {vector_db_dir}")
-                return True
+            logger.info(f"Vector database doesn't exist: {vector_db_dir}")
+            return True
         except Exception as e:
             logger.error(f"❌ Failed to clear vector database: {e}")
             return False
-    
+
     def clear_keyword_index(self) -> bool:
         """Clear BM25 keyword index."""
         locations = self.get_cache_locations()
         keyword_db = locations["keyword_index"]
-        
+
         try:
             if keyword_db.exists():
                 keyword_db.unlink()
                 logger.info(f"✅ Cleared keyword index: {keyword_db}")
                 return True
-            else:
-                logger.info(f"Keyword index doesn't exist: {keyword_db}")
-                return True
+            logger.info(f"Keyword index doesn't exist: {keyword_db}")
+            return True
         except Exception as e:
             logger.error(f"❌ Failed to clear keyword index: {e}")
             return False
-    
+
     def clear_logs_and_reports(self) -> bool:
         """Clear processing reports and logs."""
         locations = self.get_cache_locations()
         success = True
-        
+
         for name in ["processing_reports", "pipeline_logs"]:
             file_path = locations[name]
             try:
@@ -173,36 +176,36 @@ class CacheCleaner:
             except Exception as e:
                 logger.error(f"❌ Failed to clear {name}: {e}")
                 success = False
-        
+
         return success
-    
+
     def clear_all(self) -> bool:
         """Clear all cache and storage components."""
         logger.info("🧹 Clearing all cache and storage components...")
-        
+
         operations = [
             ("API Cache", self.clear_api_cache),
             ("Storage Artifacts", self.clear_storage_artifacts),
             ("Vector Database", self.clear_vector_database),
             ("Keyword Index", self.clear_keyword_index),
-            ("Logs and Reports", self.clear_logs_and_reports)
+            ("Logs and Reports", self.clear_logs_and_reports),
         ]
-        
+
         all_success = True
         for name, operation in operations:
             logger.info(f"Clearing {name}...")
             success = operation()
             if not success:
                 all_success = False
-        
+
         if all_success:
             logger.info("✅ All cache components cleared successfully!")
         else:
             logger.warning("⚠️ Some cache clearing operations failed")
-        
+
         return all_success
-    
-    def selective_clear(self, components: List[str]) -> bool:
+
+    def selective_clear(self, components: list[str]) -> bool:
         """Clear specific cache components."""
         component_map = {
             "api": self.clear_api_cache,
@@ -216,7 +219,7 @@ class CacheCleaner:
             "logs": self.clear_logs_and_reports,
             "reports": self.clear_logs_and_reports,  # alias
         }
-        
+
         all_success = True
         for component in components:
             component_lower = component.lower()
@@ -229,7 +232,7 @@ class CacheCleaner:
                 logger.error(f"❌ Unknown component: {component}")
                 logger.info(f"Available components: {', '.join(component_map.keys())}")
                 all_success = False
-        
+
         return all_success
 
 
@@ -244,58 +247,42 @@ Examples:
   python cache_manager.py --clear-all                 # Clear everything
   python cache_manager.py --clear api storage         # Clear specific components
   python cache_manager.py --clear vector keyword      # Clear vector DB and keyword index
-  
+
 Available components for selective clearing:
   api, cache      - API response cache (LZ4 files)
-  storage         - Document artifacts (JSONL files)  
+  storage         - Document artifacts (JSONL files)
   vector, qdrant  - Vector database
   keyword, bm25   - Keyword search index
   logs, reports   - Processing logs and reports
-        """
+        """,
     )
-    
+
     parser.add_argument(
-        "--config", 
-        default="config.yaml",
-        help="Configuration file path (default: config.yaml)"
+        "--config", default="config.yaml", help="Configuration file path (default: config.yaml)"
     )
+    parser.add_argument("--status", action="store_true", help="Show cache status and sizes")
     parser.add_argument(
-        "--status", 
-        action="store_true",
-        help="Show cache status and sizes"
+        "--clear-all", action="store_true", help="Clear all cache and storage components"
     )
-    parser.add_argument(
-        "--clear-all", 
-        action="store_true",
-        help="Clear all cache and storage components"
-    )
-    parser.add_argument(
-        "--clear", 
-        nargs="+",
-        help="Clear specific components (see examples below)"
-    )
-    parser.add_argument(
-        "--force", 
-        action="store_true",
-        help="Skip confirmation prompts"
-    )
-    
+    parser.add_argument("--clear", nargs="+", help="Clear specific components (see examples below)")
+    parser.add_argument("--force", action="store_true", help="Skip confirmation prompts")
+
     args = parser.parse_args()
-    
+
     # Initialize cache cleaner
     cleaner = CacheCleaner(args.config)
-    
+
     if args.status:
         print("📊 Cache Status Report")
         print("=" * 50)
         status = cleaner.check_cache_status()
         locations = cleaner.get_cache_locations()
-        
+
         for name, info in status.items():
             location = locations[name]
             print(f"\n{name.upper().replace('_', ' ')}:")
             print(f"  Location: {location}")
-            
+
             if info["exists"]:
                 if "error" in info:
                     print(f"  Status: ❌ {info['error']}")
@@ -304,38 +291,40 @@ Available components for selective clearing:
                 else:
                     print(f"  Status: ✅ {info['size_mb']} MB")
             else:
-                print(f"  Status: 📭 Not found")
-        
+                print("  Status: 📭 Not found")
+
         return
-    
+
     if args.clear_all:
         if not args.force:
             print("⚠️  This will clear ALL cache and storage components:")
             locations = cleaner.get_cache_locations()
             for name, path in locations.items():
                 print(f"  - {name}: {path}")
-            
+
             response = input("\nProceed? [y/N]: ").strip().lower()
-            if response != 'y':
+            if response != "y":
                 print("Cancelled.")
                 return
-        
+
         success = cleaner.clear_all()
         if not success:
             raise DependencyError("Failed to clear all cache components")
-    
+
     if args.clear:
         if not args.force:
             print(f"⚠️  This will clear the following components: {', '.join(args.clear)}")
             response = input("Proceed? [y/N]: ").strip().lower()
-            if response != 'y':
+            if response != "y":
                 print("Cancelled.")
                 return
-        
+
         success = cleaner.selective_clear(args.clear)
         if not success:
-            raise DependencyError(f"Failed to clear specified cache components: {', '.join(args.clear)}")
-    
+            raise DependencyError(
+                f"Failed to clear specified cache components: {', '.join(args.clear)}"
+            )
+
     # If no action specified, show help
     parser.print_help()
 

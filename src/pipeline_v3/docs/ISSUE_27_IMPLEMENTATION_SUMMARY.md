@@ -74,7 +74,7 @@ Each adapter implements:
   - ✅ Repair strategies
   - ✅ Dry run mode
   - ✅ Batch processing
-  
+
 - **`test_atomic_operations.py`**:
   - ✅ Full atomic document lifecycle
   - ✅ Rollback on failures

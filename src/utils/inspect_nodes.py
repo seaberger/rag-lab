@@ -5,19 +5,17 @@ LlamaIndex Node objects (e.g., TextNode).
 Prints metadata and text content for each node.
 """
 
-import pickle
 import argparse
+import pickle
 from pathlib import Path
 
 # Optional: Import LlamaIndex types for more specific checking
 try:
-    from llama_index.core.schema import TextNode, BaseNode
+    from llama_index.core.schema import BaseNode, TextNode
 
     LLAMAINDEX_INSTALLED = True
 except ImportError:
-    print(
-        "Warning: llama-index-core not installed. Cannot perform detailed Node inspection."
-    )
+    print("Warning: llama-index-core not installed. Cannot perform detailed Node inspection.")
     TextNode = None
     BaseNode = None
     LLAMAINDEX_INSTALLED = False
@@ -35,18 +33,14 @@ def display_nodes(file_path: str, limit: int = None, show_full_text: bool = Fals
         with open(path, "rb") as f:
             nodes = pickle.load(f)
     except pickle.UnpicklingError:
-        print(
-            f"Error: Failed to unpickle file. It might be corrupted or not a pickle file."
-        )
+        print("Error: Failed to unpickle file. It might be corrupted or not a pickle file.")
         return
     except Exception as e:
         print(f"Error loading file: {e}")
         return
 
     if not isinstance(nodes, list):
-        print(
-            f"Error: Expected a list in the pickle file, but found type {type(nodes).__name__}."
-        )
+        print(f"Error: Expected a list in the pickle file, but found type {type(nodes).__name__}.")
         return
 
     if not nodes:
@@ -111,11 +105,7 @@ def display_nodes(file_path: str, limit: int = None, show_full_text: bool = Fals
             text_content = node.text
             text_length = len(text_content)
             print(f"Text Length: {text_length}")
-            print(
-                "Full Content:"
-                if show_full_text
-                else "Sample Content (first 500 chars):"
-            )
+            print("Full Content:" if show_full_text else "Sample Content (first 500 chars):")
             if show_full_text or text_length <= 500:
                 print(text_content)
             else:

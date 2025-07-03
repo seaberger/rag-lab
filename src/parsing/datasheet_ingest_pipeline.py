@@ -30,14 +30,20 @@
 ############################################################
 from __future__ import annotations
 
-import asyncio, aiohttp, base64, hashlib, io, json, os, shutil, tempfile, textwrap
-from dataclasses import dataclass, asdict
+import asyncio
+import base64
+import hashlib
+import io
+import json
+import os
+import shutil
+import tempfile
+import textwrap
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple, Union
 
-from tqdm import tqdm
-from pdf2image import convert_from_path
-from openai import OpenAI
+import aiohttp
 from llama_index.core import (
     Document,
     MarkdownNodeParser,
@@ -45,9 +51,12 @@ from llama_index.core import (
     StorageContext,
     VectorStoreIndex,
 )
-from llama_index.core.ingestion import IngestionPipeline, BaseTransformation
+from llama_index.core.ingestion import BaseTransformation, IngestionPipeline
 from llama_index.vector_stores.qdrant import QdrantVectorStore
+from openai import OpenAI
+from pdf2image import convert_from_path
 from qdrant_client import QdrantClient
+from tqdm import tqdm
 
 # ---------------------------------------------------------------------------
 # CONFIG & CONSTANTS
@@ -58,11 +67,7 @@ ARTEFACT_DIR = Path(os.getenv("ARTEFACT_DIR", "./artefacts"))
 ARTEFACT_DIR.mkdir(parents=True, exist_ok=True)
 POPPLER_PATH = (
     os.getenv("POPPLER_PATH")
-    or (
-        lambda: Path(shutil.which("pdfinfo")).parent
-        if shutil.which("pdfinfo")
-        else None
-    )()
+    or (lambda: Path(shutil.which("pdfinfo")).parent if shutil.which("pdfinfo") else None)()
 )
 INLINE_PROMPT = """"""
 DEFAULT_GENERIC_PROMPT = "Extract all text as GitHub-flavoured Markdown."
@@ -73,7 +78,7 @@ DEFAULT_GENERIC_PROMPT = "Extract all text as GitHub-flavoured Markdown."
 class DatasheetArtefact:
     doc_id: str
     source: str
-    pairs: List[Tuple[str, str]]
+    pairs: list[tuple[str, str]]
     markdown: str
     parse_version: int = 2
     page_map: dict | None = None
@@ -104,7 +109,7 @@ def _resolve_prompt(cli_path: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _pdf_to_data_uris(pdf: Path, dpi: int = 300) -> List[str]:
+def _pdf_to_data_uris(pdf: Path, dpi: int = 300) -> list[str]:
     imgs = convert_from_path(
         str(pdf), dpi=dpi, poppler_path=str(POPPLER_PATH) if POPPLER_PATH else None
     )
@@ -112,13 +117,11 @@ def _pdf_to_data_uris(pdf: Path, dpi: int = 300) -> List[str]:
     for im in imgs:
         buf = io.BytesIO()
         im.save(buf, format="PNG")
-        uris.append(
-            "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-        )
+        uris.append("data:image/png;base64," + base64.b64encode(buf.getvalue()).decode())
     return uris
 
 
-def vision_parse(pdf: Path, parsing_prompt: str) -> Tuple[str, List[Tuple[str, str]]]:
+def vision_parse(pdf: Path, parsing_prompt: str) -> tuple[str, list[tuple[str, str]]]:
     client = OpenAI()
     parts = [
         {
@@ -132,9 +135,7 @@ def vision_parse(pdf: Path, parsing_prompt: str) -> Tuple[str, List[Tuple[str, s
         """),
         }
     ]
-    parts += [
-        {"type": "input_image", "image_url": uri} for uri in _pdf_to_data_uris(pdf)
-    ]
+    parts += [{"type": "input_image", "image_url": uri} for uri in _pdf_to_data_uris(pdf)]
     resp = client.responses.create(
         model=OPENAI_MODEL, input=[{"role": "user", "content": parts}], temperature=0.0
     )
@@ -194,7 +195,7 @@ def _sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
-async def fetch_document(src: str | Path) -> Tuple[Path, str, bytes]:
+async def fetch_document(src: str | Path) -> tuple[Path, str, bytes]:
     if isinstance(src, Path) or not str(src).startswith("http"):
         data = Path(src).read_bytes()
         return Path(src), _sha256(data), data
@@ -250,15 +251,11 @@ async def ingest_sources(
             text=markdown,
             metadata={"doc_id": doc_id, "source": str(src), "pairs": pairs},
         )
-        pipeline = IngestionPipeline(
-            transformations=[md_parser] + ([kw_trans] if kw_trans else [])
-        )
+        pipeline = IngestionPipeline(transformations=[md_parser] + ([kw_trans] if kw_trans else []))
         nodes = await pipeline.arun(documents=[doc])
         for n in nodes:
             n.metadata.update({"doc_id": doc_id, "pairs": pairs})
-        VectorStoreIndex.from_nodes(
-            nodes, storage_context=storage, service_context=svc_ctx
-        )
+        VectorStoreIndex.from_nodes(nodes, storage_context=storage, service_context=svc_ctx)
     print(
         "Ingestion complete –",
         len(list(ARTEFACT_DIR.glob("*.jsonl"))),
@@ -268,7 +265,8 @@ async def ingest_sources(
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import argparse, sys
+    import argparse
+    import sys
 
     p = argparse.ArgumentParser(
         description="Bulk ingest datasheets & Markdown into LlamaIndex/Qdrant"
@@ -285,18 +283,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable keyword augmentation per chunk",
     )
-    p.add_argument(
-        "--keyword_model", default="gpt-4o-mini", help="Model for keyword generation"
-    )
+    p.add_argument("--keyword_model", default="gpt-4o-mini", help="Model for keyword generation")
     args = p.parse_args()
 
     # flatten @filelist.txt syntax
     expanded = []
     for s in args.src:
         if s.startswith("@"):
-            expanded += [
-                l.strip() for l in Path(s[1:]).read_text().splitlines() if l.strip()
-            ]
+            expanded += [l.strip() for l in Path(s[1:]).read_text().splitlines() if l.strip()]
         else:
             expanded.append(s)
     try:

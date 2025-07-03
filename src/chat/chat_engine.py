@@ -1,45 +1,45 @@
 # --- START OF FILE chat_engine.py ---
 # --- Imports for LlamaIndex components ---
+import asyncio
 import json
-import re
-import pickle
-import sqlite3
 import logging
 import os
+import pickle
+import re
+import sqlite3
 import uuid
-import asyncio
-import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import List, Dict, Optional, Any, AsyncGenerator
-from dotenv import load_dotenv
+from typing import Any
 
-# Langfuse/LlamaIndex Integration
-from llama_index.core.callbacks import CallbackManager
+from dotenv import load_dotenv
 
 # from langfuse.llama_index import LlamaIndexCallbackHandler  # Removed as not used
 from langfuse.llama_index import LlamaIndexInstrumentor
 
-# Global client reference
-# Global reference to Langfuse instrumentor for direct access
-LANGFUSE_INSTRUMENTOR = None
-
+# Langfuse/LlamaIndex Integration
 from llama_index.core import (
     Settings,
     VectorStoreIndex,
 )
-from llama_index.core.schema import NodeWithScore, TextNode, QueryBundle
+from llama_index.core.callbacks import CallbackManager
+from llama_index.core.chat_engine import ContextChatEngine
 from llama_index.core.chat_engine.types import (
     BaseChatEngine,
     StreamingAgentChatResponse,
 )
-from llama_index.core.chat_engine import ContextChatEngine
-from llama_index.llms.openai import OpenAI
 from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.postprocessor.cohere_rerank import CohereRerank
 from llama_index.core.retrievers import BaseRetriever
+from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
+from llama_index.postprocessor.cohere_rerank import CohereRerank
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+
+# Global client reference
+# Global reference to Langfuse instrumentor for direct access
+LANGFUSE_INSTRUMENTOR = None
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -56,9 +56,7 @@ APP_NAME = "Matrix Chatbot"
 APP_VERSION = "1.0.1"
 MAX_TOKENS = 4096
 TEMPERATURE = 0.1
-DEFAULT_PROMPT = (
-    "You are a helpful AI assistant knowledgeable about Matrix Laser products."
-)
+DEFAULT_PROMPT = "You are a helpful AI assistant knowledgeable about Matrix Laser products."
 
 # Models
 LLM_MODEL = "gpt-4.1"
@@ -92,7 +90,7 @@ class HybridRetrieverModeA(BaseRetriever):
         self.mode = mode
         super().__init__()
 
-    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         """Retrieve nodes using both vector and keyword search, then combine."""
         # Extract query string for potential logging or future use
         # query_str = query_bundle.query_str
@@ -122,13 +120,11 @@ class HybridRetrieverModeA(BaseRetriever):
                     k_node = next(n for n in keyword_nodes if n.node.node_id == node_id)
                     node.score = k_node.score
 
-        sorted_results = sorted(
-            combined_dict.values(), key=lambda x: x.score or 0.0, reverse=True
-        )
+        sorted_results = sorted(combined_dict.values(), key=lambda x: x.score or 0.0, reverse=True)
         logger.info(f"Hybrid retrieval found {len(sorted_results)} unique nodes.")
         return sorted_results
 
-    def _normalize_scores(self, nodes: List[NodeWithScore]):
+    def _normalize_scores(self, nodes: list[NodeWithScore]):
         """Normalize scores to be between 0 and 1."""
         scores = [node.score for node in nodes if node.score is not None]
         if not scores:
@@ -164,7 +160,7 @@ class SQLiteFTSRetriever(BaseRetriever):
         self.top_k = top_k
         logging.info(f"SQLiteFTSRetriever initialized with DB path: {self.db_path}")
 
-    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         """Implementation of the abstract _retrieve method required by BaseRetriever.
         This method is the INTERNAL implementation that will be called by retrieve().
         The BaseRetriever's retrieve() method adds instrumentation around this method.
@@ -221,13 +217,11 @@ class SQLiteFTSRetriever(BaseRetriever):
                         score = 1.0 / (rank_score + 1)  # Simple inverse rank score
                         nodes.append(NodeWithScore(node=node, score=score))
                     except json.JSONDecodeError:
-                        logging.error(
-                            f"Failed to decode metadata JSON for node_id: {node_id}"
-                        )
+                        logging.exception(f"Failed to decode metadata JSON for node_id: {node_id}")
             return nodes
 
         except sqlite3.Error as e:
-            logging.error(f"SQLite error during FTS query: {e}")
+            logging.exception(f"SQLite error during FTS query: {e}")
             return []
         finally:
             if conn:
@@ -244,9 +238,7 @@ def analyze_query(query: str) -> dict:
     model_keywords = ["matrix", "model", "laser", "series"]  # Example
     analysis = {
         "has_part_number": bool(re.search(part_number_pattern, query, re.IGNORECASE)),
-        "has_model_reference": any(
-            keyword in query.lower() for keyword in model_keywords
-        ),
+        "has_model_reference": any(keyword in query.lower() for keyword in model_keywords),
         "detected_part_numbers": re.findall(part_number_pattern, query),
         "query_type": "general",
     }
@@ -276,14 +268,12 @@ class HybridRetrieverWithReranking(BaseRetriever):
         self.initial_top_k = initial_top_k
         super().__init__()
 
-    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         """Retrieve nodes using both vector and keyword search, then combine the results.
         With LlamaIndexInstrumentor, this method is automatically traced, so we no longer
         need manual Langfuse instrumentation.
         """
-        logger.info(
-            f"Starting hybrid retrieval for query: {query_bundle.query_str[:50]}..."
-        )
+        logger.info(f"Starting hybrid retrieval for query: {query_bundle.query_str[:50]}...")
 
         try:
             # Vector retrieval - will be automatically traced by Langfuse instrumentation
@@ -328,9 +318,7 @@ class HybridRetrieverWithReranking(BaseRetriever):
             )
 
             # --- Sort combined results ---
-            sorted_results = sorted(
-                node_scores.values(), key=lambda x: x["score"], reverse=True
-            )
+            sorted_results = sorted(node_scores.values(), key=lambda x: x["score"], reverse=True)
 
             # --- Prepare for Reranking ---
             initial_results_for_rerank = [
@@ -342,9 +330,7 @@ class HybridRetrieverWithReranking(BaseRetriever):
             final_top_n = self.reranker.top_n if self.reranker else 5
             if self.reranker is not None and initial_results_for_rerank:
                 try:
-                    logger.info(
-                        f"Applying reranker: {self.reranker.__class__.__name__}"
-                    )
+                    logger.info(f"Applying reranker: {self.reranker.__class__.__name__}")
                     reranked_nodes = self.reranker.postprocess_nodes(
                         initial_results_for_rerank, query_bundle
                     )
@@ -353,9 +339,7 @@ class HybridRetrieverWithReranking(BaseRetriever):
                     )
                     return reranked_nodes[:final_top_n]
                 except Exception as e:
-                    logger.error(
-                        f"Error during reranking: {e}. Returning initial sorted results."
-                    )
+                    logger.error(f"Error during reranking: {e}. Returning initial sorted results.")
                     return initial_results_for_rerank[:final_top_n]
 
             # --- Return top N if no reranker or reranking failed ---
@@ -376,13 +360,9 @@ def create_or_load_sqlite_db(nodes_path, db_path):
         conn_check = sqlite3.connect(db_path)
         try:
             cursor = conn_check.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='nodes_fts'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='nodes_fts'")
             if not cursor.fetchone():
-                logging.warning(
-                    f"DB file {db_path} exists but FTS table is missing. Recreating."
-                )
+                logging.warning(f"DB file {db_path} exists but FTS table is missing. Recreating.")
                 conn_check.close()
                 os.remove(db_path)  # Remove bad file
             else:
@@ -434,9 +414,7 @@ def create_or_load_sqlite_db(nodes_path, db_path):
             else:
                 skipped_count += 1
         except Exception as e:
-            logging.error(
-                f"Error inserting node {getattr(node, 'node_id', 'UNKNOWN')}: {e}"
-            )
+            logging.exception(f"Error inserting node {getattr(node, 'node_id', 'UNKNOWN')}: {e}")
             skipped_count += 1
     if skipped_count > 0:
         logging.info(f"Skipped {skipped_count} nodes (likely duplicates).")
@@ -450,7 +428,7 @@ def create_or_load_sqlite_db(nodes_path, db_path):
             conn.commit()
             logging.info("FTS index population complete.")
         except Exception as e:
-            logging.error(f"Error populating FTS index: {e}")
+            logging.exception(f"Error populating FTS index: {e}")
             conn.rollback()
     elif skipped_count == len(nodes) and skipped_count > 0:
         logging.info("No new nodes inserted, FTS index assumed up-to-date.")
@@ -461,9 +439,7 @@ def create_or_load_sqlite_db(nodes_path, db_path):
 
 
 # --- Global Variables ---
-global_retriever_async: Optional[BaseRetriever] = (
-    None  # Keep for potential direct use/debug
-)
+global_retriever_async: BaseRetriever | None = None  # Keep for potential direct use/debug
 
 
 # --- Settings Initialization (NOW includes Callback Manager) ---
@@ -479,10 +455,7 @@ def _init_settings():
 
         # Ensure callback_manager exists but is empty initially if needed elsewhere
         # This is needed to prevent LlamaIndex from complaining about Settings.callback_manager being None
-        if (
-            not hasattr(Settings, "callback_manager")
-            or Settings.callback_manager is None
-        ):
+        if not hasattr(Settings, "callback_manager") or Settings.callback_manager is None:
             logger.info("Initializing empty Settings.callback_manager")
             Settings.callback_manager = CallbackManager([])  # Initialize empty manager
 
@@ -492,7 +465,7 @@ def _init_settings():
         raise
 
 
-def _init_langfuse() -> Optional[LlamaIndexInstrumentor]:
+def _init_langfuse() -> LlamaIndexInstrumentor | None:
     """Initializes Langfuse LlamaIndexInstrumentor cleanly.
 
     This function creates and configures a single LlamaIndexInstrumentor instance
@@ -502,9 +475,7 @@ def _init_langfuse() -> Optional[LlamaIndexInstrumentor]:
 
     # Skip if already initialized
     if LANGFUSE_INSTRUMENTOR is not None:
-        logger.info(
-            "Langfuse instrumentor already initialized, returning existing instance"
-        )
+        logger.info("Langfuse instrumentor already initialized, returning existing instance")
         return LANGFUSE_INSTRUMENTOR
 
     # Get credentials
@@ -521,9 +492,7 @@ def _init_langfuse() -> Optional[LlamaIndexInstrumentor]:
     try:
         # Reset LlamaIndex Settings callbacks if they exist
         if hasattr(Settings, "callback_manager") and Settings.callback_manager:
-            logger.info(
-                "Resetting Settings.callback_manager before instrumentor setup."
-            )
+            logger.info("Resetting Settings.callback_manager before instrumentor setup.")
             if hasattr(Settings.callback_manager, "handlers"):
                 Settings.callback_manager.handlers.clear()
 
@@ -608,29 +577,23 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
     try:
         qdrant_path_obj = Path(qdrant_db_path)
         if not qdrant_path_obj.exists() or not any(qdrant_path_obj.iterdir()):
-            logging.error(
-                f"Qdrant database path {qdrant_db_path} not found or is empty."
-            )
+            logging.error(f"Qdrant database path {qdrant_db_path} not found or is empty.")
             logging.error(
                 "Please run 'create_vector_db.py' locally and ensure the 'qdrant_db' folder is deployed."
             )
             raise FileNotFoundError(f"Qdrant database not found at {qdrant_db_path}")
 
-        logging.info(
-            f"Connecting to persistent Qdrant client at path: {qdrant_db_path}"
-        )
+        logging.info(f"Connecting to persistent Qdrant client at path: {qdrant_db_path}")
         # Use the imported QdrantClient class
         qdrant_client_instance = QdrantClient(path=qdrant_db_path)
 
         # Check if collection exists
         try:
-            qdrant_client_instance.get_collection(
-                collection_name=QDRANT_COLLECTION_NAME
-            )
+            qdrant_client_instance.get_collection(collection_name=QDRANT_COLLECTION_NAME)
             logging.info(f"Found Qdrant collection '{QDRANT_COLLECTION_NAME}'.")
         except Exception as e:
             # Be more specific if possible, e.g., qdrant_client.http.exceptions.UnexpectedResponse
-            logging.error(
+            logging.exception(
                 f"Qdrant collection '{QDRANT_COLLECTION_NAME}' not found in DB at {qdrant_db_path}. Error: {e}"
             )
             raise ValueError(
@@ -646,9 +609,7 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
         logging.info("Loading VectorStoreIndex FROM existing vector store...")
         # Ensure Settings.embed_model is initialized before this call
         if Settings.embed_model is None:
-            raise RuntimeError(
-                "Settings.embed_model not initialized before creating vector index."
-            )
+            raise RuntimeError("Settings.embed_model not initialized before creating vector index.")
         index = VectorStoreIndex.from_vector_store(
             vector_store=vector_store,
             embed_model=Settings.embed_model,
@@ -663,7 +624,7 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
         )
 
     except Exception as e:
-        logging.error(f"Error creating vector retriever from persistent Qdrant: {e}")
+        logging.exception(f"Error creating vector retriever from persistent Qdrant: {e}")
         import traceback
 
         traceback.print_exc()
@@ -680,9 +641,7 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
             # CohereRerank doesn't accept callback_manager
         )
     except Exception as e:
-        logging.error(
-            f"Error initializing Cohere Reranker: {e}. Reranking will be disabled."
-        )
+        logging.exception(f"Error initializing Cohere Reranker: {e}. Reranking will be disabled.")
         reranker = None
 
     logging.info("Initializing Hybrid Retriever...")
@@ -711,9 +670,7 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
     # Directly attach the Langfuse client to the retriever for direct tracing
     if langfuse_client:
         hybrid_retriever.langfuse_client = langfuse_client
-        logger.info(
-            "Set Langfuse client directly on the hybrid retriever for explicit tracing"
-        )
+        logger.info("Set Langfuse client directly on the hybrid retriever for explicit tracing")
 
         # Also set on child retrievers for maximum coverage
         if hasattr(sqlite_retriever, "langfuse_client"):
@@ -728,7 +685,7 @@ def _create_sync_retriever(cohere_api_key: str) -> HybridRetrieverWithReranking:
 
 
 # --- Main initialization function MODIFIED ---
-def init_chat_engine() -> Dict:
+def init_chat_engine() -> dict:
     """Initializes the chat engine components with SYNC retrieval and returns them in a dict."""
     logger.info("--- Initializing Chat Engine (Sync Retrieval) --- ")
 
@@ -762,20 +719,20 @@ def init_chat_engine() -> Dict:
         else:
             create_or_load_sqlite_db(nodes_pickle_path, sqlite_db_path)
     except FileNotFoundError as e:
-        logging.error(f"Fatal Error during SQLite setup: {e}.")
+        logging.exception(f"Fatal Error during SQLite setup: {e}.")
         raise
     except sqlite3.Error as e:  # More specific exception
-        logging.error(f"Error during SQLite DB creation/check: {e}")
+        logging.exception(f"Error during SQLite DB creation/check: {e}")
         raise  # Stop execution if DB fails
     except Exception as e:  # Catch other potential errors like pickle load
-        logging.error(f"Unexpected error during SQLite setup: {e}")
+        logging.exception(f"Unexpected error during SQLite setup: {e}")
         raise
 
     # 4. Create the SYNC retriever
     try:
         retriever = _create_sync_retriever(cohere_api_key)
     except Exception as e:
-        logging.error(f"Fatal Error: Could not create retriever: {e}")
+        logging.exception(f"Fatal Error: Could not create retriever: {e}")
         raise
 
     # 6. Create the Chat Engine (using sync retriever)
@@ -853,9 +810,7 @@ def generate_sync_response(query: str, chat_engine, instrumentor=None) -> str:
 
         # Log whether we received an instrumentor from the app state
         if instrumentor:
-            logger.info(
-                f"Using instrumentor passed from app state: {type(instrumentor).__name__}"
-            )
+            logger.info(f"Using instrumentor passed from app state: {type(instrumentor).__name__}")
         else:
             # Fallback to global search only if not provided explicitly
             logger.warning("No instrumentor provided from app state, checking globals")
@@ -876,9 +831,7 @@ def generate_sync_response(query: str, chat_engine, instrumentor=None) -> str:
                 trace_id=trace_id, metadata={"query": query[:100]}, update_parent=False
             ) as trace:
                 # Execute the query in this isolated trace context
-                logger.info(
-                    f"Executing query in isolated trace context: '{query[:30]}...'"
-                )
+                logger.info(f"Executing query in isolated trace context: '{query[:30]}...'")
                 response = chat_engine.chat(query)
 
                 # Add metadata to the trace
@@ -893,24 +846,22 @@ def generate_sync_response(query: str, chat_engine, instrumentor=None) -> str:
                 return response.response
         else:
             # Fallback if no instrumentor is found
-            logger.warning(
-                "No instrumentor found for observe context, using standard approach"
-            )
+            logger.warning("No instrumentor found for observe context, using standard approach")
             response = chat_engine.chat(query)
             logger.info(f"Generated response of length {len(response.response)}")
             return response.response
     except Exception as e:
         logger.error(f"Error generating synchronous response: {e}", exc_info=True)
-        return f"Error: {str(e)}"
+        return f"Error: {e!s}"
 
 
 async def generate_response(
     query: str,
     chat_engine: BaseChatEngine,
     instrumentor=None,
-    chat_history: Optional[List] = None,
-    system_prompt: Optional[str] = None,
-) -> Dict[str, Any]:
+    chat_history: list | None = None,
+    system_prompt: str | None = None,
+) -> dict[str, Any]:
     """Generate a complete response with proper trace isolation, returning structured data in one block.
 
     Args:
@@ -932,9 +883,7 @@ async def generate_response(
         if hasattr(chat_engine, "chat_history"):
             chat_engine.chat_history = chat_history
         else:
-            logger.warning(
-                "Chat engine instance does not have 'chat_history' attribute."
-            )
+            logger.warning("Chat engine instance does not have 'chat_history' attribute.")
 
     # Unique ID for this specific request/query
     trace_id = f"query-{uuid.uuid4()}"
@@ -946,18 +895,12 @@ async def generate_response(
         # Attempt to get from global as a last resort, but prefer passed state
         instrumentor = globals().get("LANGFUSE_INSTRUMENTOR")
         if instrumentor:
-            logger.warning(
-                "generate_streaming_response: Using global instrumentor fallback."
-            )
+            logger.warning("generate_streaming_response: Using global instrumentor fallback.")
         else:
-            logger.warning(
-                "generate_streaming_response: No instrumentor available for tracing."
-            )
+            logger.warning("generate_streaming_response: No instrumentor available for tracing.")
 
     try:
-        logger.info(
-            f"Starting generation for trace_id: {trace_id}, Query: '{query[:50]}...'"
-        )
+        logger.info(f"Starting generation for trace_id: {trace_id}, Query: '{query[:50]}...'")
 
         if instrumentor:
             # Use observe context with update_parent=False
@@ -975,9 +918,7 @@ async def generate_response(
                     trace.update(input=trace_input)
                     logger.info(f"Updated trace with input for {trace_id}")
                 except Exception as input_err:
-                    logger.error(
-                        f"Failed to update trace with input for {trace_id}: {input_err}"
-                    )
+                    logger.error(f"Failed to update trace with input for {trace_id}: {input_err}")
 
                 # --- Execute Synchronous Chat ---
                 logger.info(f"Executing chat_engine.chat() within trace {trace_id}")
@@ -1012,11 +953,7 @@ async def generate_response(
                 }
 
                 # Add LLM model if available
-                if (
-                    hasattr(Settings, "llm")
-                    and Settings.llm
-                    and hasattr(Settings.llm, "metadata")
-                ):
+                if hasattr(Settings, "llm") and Settings.llm and hasattr(Settings.llm, "metadata"):
                     trace_meta["llm_model"] = getattr(
                         Settings.llm.metadata, "model_name", "unknown"
                     )
@@ -1030,9 +967,7 @@ async def generate_response(
                         output=trace_output,  # Add the final output
                         metadata=trace_meta,
                     )
-                    logger.info(
-                        f"Updated trace with output and metadata for {trace_id}"
-                    )
+                    logger.info(f"Updated trace with output and metadata for {trace_id}")
                 except Exception as meta_err:
                     logger.error(
                         f"Failed to update trace output/metadata for {trace_id}: {meta_err}"
@@ -1046,9 +981,7 @@ async def generate_response(
 
         else:
             # --- No Instrumentor: Execute directly ---
-            logger.info(
-                f"Executing chat_engine.chat() WITHOUT tracing. Query: '{query[:50]}...'"
-            )
+            logger.info(f"Executing chat_engine.chat() WITHOUT tracing. Query: '{query[:50]}...'")
             response = chat_engine.chat(query)  # Simple synchronous call
 
             # Get the full response text
@@ -1065,9 +998,7 @@ async def generate_response(
                     for node in response.source_nodes
                 ]
 
-            logger.info(
-                f"Chat completed (no tracing). Response length: {len(full_response_text)}"
-            )
+            logger.info(f"Chat completed (no tracing). Response length: {len(full_response_text)}")
 
         # --- Prepare and return the complete response ---
         result = {
@@ -1083,7 +1014,7 @@ async def generate_response(
 
     except Exception as e:
         logger.error(f"Error during chat (Trace ID: {trace_id}): {e}", exc_info=True)
-        return {"error": True, "response": f"An error occurred: {str(e)}"}
+        return {"error": True, "response": f"An error occurred: {e!s}"}
 
     finally:
         # We no longer need a redundant flush here
@@ -1098,7 +1029,7 @@ async def generate_streaming_response(
     instrumentor=None,
     # chat_history: Optional[List] = None, # Add if needed later
     # system_prompt: Optional[str] = None, # Add if needed later
-) -> AsyncGenerator[Dict[str, Any], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Generates a streaming response using astream_chat with Langfuse tracing."""
 
     if not chat_engine:
@@ -1118,9 +1049,7 @@ async def generate_streaming_response(
     source_nodes_data = []
 
     try:
-        logger.info(
-            f"Starting ASYNC generation for trace_id: {trace_id}, Query: '{query[:50]}...'"
-        )
+        logger.info(f"Starting ASYNC generation for trace_id: {trace_id}, Query: '{query[:50]}...'")
 
         if instrumentor:
             with instrumentor.observe(
@@ -1136,21 +1065,17 @@ async def generate_streaming_response(
                         f"Failed to update trace with input for {trace_id}: {input_update_err}"
                     )
 
-                logger.info(
-                    f"Calling chat_engine.astream_chat() within trace {trace_id}"
-                )
+                logger.info(f"Calling chat_engine.astream_chat() within trace {trace_id}")
                 try:
-                    response_stream: StreamingAgentChatResponse = (
-                        await chat_engine.astream_chat(query)
+                    response_stream: StreamingAgentChatResponse = await chat_engine.astream_chat(
+                        query
                     )
                     logger.info(f"Got response stream object for trace {trace_id}")
 
                     async for chunk in response_stream.async_response_gen():
                         yield {"type": "content", "content": chunk}
                         full_response_text += chunk
-                        await asyncio.sleep(
-                            0.005
-                        )  # Prevent blocking event loop entirely
+                        await asyncio.sleep(0.005)  # Prevent blocking event loop entirely
 
                     logger.info(
                         f"Finished iterating stream for trace {trace_id}. Full length: {len(full_response_text)}"
@@ -1187,9 +1112,7 @@ async def generate_streaming_response(
                 trace_meta = {
                     "query_preview": query[:100],
                     "response_length": len(full_response_text),
-                    "llm_model": Settings.llm.metadata.model_name
-                    if Settings.llm
-                    else "unknown",
+                    "llm_model": Settings.llm.metadata.model_name if Settings.llm else "unknown",
                     "num_source_nodes": len(source_nodes_data),
                     "streamed": True,
                 }
@@ -1208,9 +1131,7 @@ async def generate_streaming_response(
 
         else:
             # --- No Instrumentor case (Streaming) ---
-            logger.warning(
-                f"Executing astream_chat WITHOUT tracing for Query: '{query[:50]}...'"
-            )
+            logger.warning(f"Executing astream_chat WITHOUT tracing for Query: '{query[:50]}...'")
             try:
                 response_stream = await chat_engine.astream_chat(query)
                 async for chunk in response_stream.async_response_gen():
@@ -1233,7 +1154,7 @@ async def generate_streaming_response(
             f"Outer error during async streaming (Trace ID: {trace_id}): {e}",
             exc_info=True,
         )
-        yield {"type": "error", "content": f"An unexpected error occurred: {str(e)}"}
+        yield {"type": "error", "content": f"An unexpected error occurred: {e!s}"}
         yield {"type": "done", "content": ""}  # Ensure done signal
 
 

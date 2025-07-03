@@ -84,7 +84,7 @@ Your one-stop resource for using Pipeline v3 effectively:
 ### 🚀 **[Quick Reference](./QUICK_REFERENCE.md)** - Command Cheat Sheet
 Essential commands for daily use:
 - Core document operations
-- Search type comparisons  
+- Search type comparisons
 - Configuration shortcuts
 - Performance tips
 - JSON output for automation
@@ -106,7 +106,7 @@ src/pipeline_v3/
 ├── cli_main.py                  # CLI entry point
 ├── cli/                         # Command-line interface
 │   ├── management.py            # Main CLI management
-│   ├── commands/                # Command modules  
+│   ├── commands/                # Command modules
 │   └── utils/                   # CLI utilities
 ├── pipeline/
 │   └── enhanced_core.py         # Production pipeline implementation
@@ -134,7 +134,7 @@ src/pipeline_v3/
 │   ├── monitoring.py           # Progress monitoring
 │   └── common_utils.py         # Common utilities
 ├── migrations/                  # Database migration files
-│   ├── registry/                # Document registry migrations  
+│   ├── registry/                # Document registry migrations
 │   ├── fingerprints/            # Fingerprint store migrations
 │   ├── keyword_index/           # Keyword index migrations
 │   └── jobs/                    # Job queue migrations
@@ -223,11 +223,11 @@ print(f'Keyword DB version: {KeywordIndex().get_schema_version()}')
 
 ### ✅ Phase 1: Queue & Fingerprinting System
 - **DocumentQueue** - Async processing with configurable concurrency
-- **FingerprintManager** - Content-based change detection  
+- **FingerprintManager** - Content-based change detection
 - **JobManager** - Persistent job tracking with SQLite
 - **Tests:** 3/3 passing
 
-### ✅ Phase 2: Index Lifecycle Management  
+### ✅ Phase 2: Index Lifecycle Management
 - **DocumentRegistry** - Central state tracking with consistency checking
 - **IndexManager** - Advanced CRUD for vector/keyword indexes
 - **ChangeDetector** - Intelligent update strategies (6 change types)
@@ -257,7 +257,7 @@ The pipeline provides three search modes:
 python cli_main.py search "thermopile detector" --type keyword --top-k 3
 ```
 
-### Vector Search  
+### Vector Search
 ```bash
 python cli_main.py search "laser measurement accuracy" --type vector --top-k 5
 ```
@@ -283,7 +283,7 @@ python cli_main.py queue status --detailed
 
 ### Performance Metrics
 - Document processing rates
-- Search response times  
+- Search response times
 - Index consistency status
 - Queue throughput
 - Storage utilization
@@ -305,7 +305,7 @@ queue:
 storage:
   base_dir: "./storage_data_v3"
   keyword_db_path: "./keyword_index_v3.db"
-  
+
 chunking:
   chunk_size: 1024
   chunk_overlap: 128
@@ -318,7 +318,7 @@ chunking:
 # CLI functionality tests
 python test_cli_simple.py
 
-# Integration tests with real documents  
+# Integration tests with real documents
 python quick_integration_test.py
 
 # Search verification
@@ -332,7 +332,7 @@ python tests/regression/test_migrations_regression.py
 
 ### Test Results
 - **CLI Tests:** 4/4 passing ✅
-- **Integration Tests:** 7/7 passing ✅  
+- **Integration Tests:** 7/7 passing ✅
 - **Real Document Processing:** Verified with LMC documents ✅
 - **Search Functionality:** 4/5 queries successful ✅
 - **Migration Framework:** Unit, integration, and regression tests passing ✅
@@ -342,7 +342,7 @@ python tests/regression/test_migrations_regression.py
 Pipeline v3 maintains full backward compatibility:
 
 - **✅ Data Formats** - Same JSONL artifact format
-- **✅ Vector Store** - Compatible with existing Qdrant collections  
+- **✅ Vector Store** - Compatible with existing Qdrant collections
 - **✅ Keyword Index** - Compatible with SQLite FTS5 databases
 - **✅ Configuration** - Extends v2.1 config with new sections
 - **✅ Storage** - Isolated v3 paths prevent conflicts
@@ -358,7 +358,7 @@ Pipeline v3 maintains full backward compatibility:
 
 ### Production Features
 - **🔄 Graceful Degradation** - Works without optional dependencies
-- **🛡️ Error Recovery** - Automatic retry and resume capabilities  
+- **🛡️ Error Recovery** - Automatic retry and resume capabilities
 - **📊 Health Monitoring** - Built-in consistency checks
 - **⚡ Performance Optimization** - Configurable concurrency and batching
 - **🗄️ Schema Evolution** - Database migration framework with rollback support
@@ -379,14 +379,14 @@ Pipeline v3 maintains full backward compatibility:
 ### 🎯 Ready For
 - **Production Deployment** - Enterprise-ready features
 - **Large Document Collections** - Scalable processing
-- **Automated Workflows** - JSON API support  
+- **Automated Workflows** - JSON API support
 - **Team Usage** - Multi-user CLI tools
 - **System Integration** - Standardized interfaces
 
 ## 🤝 Contributing
 
 1. **Development Status:** See [`DEVELOPMENT_STATUS.md`](./DEVELOPMENT_STATUS.md)
-2. **Phase 3 Plan:** See [`PHASE3_PLAN.md`](./PHASE3_PLAN.md)  
+2. **Phase 3 Plan:** See [`PHASE3_PLAN.md`](./PHASE3_PLAN.md)
 3. **Architecture:** See [`docs/architecture.md`](./docs/architecture.md)
 
 ## 📞 Getting Started & Support

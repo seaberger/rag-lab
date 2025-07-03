@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-import pickle
 import argparse
-import sys
 import json
+import pickle
+import sys
 from pathlib import Path
-from collections import defaultdict
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 # Attempt to import LlamaIndex types, handle if not installed
 try:
-    from llama_index.core.schema import BaseNode, TextNode, NodeRelationship
+    from llama_index.core.schema import BaseNode, NodeRelationship, TextNode
 
     NODE_CLASSES = (BaseNode,)  # Check against BaseNode
 except ImportError:
@@ -30,23 +29,19 @@ except ImportError:
 
 
 def display_nodes(
-    nodes_to_display: List[Any],  # Expecting list of BaseNode or similar
+    nodes_to_display: list[Any],  # Expecting list of BaseNode or similar
     show_full_view: bool,
     node_limit_applied: int,
 ):
     """Displays the details of the provided list of nodes."""
 
-    print(
-        f"\n--- Displaying {len(nodes_to_display)} out of {node_limit_applied} Nodes ---"
-    )
+    print(f"\n--- Displaying {len(nodes_to_display)} out of {node_limit_applied} Nodes ---")
 
     for i, node in enumerate(nodes_to_display, start=1):
         node_type = type(node).__name__
         node_id = getattr(node, "node_id", "N/A")
 
-        print(
-            f"\n--- Node {i}/{len(nodes_to_display)} | Type: {node_type} | ID: {node_id} ---"
-        )
+        print(f"\n--- Node {i}/{len(nodes_to_display)} | Type: {node_type} | ID: {node_id} ---")
 
         # Display Metadata
         print("Metadata:")
@@ -106,8 +101,7 @@ def display_nodes(
                 preview_len = 500
                 print(f"Content Preview (first {preview_len} chars):")
                 print(
-                    text_content[:preview_len]
-                    + ("..." if len(text_content) > preview_len else "")
+                    text_content[:preview_len] + ("..." if len(text_content) > preview_len else "")
                 )
         else:
             print("Text Length: 0 or Text attribute missing!")
@@ -116,7 +110,7 @@ def display_nodes(
         print("-" * 60)
 
 
-def filter_nodes(nodes: List[Any], filter_dict: Optional[Dict[str, str]]) -> List[Any]:
+def filter_nodes(nodes: list[Any], filter_dict: dict[str, str] | None) -> list[Any]:
     """Filters nodes based on metadata key-value pairs."""
     if not filter_dict:
         return nodes
@@ -142,7 +136,7 @@ def filter_nodes(nodes: List[Any], filter_dict: Optional[Dict[str, str]]) -> Lis
     return filtered_list
 
 
-def parse_filter_string(filter_str: Optional[str]) -> Optional[Dict[str, str]]:
+def parse_filter_string(filter_str: str | None) -> dict[str, str] | None:
     """Parses 'key1=value1,key2=value2' into a dictionary."""
     if not filter_str:
         return None
@@ -152,9 +146,7 @@ def parse_filter_string(filter_str: Optional[str]) -> Optional[Dict[str, str]]:
         pairs = filter_str.split(",")
         for pair in pairs:
             if "=" not in pair:
-                raise ValueError(
-                    f"Invalid filter format in part: '{pair}'. Use 'key=value'."
-                )
+                raise ValueError(f"Invalid filter format in part: '{pair}'. Use 'key=value'.")
             key, value = pair.split("=", 1)
             filter_dict[key.strip()] = value.strip()
         if not filter_dict:  # Handle empty string case after splits

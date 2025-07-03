@@ -18,7 +18,7 @@ The system follows a modular pipeline architecture with three distinct processin
 ### Pipeline Components
 - **Pipeline Core** (`pipeline/core.py`): Main ingestion pipeline with document classification, parsing, caching, and indexing
 - **Parsers** (`pipeline/parsers.py`): Document type detection and parsing logic with confidence scoring
-- **Storage Layer**: 
+- **Storage Layer**:
   - Vector embeddings in Qdrant (`storage/vector_store.py`) with configurable embedding models
   - BM25 keyword index in SQLite (`storage/keyword_index.py`) for full-text search
   - JSON+LZ4 caching system (`storage/cache.py`) with content-based cache keys
@@ -48,7 +48,7 @@ export OPENAI_API_KEY="sk-..."
 # Run main ingestion pipeline
 python cli_with_updated_doc_flow.py --src *.pdf --with_keywords --mode datasheet
 
-# Search indexed documents  
+# Search indexed documents
 python search/cli.py "query text" --mode hybrid --limit 5
 
 # Run with different parsing modes
@@ -84,7 +84,7 @@ Input → Classification → Parsing → Caching → Document → Chunking → K
 - **Progress Monitoring**: Stage-by-stage tracking with detailed reporting
 - **Dependencies**: Auto-discovery of Poppler utilities, robust OpenAI API integration
 
-### ✅ **Advanced RAG Implementation**  
+### ✅ **Advanced RAG Implementation**
 - **Keywords in Content**: Follows Anthropic's RAG best practices by appending keywords to node text content
 - **Hybrid Search**: Combines vector similarity with BM25 keyword matching for optimal retrieval
 - **Metadata Preservation**: Maintains document relationships, pair information, and processing metadata
@@ -240,6 +240,6 @@ python utils/cache_manager.py --clear storage --force
 
 ### Cache Benefits
 - **API Cost Reduction**: Avoids redundant OpenAI calls during development
-- **Development Speed**: Instant reprocessing with cached parsing results  
+- **Development Speed**: Instant reprocessing with cached parsing results
 - **Debugging Support**: JSONL artifacts preserve all processing stages
 - **Version Control**: Content-based keys handle file modifications automatically

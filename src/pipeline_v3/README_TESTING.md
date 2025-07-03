@@ -46,7 +46,7 @@ uv run pytest test_cli_regression.py -v
 
 ### ✅ Error Scenarios
 - **Invalid commands** → Exit code 128
-- **Missing required arguments** → Exit code 128  
+- **Missing required arguments** → Exit code 128
 - **Invalid options** → Exit code 128
 - **Bad config paths** → Graceful degradation with warnings
 - **Missing dependencies** → Exit code 126 with clear error message
@@ -65,7 +65,7 @@ Tests verify Unix-standard exit codes:
 - **0**: Success
 - **1**: General error
 - **126**: Dependency/import errors
-- **127**: File not found/config errors  
+- **127**: File not found/config errors
 - **128**: Invalid arguments
 - **130**: Interrupted (Ctrl-C)
 
@@ -109,7 +109,7 @@ Example:
 def test_new_feature(self):
     """Test new CLI feature."""
     exit_code, stdout, stderr = self.run_cli_subprocess(["new-command", "--help"])
-    
+
     if exit_code == 0:
         print(f"     Exit code: {exit_code} ✓")
         return True

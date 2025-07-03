@@ -1,12 +1,8 @@
-from typing import List # Added List
-
-import numpy as np
 from llama_index.core import Settings
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.schema import TextNode # Added TextNode
+from llama_index.core.schema import TextNode  # Added TextNode
 from llama_index.embeddings.openai import OpenAIEmbedding
-from qdrant_client import QdrantClient # Added QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams # Added Qdrant models
+from qdrant_client import QdrantClient  # Added QdrantClient
+from qdrant_client.models import Distance, PointStruct, VectorParams  # Added Qdrant models
 
 from utils.config import PipelineConfig
 
@@ -68,7 +64,7 @@ class EmbeddingManager:
                 ),
             )
 
-    async def embed_and_store_nodes(self, nodes: List[TextNode], batch_size: int = 50):
+    async def embed_and_store_nodes(self, nodes: list[TextNode], batch_size: int = 50):
         """Embed nodes and store in Qdrant."""
         # PointStruct moved to top-level imports
 
@@ -81,11 +77,15 @@ class EmbeddingManager:
             embeddings = await self.embed_model.aget_text_embedding_batch(texts)
 
             # Create Qdrant points
-            for node, embedding in zip(batch_nodes, embeddings):
+            for node, embedding in zip(batch_nodes, embeddings, strict=False):
                 # Ensure node.id_ is a valid UUID or string for Qdrant
-                point_id = node.id_ if isinstance(node.id_, (str)) and len(node.id_) <= 36 else str(node.id_)
+                point_id = (
+                    node.id_
+                    if isinstance(node.id_, (str)) and len(node.id_) <= 36
+                    else str(node.id_)
+                )
                 point = PointStruct(
-                    id=point_id, # Use validated/converted point_id
+                    id=point_id,  # Use validated/converted point_id
                     vector=embedding,
                     payload={
                         "text": node.text,

@@ -1,16 +1,16 @@
 
 # Datasheet & Markdown Ingestion Pipeline – Overview
 
-This document explains the purpose, architecture, and operation of **`datasheet_ingest_pipeline.py` (v2)**.  
+This document explains the purpose, architecture, and operation of **`datasheet_ingest_pipeline.py` (v2)**.
 The script ingests PDF laser‑meter datasheets **and** raw Markdown files, normalises them to Markdown, augments each chunk with optional keyword context, and indexes everything into LlamaIndex + Qdrant for Retrieval‑Augmented Generation (RAG).
 
 ---
 
 ## 1  Purpose
 
-* **Unified ETL** for mixed PDF/MD corpora.  
-* Extracts `(model name, part number)` pairs from datasheets.  
-* Optional **keyword augmentation** (Anthropic “Contextual Retrieval”) boosts recall.  
+* **Unified ETL** for mixed PDF/MD corpora.
+* Extracts `(model name, part number)` pairs from datasheets.
+* Optional **keyword augmentation** (Anthropic “Contextual Retrieval”) boosts recall.
 * Creates a durable JSONL artefact per source and vector‑embeds chunks for search.
 
 ---
@@ -112,8 +112,8 @@ export OPENAI_API_KEY=...
 
 ## 9  References
 
-* **Anthropic Contextual Retrieval paper** – keyword lines technique  
-* **OpenAI multimodal Responses API** – PDF+image input  
-* **LlamaIndex IngestionPipeline docs** – custom transformers  
-* **Qdrant filtering guide** – metadata queries  
+* **Anthropic Contextual Retrieval paper** – keyword lines technique
+* **OpenAI multimodal Responses API** – PDF+image input
+* **LlamaIndex IngestionPipeline docs** – custom transformers
+* **Qdrant filtering guide** – metadata queries
 * **Poppler utilities** – `pdfinfo`, `pdftoppm` for rasterisation

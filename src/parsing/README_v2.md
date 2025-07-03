@@ -5,7 +5,7 @@ A production-ready ETL pipeline that ingests PDF datasheets and Markdown documen
 ## ✨ Key Features
 
 - **Multi-format Support**: PDF datasheets, generic PDFs, and Markdown files
-- **Intelligent Parsing**: 
+- **Intelligent Parsing**:
   - Extracts model/part number pairs from datasheets using OpenAI Vision API
   - Direct Markdown ingestion without API calls
 - **Hybrid Search**: Combines vector embeddings (semantic) with BM25 (keyword) search
@@ -23,7 +23,7 @@ pip install -r requirements.txt
 # Install Poppler for PDF processing
 # macOS
 brew install poppler
-# Ubuntu  
+# Ubuntu
 sudo apt-get install poppler-utils
 
 # Set OpenAI API key

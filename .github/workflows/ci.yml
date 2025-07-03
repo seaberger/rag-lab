@@ -1,0 +1,376 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.4.18"
+  MIN_COVERAGE: 70
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras --dev
+        uv pip install pytest-cov pytest-html pytest-json-report
+
+    - name: Run tests with coverage
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        uv run pytest \
+          --cov=src/pipeline_v3 \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=${{ env.MIN_COVERAGE }} \
+          --html=test-report.html \
+          --self-contained-html \
+          --json-report \
+          --json-report-file=test-results.json \
+          src/pipeline_v3/tests/
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          test-report.html
+          test-results.json
+          htmlcov/
+        retention-days: 30
+
+    - name: Upload coverage reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          coverage.xml
+          htmlcov/
+        retention-days: 30
+
+    - name: Comment test results on PR
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          // Read test results
+          let testResults = '';
+          let coverageInfo = '';
+
+          try {
+            const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+            const passed = results.summary.passed || 0;
+            const failed = results.summary.failed || 0;
+            const skipped = results.summary.skipped || 0;
+            const total = results.summary.total || 0;
+
+            testResults = `🧪 **Test Results**: ${passed}/${total} passed`;
+            if (failed > 0) testResults += ` ❌ (${failed} failed)`;
+            if (skipped > 0) testResults += ` ⚠️ (${skipped} skipped)`;
+          } catch (e) {
+            testResults = '🧪 **Test Results**: Unable to parse results';
+          }
+
+          // Read coverage from previous step output
+          const coverage = context.payload.pull_request ? '${{ env.MIN_COVERAGE }}%' : 'N/A';
+          coverageInfo = `📊 **Coverage**: Minimum ${coverage} required`;
+
+          const comment = `## 🤖 CI/CD Results
+
+          ${testResults}
+          ${coverageInfo}
+
+          📝 **Code Quality**: Results from linting and type checking below
+          🔒 **Security Scan**: Results from security scanning below
+
+          ---
+          *🤝 Working alongside CodeRabbit for comprehensive code review*`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras --dev
+        uv pip install ruff mypy types-PyYAML types-tqdm types-aiofiles
+
+    - name: Run ruff linting
+      id: ruff
+      run: |
+        echo "## Ruff Linting Results" >> $GITHUB_STEP_SUMMARY
+        if uv run ruff check . --output-format=github; then
+          echo "✅ No linting issues found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Linting issues detected" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+
+    - name: Run ruff formatting check
+      id: ruff-format
+      run: |
+        echo "## Ruff Formatting Check" >> $GITHUB_STEP_SUMMARY
+        if uv run ruff format --check .; then
+          echo "✅ Code formatting is correct" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Code formatting issues found" >> $GITHUB_STEP_SUMMARY
+          echo "Run 'ruff format .' locally to fix" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+
+    - name: Run mypy type checking
+      id: mypy
+      run: |
+        echo "## MyPy Type Checking" >> $GITHUB_STEP_SUMMARY
+        if uv run mypy src/pipeline_v3 --ignore-missing-imports; then
+          echo "✅ No type errors found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Type errors detected" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+
+    - name: Comment code quality results on PR
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const ruffPassed = '${{ steps.ruff.outcome }}' === 'success';
+          const formatPassed = '${{ steps.ruff-format.outcome }}' === 'success';
+          const mypyPassed = '${{ steps.mypy.outcome }}' === 'success';
+
+          let status = '✅ All checks passed';
+          if (!ruffPassed || !formatPassed || !mypyPassed) {
+            status = '❌ Some checks failed';
+          }
+
+          const comment = `## 📝 Code Quality Results
+
+          ${status}
+
+          - Ruff Linting: ${ruffPassed ? '✅ Passed' : '❌ Failed'}
+          - Code Formatting: ${formatPassed ? '✅ Passed' : '❌ Failed'}
+          - Type Checking: ${mypyPassed ? '✅ Passed' : '❌ Failed'}
+
+          ${!formatPassed ? '*Run `ruff format .` locally to fix formatting issues*' : ''}`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras --dev
+        uv pip install pip-audit bandit[toml] safety
+
+    - name: Run pip-audit
+      id: pip-audit
+      run: |
+        echo "## Dependency Vulnerability Scan" >> $GITHUB_STEP_SUMMARY
+        if uv run pip-audit --desc; then
+          echo "✅ No known vulnerabilities in dependencies" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Vulnerabilities found in dependencies" >> $GITHUB_STEP_SUMMARY
+          # Don't fail the build for now, just warn
+        fi
+
+    - name: Run bandit security scan
+      id: bandit
+      run: |
+        echo "## Bandit Security Scan" >> $GITHUB_STEP_SUMMARY
+        if uv run bandit -r src/pipeline_v3 -f json -o bandit-report.json; then
+          echo "✅ No security issues found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Potential security issues detected" >> $GITHUB_STEP_SUMMARY
+          uv run bandit -r src/pipeline_v3 -f txt
+        fi
+
+    - name: Upload security reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+        retention-days: 30
+
+    - name: Comment security results on PR
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const pipAuditPassed = '${{ steps.pip-audit.outcome }}' === 'success';
+          const banditPassed = '${{ steps.bandit.outcome }}' === 'success';
+
+          const comment = `## 🔒 Security Scan Results
+
+          - Dependency Vulnerabilities: ${pipAuditPassed ? '✅ None found' : '⚠️ Issues detected'}
+          - Code Security Analysis: ${banditPassed ? '✅ Passed' : '⚠️ Issues detected'}
+
+          *Security scans complement CodeRabbit's security-focused review*`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  build-verification:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: uv sync --all-extras --dev
+
+    - name: Verify CLI works
+      run: |
+        echo "## CLI Verification" >> $GITHUB_STEP_SUMMARY
+        uv run python -m src.pipeline_v3.cli_main --help
+        echo "✅ CLI loads successfully" >> $GITHUB_STEP_SUMMARY
+
+    - name: Run quick smoke test
+      run: |
+        echo "## Smoke Test" >> $GITHUB_STEP_SUMMARY
+        uv run python -c "
+        from src.pipeline_v3.core.registry import DocumentRegistry
+        from src.pipeline_v3.core.keyword_index import KeywordIndex
+        print('✅ Core modules import successfully')
+        "
+        echo "✅ Core modules import successfully" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: CI Summary
+    needs: [test, code-quality, security, build-verification]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+    - name: Check job statuses
+      id: check
+      run: |
+        if [[ "${{ needs.test.result }}" == "success" && \
+              "${{ needs.code-quality.result }}" == "success" && \
+              "${{ needs.security.result }}" == "success" && \
+              "${{ needs.build-verification.result }}" == "success" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "## ✅ All CI checks passed!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "## ❌ Some CI checks failed" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Code Quality: ${{ needs.code-quality.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Security: ${{ needs.security.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ needs.build-verification.result }}" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Final PR comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const status = '${{ steps.check.outputs.status }}' === 'success' ? '✅' : '❌';
+          const message = '${{ steps.check.outputs.status }}' === 'success'
+            ? 'All CI checks passed!'
+            : 'Some CI checks failed - see details above';
+
+          const comment = `## ${status} CI/CD Pipeline Summary
+
+          ${message}
+
+          | Check | Status |
+          |-------|--------|
+          | Tests | ${{ needs.test.result }} |
+          | Code Quality | ${{ needs.code-quality.result }} |
+          | Security | ${{ needs.security.result }} |
+          | Build | ${{ needs.build-verification.result }} |
+
+          ---
+          *🤝 This automated CI/CD pipeline works alongside CodeRabbit's intelligent code review*`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

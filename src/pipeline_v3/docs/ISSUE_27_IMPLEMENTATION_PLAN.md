@@ -6,7 +6,7 @@ Implement distributed transaction-like behavior with rollback capabilities to en
 ## Problem Statement
 Pipeline v3 uses 5 separate storage systems that can become inconsistent during failures:
 1. **DocumentRegistry** (`document_registry_v3.db`) - Document metadata
-2. **Qdrant Vector Store** (`qdrant_data_v3/`) - Vector embeddings  
+2. **Qdrant Vector Store** (`qdrant_data_v3/`) - Vector embeddings
 3. **Keyword Index** (`keyword_index_v3.db`) - Full-text search
 4. **JSONL Artifacts** (`storage_data_v3/`) - Raw storage
 5. **Fingerprint Store** (`fingerprints_v3.db`) - Change detection
@@ -49,25 +49,25 @@ class Checkpoint:
     operation_id: UUID
     state_before: Dict[str, Any]
     state_after: Optional[Dict[str, Any]] = None
-    
+
 class StorageSystem(ABC):
     """Base class for storage systems with transactional support"""
-    
+
     @abstractmethod
     async def prepare(self, operation: TransactionOperation) -> Checkpoint:
         """Prepare the operation and return checkpoint data"""
         pass
-    
+
     @abstractmethod
     async def commit(self, operation_id: UUID) -> bool:
         """Commit the prepared operation"""
         pass
-    
+
     @abstractmethod
     async def rollback(self, checkpoint: Checkpoint) -> bool:
         """Rollback using checkpoint data"""
         pass
-    
+
     @abstractmethod
     async def verify_state(self, doc_id: str) -> Dict[str, Any]:
         """Verify current state of a document"""
@@ -75,17 +75,17 @@ class StorageSystem(ABC):
 
 class TransactionCoordinator:
     """Coordinates atomic operations across multiple storage systems"""
-    
+
     def __init__(self, systems: List[StorageSystem]):
         self.systems = systems
         self.logger = logging.getLogger(__name__)
-        
+
     async def execute_transaction(self, operation: TransactionOperation) -> Tuple[bool, List[str]]:
         """Execute operation atomically across all systems"""
         operation_id = uuid4()
         checkpoints = []
         errors = []
-        
+
         # Phase 1: Prepare all systems
         for system in self.systems:
             try:
@@ -96,7 +96,7 @@ class TransactionCoordinator:
                 # Rollback any prepared systems
                 await self._rollback_all(checkpoints)
                 return False, errors
-        
+
         # Phase 2: Commit all systems
         commit_failures = []
         for i, system in enumerate(self.systems):
@@ -107,15 +107,15 @@ class TransactionCoordinator:
             except Exception as e:
                 commit_failures.append(i)
                 errors.append(f"Commit failed for {system.__class__.__name__}: {str(e)}")
-        
+
         # Phase 3: Handle commit failures
         if commit_failures:
             # Attempt to rollback all systems
             await self._rollback_all(checkpoints)
             return False, errors
-            
+
         return True, []
-    
+
     async def _rollback_all(self, checkpoints: List[Checkpoint]) -> None:
         """Rollback all checkpoints"""
         for checkpoint in reversed(checkpoints):
@@ -132,11 +132,11 @@ class TransactionCoordinator:
 ```python
 class RegistryAdapter(StorageSystem):
     """Adapter for DocumentRegistry with transactional support"""
-    
+
     def __init__(self, registry: DocumentRegistry):
         self.registry = registry
         self.pending_operations = {}
-        
+
     async def prepare(self, operation: TransactionOperation) -> Checkpoint:
         # Capture current state
         current_state = self.registry.get_document(operation.doc_id)
@@ -145,17 +145,17 @@ class RegistryAdapter(StorageSystem):
             operation_id=uuid4(),
             state_before=current_state.dict() if current_state else None
         )
-        
+
         # Store pending operation
         self.pending_operations[checkpoint.operation_id] = operation
-        
+
         return checkpoint
-    
+
     async def commit(self, operation_id: UUID) -> bool:
         operation = self.pending_operations.get(operation_id)
         if not operation:
             return False
-            
+
         if operation.operation_type == OperationType.ADD_DOCUMENT:
             return self.registry.add_document(
                 operation.doc_id,
@@ -163,7 +163,7 @@ class RegistryAdapter(StorageSystem):
                 operation.metadata
             )
         # Handle other operations...
-        
+
     async def rollback(self, checkpoint: Checkpoint) -> bool:
         if checkpoint.state_before:
             # Restore previous state
@@ -179,12 +179,12 @@ class RegistryAdapter(StorageSystem):
 
 class QdrantAdapter(StorageSystem):
     """Adapter for Qdrant with transactional support"""
-    
+
     def __init__(self, qdrant_client, collection_name):
         self.client = qdrant_client
         self.collection = collection_name
         self.prepared_points = {}
-        
+
     async def prepare(self, operation: TransactionOperation) -> Checkpoint:
         # Similar implementation for Qdrant
         pass
@@ -205,52 +205,52 @@ class ConsistencyReport:
     total_documents: int
     consistent_documents: int
     inconsistencies: List[DocumentInconsistency]
-    
+
 @dataclass
 class DocumentInconsistency:
     """Details of document inconsistency"""
     doc_id: str
     missing_from: List[str]
     state_mismatches: Dict[str, Dict[str, Any]]
-    
+
 class ConsistencyChecker:
     """Verifies and repairs consistency across storage systems"""
-    
+
     def __init__(self, registry, index_manager, storage_manager, fingerprint_manager):
         self.registry = registry
         self.index_manager = index_manager
         self.storage_manager = storage_manager
         self.fingerprint_manager = fingerprint_manager
-        
+
     async def check_all_documents(self) -> ConsistencyReport:
         """Check consistency of all documents"""
         all_doc_ids = self._get_all_document_ids()
         inconsistencies = []
-        
+
         for doc_id in all_doc_ids:
             inconsistency = await self._check_document(doc_id)
             if inconsistency:
                 inconsistencies.append(inconsistency)
-                
+
         return ConsistencyReport(
             timestamp=datetime.now(),
             total_documents=len(all_doc_ids),
             consistent_documents=len(all_doc_ids) - len(inconsistencies),
             inconsistencies=inconsistencies
         )
-    
+
     async def repair_inconsistencies(self, report: ConsistencyReport, strategy: RepairStrategy):
         """Attempt to repair detected inconsistencies"""
         repaired = []
         failed = []
-        
+
         for inconsistency in report.inconsistencies:
             try:
                 await self._repair_document(inconsistency, strategy)
                 repaired.append(inconsistency.doc_id)
             except Exception as e:
                 failed.append((inconsistency.doc_id, str(e)))
-                
+
         return {"repaired": repaired, "failed": failed}
 ```
 
@@ -266,7 +266,7 @@ class IndexManager:
         self.enable_transactions = enable_transactions
         if enable_transactions:
             self._init_transaction_support()
-    
+
     def _init_transaction_support(self):
         """Initialize transaction coordinator"""
         self.transaction_coordinator = TransactionCoordinator([
@@ -276,24 +276,24 @@ class IndexManager:
             StorageAdapter(self.storage_manager),
             FingerprintAdapter(self.fingerprint_store)
         ])
-    
+
     async def add_document_atomic(self, doc_id: str, nodes: List[Node], metadata: Dict):
         """Add document with atomic guarantees"""
         if not self.enable_transactions:
             # Fall back to non-atomic for backwards compatibility
             return await self.add_document(doc_id, nodes, metadata)
-            
+
         operation = TransactionOperation(
             operation_type=OperationType.ADD_DOCUMENT,
             doc_id=doc_id,
             data={"nodes": nodes},
             metadata=metadata
         )
-        
+
         success, errors = await self.transaction_coordinator.execute_transaction(operation)
         if not success:
             raise TransactionError(f"Failed to add document atomically: {errors}")
-            
+
         return True
 ```
 
@@ -306,13 +306,13 @@ class IndexManager:
 class TestTransactionCoordinator:
     async def test_successful_transaction(self):
         """Test successful atomic operation"""
-        
+
     async def test_prepare_phase_failure(self):
         """Test rollback when prepare fails"""
-        
+
     async def test_commit_phase_failure(self):
         """Test rollback when commit fails"""
-        
+
     async def test_partial_commit_failure(self):
         """Test handling of partial commit failures"""
 ```
@@ -324,10 +324,10 @@ class TestTransactionCoordinator:
 class TestConsistency:
     async def test_add_document_atomic(self):
         """Test atomic document addition"""
-        
+
     async def test_consistency_checker(self):
         """Test consistency verification"""
-        
+
     async def test_automatic_repair(self):
         """Test automatic inconsistency repair"""
 ```
@@ -339,10 +339,10 @@ class TestConsistency:
 class TestFailureScenarios:
     async def test_network_failure_during_commit(self):
         """Simulate network failure during commit phase"""
-        
+
     async def test_disk_full_during_operation(self):
         """Simulate disk full errors"""
-        
+
     async def test_concurrent_operations(self):
         """Test consistency with concurrent operations"""
 ```
@@ -362,7 +362,7 @@ class TestFailureScenarios:
 ## Rollout Strategy
 
 1. **Feature Flag**: Add `enable_atomic_operations` config flag (default: false)
-2. **Gradual Rollout**: 
+2. **Gradual Rollout**:
    - Enable for new documents first
    - Monitor performance and reliability
    - Enable for updates/deletes

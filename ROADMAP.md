@@ -2,8 +2,8 @@
 
 This document provides the current development priorities and active issues for the RAG Lab project. It serves as the single source of truth for development planning.
 
-**Last Updated:** January 2, 2025  
-**Active GitHub Issues:** 20 (14 existing + 6 new)  
+**Last Updated:** January 2, 2025
+**Active GitHub Issues:** 20 (14 existing + 6 new)
 **Critical Architecture Gaps:** 12 (see [ISSUES.md](ISSUES.md))
 
 ## 🚨 Immediate Priorities (Security & Stability)
