@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 
-def run_test_file(test_file_path: Path, args: list = None) -> bool:
+def run_test_file(test_file_path: Path, args: list | None = None) -> bool:
     """Run a single test file and return success status."""
     # Use UV to run tests in the proper environment
     cmd = ["uv", "run", "python", str(test_file_path)]

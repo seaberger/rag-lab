@@ -18,7 +18,7 @@ from storage.keyword_index import BM25Index
 from utils.config import PipelineConfig
 
 
-async def search_documents(query: str, mode: str = None, limit: int = None):
+async def search_documents(query: str, mode: str | None = None, limit: int | None = None):
     """Search indexed documents."""
 
     # Initialize configuration

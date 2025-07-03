@@ -17,7 +17,7 @@ def test_imports():
     print("🧪 Testing imports...")
 
     try:
-        from utils.config import PipelineConfig
+        from utils.config import PipelineConfig as _PipelineConfig
 
         print("✅ PipelineConfig import successful")
     except ImportError as e:
@@ -25,7 +25,7 @@ def test_imports():
         return False
 
     try:
-        from utils.common_utils import logger
+        from utils.common_utils import logger as _logger
 
         print("✅ Logger import successful")
     except ImportError as e:
@@ -33,7 +33,7 @@ def test_imports():
         return False
 
     try:
-        from storage.keyword_index import BM25Index
+        from storage.keyword_index import BM25Index as _BM25Index
 
         print("✅ BM25Index import successful")
     except ImportError as e:
@@ -41,7 +41,7 @@ def test_imports():
         return False
 
     try:
-        from core.parsers import DocumentClassifier
+        from core.parsers import DocumentClassifier as _DocumentClassifier
 
         print("✅ DocumentClassifier import successful")
     except ImportError as e:

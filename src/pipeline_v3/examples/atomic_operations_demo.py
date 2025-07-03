@@ -162,12 +162,11 @@ async def demonstrate_failure_scenario():
     print("\n💥 Failure Scenario Demo\n")
 
     config = PipelineConfig()
-    manager = AtomicIndexManager(config=config)
+    AtomicIndexManager(config=config)
 
     # Create a scenario where one system will fail
     # This demonstrates the rollback capability
 
-    doc_id = "failure_test_doc"
 
     # In a real scenario, you might:
     # 1. Fill up disk space to cause storage write to fail

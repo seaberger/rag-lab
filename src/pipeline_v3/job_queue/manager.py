@@ -333,7 +333,7 @@ class DocumentQueue:
     def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """Get status of a specific job."""
         # Check all job collections
-        for collection_name, collection in [
+        for _collection_name, collection in [
             ("processing", self.processing),
             ("completed", self.completed),
             ("failed", self.failed),

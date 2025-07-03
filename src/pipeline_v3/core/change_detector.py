@@ -198,7 +198,7 @@ class ChangeDetector:
         size_change_ratio = abs(current.size - stored.size) / max(stored.size, 1)
 
         # Check modification time
-        time_diff = current.modified_time - stored.modified_time
+        current.modified_time - stored.modified_time
 
         # Initial classification based on size and time
         if size_change_ratio > self.rewrite_threshold:

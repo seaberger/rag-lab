@@ -183,7 +183,7 @@ class IndexManager:
                     storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
 
                     # Index nodes - this generates embeddings and stores them
-                    index = VectorStoreIndex(nodes, storage_context=storage_context)
+                    VectorStoreIndex(nodes, storage_context=storage_context)
 
                     # Register index entries
                     for i, node in enumerate(nodes):
@@ -288,7 +288,7 @@ class IndexManager:
                     storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
 
                     # Index nodes - this generates embeddings and stores them
-                    index = VectorStoreIndex(nodes, storage_context=storage_context)
+                    VectorStoreIndex(nodes, storage_context=storage_context)
 
                     # Register index entries
                     for i, node in enumerate(nodes):
@@ -520,7 +520,7 @@ class IndexManager:
         try:
             # Parse unified filters and build LlamaIndex metadata filters
             parsed_filters = FilterBuilder.parse_unified_filters(filters)
-            llamaindex_filters = FilterBuilder.build_vector_metadata_filters(parsed_filters)
+            FilterBuilder.build_vector_metadata_filters(parsed_filters)
 
             # Create query embedding
             query_embedding = self.embedding_model.get_text_embedding(query)
@@ -805,7 +805,7 @@ class IndexManager:
                 min_score = min(scores)
                 max_score = max(scores)
                 if max_score > min_score:
-                    for i, result in enumerate(results):
+                    for _i, result in enumerate(results):
                         original_score = result.get(score_key, 0)
                         normalized = (original_score - min_score) / (max_score - min_score)
                         result["normalized_score"] = normalized

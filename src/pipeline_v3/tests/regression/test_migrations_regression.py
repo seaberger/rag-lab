@@ -133,7 +133,7 @@ def test_schema_migrations_table_integrity():
             "rollback_sql": "TEXT",
         }
 
-        for col_name, col_type in expected_columns.items():
+        for col_name, _col_type in expected_columns.items():
             assert col_name in columns, f"Column {col_name} missing from schema_migrations"
 
         # Test rollback doesn't corrupt the table
@@ -281,7 +281,7 @@ def test_migration_transaction_atomicity():
         # Try to apply failing migration
         try:
             manager.apply_migration(failing_migration)
-            assert False, "Migration should have failed"
+            raise AssertionError("Migration should have failed")
         except Exception:
             # Expected to fail
             pass

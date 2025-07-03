@@ -75,7 +75,7 @@ class MigrationManager:
             logger.info("Migration tracking table ready")
 
         except Exception as e:
-            logger.error(f"Failed to create migration table: {e}")
+            logger.exception(f"Failed to create migration table: {e}")
             raise
 
     def get_current_version(self) -> int:
@@ -158,7 +158,7 @@ class MigrationManager:
         except Exception as e:
             # Rollback on error
             self.conn.rollback()
-            logger.error(f"Failed to apply migration {migration.version}: {e}")
+            logger.exception(f"Failed to apply migration {migration.version}: {e}")
             raise
 
     def rollback_migration(self, target_version: int) -> list[int]:
@@ -224,13 +224,13 @@ class MigrationManager:
 
                 except Exception as e:
                     self.conn.rollback()
-                    logger.error(f"Failed to rollback migration {migration['version']}: {e}")
+                    logger.exception(f"Failed to rollback migration {migration['version']}: {e}")
                     raise
 
             return rolled_back
 
         except Exception as e:
-            logger.error(f"Rollback failed: {e}")
+            logger.exception(f"Rollback failed: {e}")
             raise
 
     def run_migrations(self, migrations: list[Migration], dry_run: bool = False) -> dict[str, Any]:
@@ -279,7 +279,7 @@ class MigrationManager:
                 total_time += execution_time
 
             except Exception as e:
-                logger.error(f"Migration failed at version {migration.version}: {e}")
+                logger.exception(f"Migration failed at version {migration.version}: {e}")
                 return {
                     "current_version": self.get_current_version(),
                     "pending_count": len(pending),

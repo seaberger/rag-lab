@@ -190,7 +190,7 @@ def test_database_base_integration():
         db_path = Path(temp_dir) / "test.db"
 
         # Mock the path resolution for testing
-        original_path = Path(__file__).parent.parent.parent / "migrations"
+        Path(__file__).parent.parent.parent / "migrations"
 
         try:
             # This would normally fail because migrations path is different

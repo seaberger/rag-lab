@@ -15,6 +15,9 @@ from typing import Any
 
 sys.path.append(str(Path(__file__).parent.parent))
 
+import builtins
+import contextlib
+
 from core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
 from core.fingerprint import FingerprintManager
 from core.index_manager import IndexManager, IndexType
@@ -404,10 +407,8 @@ class EnhancedPipeline:
 
             # Clean up temporary file if created from URL
             if is_url:
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     pdf_path.unlink()
-                except:
-                    pass
 
             return markdown, pairs, metadata
 
@@ -419,10 +420,8 @@ class EnhancedPipeline:
 
             # Clean up temporary file if from URL
             if is_url:
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     source_path.unlink()
-                except:
-                    pass
 
             return markdown, pairs, metadata
 
@@ -434,10 +433,8 @@ class EnhancedPipeline:
 
             # Clean up temporary file if from URL
             if is_url:
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     source_path.unlink()
-                except:
-                    pass
 
             return markdown, pairs, metadata
 
@@ -453,10 +450,8 @@ class EnhancedPipeline:
 
         # Clean up temporary file if from URL
         if is_url:
-            try:
+            with contextlib.suppress(builtins.BaseException):
                 source_path.unlink()
-            except:
-                pass
 
         return content, [], metadata
 

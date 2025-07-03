@@ -230,7 +230,7 @@ class QuickIntegrationTester:
 
         try:
             # Test pipeline status
-            pipeline_status = self.pipeline.get_comprehensive_status()
+            self.pipeline.get_comprehensive_status()
             print("  Pipeline status: ✅ Retrieved")
 
             # Test registry statistics
@@ -240,7 +240,7 @@ class QuickIntegrationTester:
             )
 
             # Test queue status
-            queue_status = self.pipeline.document_queue.get_status()
+            self.pipeline.document_queue.get_status()
             print("  Queue status: ✅ Retrieved")
 
             self.test_results["status"] = {

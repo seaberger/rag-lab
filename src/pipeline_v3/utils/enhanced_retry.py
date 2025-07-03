@@ -63,7 +63,7 @@ class RetryConfig:
 class RetryableError(Exception):
     """Exception that indicates an operation should be retried."""
 
-    def __init__(self, message: str, error_type: ErrorType, original_error: Exception = None):
+    def __init__(self, message: str, error_type: ErrorType, original_error: Exception | None = None):
         super().__init__(message)
         self.error_type = error_type
         self.original_error = original_error
@@ -122,10 +122,7 @@ class OpenAIErrorClassifier:
         if error_type == ErrorType.NON_RETRYABLE:
             return False
 
-        if error_type == ErrorType.RATE_LIMITED and config.fail_fast_on_quota:
-            return False
-
-        return True
+        return not (error_type == ErrorType.RATE_LIMITED and config.fail_fast_on_quota)
 
 
 class EnhancedRetry:
@@ -173,12 +170,12 @@ class EnhancedRetry:
 
                     # Check if we should retry this error
                     if not OpenAIErrorClassifier.should_retry(error, self.config):
-                        logger.error(f"Non-retryable error in {func.__name__}: {error}")
+                        logger.exception(f"Non-retryable error in {func.__name__}: {error}")
                         raise error
 
                     # Don't retry on the last attempt
                     if attempt == self.config.max_attempts:
-                        logger.error(
+                        logger.exception(
                             f"Function {func.__name__} failed after {attempt} attempts: {error}"
                         )
                         raise error
@@ -219,12 +216,12 @@ class EnhancedRetry:
 
                     # Check if we should retry this error
                     if not OpenAIErrorClassifier.should_retry(error, self.config):
-                        logger.error(f"Non-retryable error in {func.__name__}: {error}")
+                        logger.exception(f"Non-retryable error in {func.__name__}: {error}")
                         raise error
 
                     # Don't retry on the last attempt
                     if attempt == self.config.max_attempts:
-                        logger.error(
+                        logger.exception(
                             f"Function {func.__name__} failed after {attempt} attempts: {error}"
                         )
                         raise error
@@ -421,7 +418,7 @@ class CircuitBreaker:
 
                 if self.failure_count >= self.failure_threshold:
                     self.state = "OPEN"
-                    logger.error(
+                    logger.exception(
                         f"Circuit breaker OPENED for {func.__name__} after {self.failure_count} failures"
                     )
 

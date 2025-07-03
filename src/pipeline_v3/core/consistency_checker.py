@@ -6,6 +6,7 @@ Provides automated verification and repair capabilities.
 """
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -204,7 +205,7 @@ class ConsistencyChecker:
 
         except Exception as e:
             report.errors.append(f"Check failed: {e!s}")
-            self.logger.error(f"Consistency check failed: {e}")
+            self.logger.exception(f"Consistency check failed: {e}")
             return report
 
     async def _get_all_document_ids(self, include_orphans: bool) -> set[str]:
@@ -222,28 +223,28 @@ class ConsistencyChecker:
                 vector_ids = await self._get_vector_index_doc_ids()
                 all_ids.update(vector_ids)
             except Exception as e:
-                self.logger.error(f"Error getting vector index IDs: {e}")
+                self.logger.exception(f"Error getting vector index IDs: {e}")
 
             # Get from keyword index
             try:
                 keyword_ids = self._get_keyword_index_doc_ids()
                 all_ids.update(keyword_ids)
             except Exception as e:
-                self.logger.error(f"Error getting keyword index IDs: {e}")
+                self.logger.exception(f"Error getting keyword index IDs: {e}")
 
             # Get from storage artifacts
             try:
                 storage_ids = self._get_storage_doc_ids()
                 all_ids.update(storage_ids)
             except Exception as e:
-                self.logger.error(f"Error getting storage IDs: {e}")
+                self.logger.exception(f"Error getting storage IDs: {e}")
 
             # Get from fingerprint store
             try:
                 fingerprint_ids = self._get_fingerprint_doc_ids()
                 all_ids.update(fingerprint_ids)
             except Exception as e:
-                self.logger.error(f"Error getting fingerprint IDs: {e}")
+                self.logger.exception(f"Error getting fingerprint IDs: {e}")
 
         return all_ids
 
@@ -400,7 +401,7 @@ class ConsistencyChecker:
 
         except Exception as e:
             result.errors.append(str(e))
-            self.logger.error(f"Repair failed for {inconsistency.doc_id}: {e}")
+            self.logger.exception(f"Repair failed for {inconsistency.doc_id}: {e}")
 
         return result
 
@@ -534,7 +535,7 @@ class ConsistencyChecker:
                 # MockIndexManager for tests
                 doc_ids = set(self.index_manager.keyword_docs.keys())
         except Exception as e:
-            self.logger.error(f"Error getting keyword index IDs: {e}")
+            self.logger.exception(f"Error getting keyword index IDs: {e}")
         return doc_ids
 
     def _get_storage_doc_ids(self) -> set[str]:
@@ -603,10 +604,8 @@ class ConsistencyMonitor:
         self._running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self.logger.info("Consistency monitor stopped")
 
     async def _monitor_loop(self) -> None:
@@ -634,5 +633,5 @@ class ConsistencyMonitor:
                 await asyncio.sleep(self.check_interval)
 
             except Exception as e:
-                self.logger.error(f"Monitor error: {e}")
+                self.logger.exception(f"Monitor error: {e}")
                 await asyncio.sleep(60)  # Brief pause on error

@@ -82,7 +82,7 @@ class DatabaseBase:
                 logger.info(f"{self.db_name} schema is up to date")
 
         except Exception as e:
-            logger.error(f"Migration failed for {self.db_name}: {e}")
+            logger.exception(f"Migration failed for {self.db_name}: {e}")
             raise
 
         finally:

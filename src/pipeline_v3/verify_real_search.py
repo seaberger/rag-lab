@@ -146,7 +146,7 @@ async def verify_search_with_processed_docs():
                 # Direct check of keyword index
                 from storage.keyword_index import BM25Index
 
-                keyword_index = BM25Index(config.storage.keyword_db_path)
+                BM25Index(config.storage.keyword_db_path)
 
                 # Try to get some stats
                 print("   Checking keyword index...")

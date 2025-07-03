@@ -837,7 +837,7 @@ def _convert_slides_to_markdown(slide_contents: list[dict]) -> str:
         # Slide content
         for text in content:
             # Handle bullet points and lists
-            if text.startswith("•") or text.startswith("-"):
+            if text.startswith(("•", "-")):
                 markdown_parts.append(f"{text}\n")
             else:
                 markdown_parts.append(f"{text}\n")

@@ -97,7 +97,7 @@ class OpenAIClientFactory:
 
         except Exception as e:
             error_msg = f"Failed to create OpenAI client: {e}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             raise OpenAIClientError(error_msg) from e
 
     @staticmethod
@@ -114,7 +114,7 @@ class OpenAIClientFactory:
         try:
             client = OpenAI(api_key=api_key)
             # Make a minimal API call to validate
-            response = client.models.list()
+            client.models.list()
             return True
         except Exception as e:
             logger.warning(f"API key validation failed: {e}")

@@ -249,7 +249,7 @@ class FilterBuilder:
                         model_match = any(
                             pairs_filters["model_contains"] in str(pair[0])
                             for pair in pairs
-                            if isinstance(pair, (list, tuple)) and len(pair) >= 1
+                            if isinstance(pair, list | tuple) and len(pair) >= 1
                         )
                         if not model_match:
                             include = False
@@ -258,7 +258,7 @@ class FilterBuilder:
                         part_match = any(
                             pairs_filters["part_contains"] in str(pair[1])
                             for pair in pairs
-                            if isinstance(pair, (list, tuple)) and len(pair) >= 2
+                            if isinstance(pair, list | tuple) and len(pair) >= 2
                         )
                         if not part_match:
                             include = False
@@ -305,5 +305,5 @@ def validate_filter_format(filter_dict: dict[str, Any]) -> bool:
         FilterBuilder.parse_unified_filters(filter_dict)
         return True
     except Exception as e:
-        logger.error(f"Invalid filter format: {e}")
+        logger.exception(f"Invalid filter format: {e}")
         return False

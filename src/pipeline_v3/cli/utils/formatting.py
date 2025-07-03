@@ -43,7 +43,7 @@ class OutputFormatter:
             )
             rows.append(row_line)
 
-        return "\n".join([header_line, separator] + rows)
+        return "\n".join([header_line, separator, *rows])
 
     @staticmethod
     def format_status(status_data: dict[str, Any]) -> str:

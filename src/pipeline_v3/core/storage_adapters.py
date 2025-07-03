@@ -104,7 +104,7 @@ class RegistryAdapter(StorageSystem):
             return success
 
         except Exception as e:
-            self.logger.error(f"Commit failed: {e}")
+            self.logger.exception(f"Commit failed: {e}")
             return False
 
     async def rollback(self, checkpoint: Checkpoint) -> bool:
@@ -118,7 +118,7 @@ class RegistryAdapter(StorageSystem):
             return self.registry.remove_document(checkpoint.doc_id)
 
         except Exception as e:
-            self.logger.error(f"Rollback failed: {e}")
+            self.logger.exception(f"Rollback failed: {e}")
             return False
         finally:
             # Clean up pending operation
@@ -253,7 +253,7 @@ class QdrantAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Commit failed: {e}")
+            self.logger.exception(f"Commit failed: {e}")
             return False
 
     async def rollback(self, checkpoint: Checkpoint) -> bool:
@@ -289,7 +289,7 @@ class QdrantAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Rollback failed: {e}")
+            self.logger.exception(f"Rollback failed: {e}")
             return False
 
     async def verify_state(self, doc_id: str) -> dict[str, Any]:
@@ -351,7 +351,7 @@ class KeywordIndexAdapter(StorageSystem):
                 else:
                     checkpoint.state_before = {"exists": False}
         except Exception as e:
-            self.logger.error(f"Error getting current state: {e}")
+            self.logger.exception(f"Error getting current state: {e}")
             checkpoint.state_before = {"exists": False}
 
         # Prepare operation data
@@ -396,7 +396,7 @@ class KeywordIndexAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Commit failed: {e}")
+            self.logger.exception(f"Commit failed: {e}")
             return False
 
     async def rollback(self, checkpoint: Checkpoint) -> bool:
@@ -418,7 +418,7 @@ class KeywordIndexAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Rollback failed: {e}")
+            self.logger.exception(f"Rollback failed: {e}")
             return False
 
     async def verify_state(self, doc_id: str) -> dict[str, Any]:
@@ -512,7 +512,7 @@ class StorageArtifactsAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Commit failed: {e}")
+            self.logger.exception(f"Commit failed: {e}")
             return False
 
     async def rollback(self, checkpoint: Checkpoint) -> bool:
@@ -541,7 +541,7 @@ class StorageArtifactsAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Rollback failed: {e}")
+            self.logger.exception(f"Rollback failed: {e}")
             return False
 
     async def verify_state(self, doc_id: str) -> dict[str, Any]:
@@ -637,7 +637,7 @@ class FingerprintAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Commit failed: {e}")
+            self.logger.exception(f"Commit failed: {e}")
             return False
 
     async def rollback(self, checkpoint: Checkpoint) -> bool:
@@ -655,20 +655,14 @@ class FingerprintAdapter(StorageSystem):
             return True
 
         except Exception as e:
-            self.logger.error(f"Rollback failed: {e}")
+            self.logger.exception(f"Rollback failed: {e}")
             return False
 
     async def verify_state(self, doc_id: str) -> dict[str, Any]:
         """Verify fingerprint state"""
         # FingerprintManager uses source paths - this won't work with just doc_id
         # This is a design limitation
-        return {"exists": False}
-        if fp:
-            return {
-                "exists": True,
-                "fingerprint": fp.fingerprint,
-                "timestamp": fp.timestamp.isoformat(),
-            }
+        # TODO: Need to refactor to support doc_id lookups
         return {"exists": False}
 
     async def health_check(self) -> bool:

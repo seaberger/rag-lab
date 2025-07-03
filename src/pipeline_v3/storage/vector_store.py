@@ -13,9 +13,9 @@ class EmbeddingManager:
     def __init__(
         self,
         config: PipelineConfig = None,
-        model: str = None,
-        chunk_size: int = None,
-        chunk_overlap: int = None,
+        model: str | None = None,
+        chunk_size: int | None = None,
+        chunk_overlap: int | None = None,
     ):
         # Use config if provided, otherwise defaults
         self.config = config

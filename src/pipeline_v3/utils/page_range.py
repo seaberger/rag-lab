@@ -73,7 +73,7 @@ class PageRangeParser:
                 )
 
         # Return sorted list
-        return sorted(list(page_numbers))
+        return sorted(page_numbers)
 
     @staticmethod
     def _parse_range(range_spec: str, total_pages: int | None = None) -> list[int]:

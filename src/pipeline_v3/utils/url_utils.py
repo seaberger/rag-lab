@@ -60,7 +60,7 @@ def extract_urls_from_markdown(file_path: Path) -> list[str]:
         return unique_urls
 
     except Exception as e:
-        logger.error(f"Failed to extract URLs from markdown file {file_path}: {e}")
+        logger.exception(f"Failed to extract URLs from markdown file {file_path}: {e}")
         return []
 
 
@@ -120,10 +120,10 @@ def extract_urls_from_json(file_path: Path) -> list[str]:
         return unique_urls
 
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in file {file_path}: {e}")
+        logger.exception(f"Invalid JSON in file {file_path}: {e}")
         return []
     except Exception as e:
-        logger.error(f"Failed to extract URLs from JSON file {file_path}: {e}")
+        logger.exception(f"Failed to extract URLs from JSON file {file_path}: {e}")
         return []
 
 
@@ -192,7 +192,7 @@ def create_url_batch_file(urls: list[str], output_path: Path, format_type: str =
         return True
 
     except Exception as e:
-        logger.error(f"Failed to create batch file {output_path}: {e}")
+        logger.exception(f"Failed to create batch file {output_path}: {e}")
         return False
 
 

@@ -29,9 +29,9 @@ class CacheManager:
 
     def __init__(
         self,
-        cache_dir: str = None,
-        ttl_days: int = None,
-        compress: bool = None,
+        cache_dir: str | None = None,
+        ttl_days: int | None = None,
+        compress: bool | None = None,
         config: PipelineConfig | None = None,
     ):
         # Use config if provided, otherwise use parameters or defaults

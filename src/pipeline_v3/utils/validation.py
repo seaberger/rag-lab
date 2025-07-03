@@ -38,7 +38,7 @@ class DocumentValidator:
             raise ValidationError(f"Invalid URL scheme: {url}")
         return True
 
-    def validate_file(self, path: Path, max_size_bytes: int = None) -> bool:
+    def validate_file(self, path: Path, max_size_bytes: int | None = None) -> bool:
         """Validate file exists and size is reasonable."""
         # Use provided max_size_bytes or get from config
         if max_size_bytes is None:

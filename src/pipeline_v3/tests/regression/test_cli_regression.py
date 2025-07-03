@@ -70,7 +70,7 @@ class TestCLIBackwardCompatibility:
 
     def run_cli_subprocess(self, args: list[str], timeout: float = 5.0) -> tuple[int, str, str]:
         """Run CLI in subprocess to test actual exit codes."""
-        cmd = [sys.executable, "cli_main.py"] + args
+        cmd = [sys.executable, "cli_main.py", *args]
 
         try:
             result = subprocess.run(
@@ -557,8 +557,7 @@ class TestCLIRegressionSubprocess:
 
         for cmd_args in commands_to_test:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py")]
-                + cmd_args,
+                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), *cmd_args],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -583,8 +582,7 @@ class TestCLIRegressionSubprocess:
 
         for cmd_args, check_func in error_scenarios:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py")]
-                + cmd_args,
+                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), *cmd_args],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -709,7 +707,7 @@ def run_simple_tests():
     for cmd in help_commands:
         try:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py")] + cmd,
+                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), *cmd],
                 capture_output=True,
                 text=True,
                 timeout=10,

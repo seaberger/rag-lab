@@ -37,7 +37,7 @@ class SimpleCLITester:
 
     def run_cli_subprocess(self, args: list[str], timeout: float = 10.0) -> tuple[int, str, str]:
         """Run CLI in subprocess to test actual exit codes."""
-        cmd = ["uv", "run", "python", "cli_main.py"] + args
+        cmd = ["uv", "run", "python", "cli_main.py", *args]
 
         try:
             result = subprocess.run(

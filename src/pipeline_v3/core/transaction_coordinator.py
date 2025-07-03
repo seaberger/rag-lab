@@ -275,7 +275,7 @@ class TransactionCoordinator:
             try:
                 results[name] = await asyncio.wait_for(task, timeout=5.0)
             except Exception as e:
-                self.logger.error(f"Health check failed for {name}: {e}")
+                self.logger.exception(f"Health check failed for {name}: {e}")
                 results[name] = False
 
         return results
@@ -303,7 +303,7 @@ class TransactionCoordinator:
                 errors.append(f"{system_name}: Prepare timeout")
             except Exception as e:
                 errors.append(f"{system_name}: {e!s}")
-                self.logger.error(f"Prepare failed for {system_name}: {e}")
+                self.logger.exception(f"Prepare failed for {system_name}: {e}")
 
         return {"checkpoints": checkpoints, "errors": errors}
 
@@ -335,7 +335,7 @@ class TransactionCoordinator:
                 errors.append(f"{checkpoint.system_name}: Commit timeout")
             except Exception as e:
                 errors.append(f"{checkpoint.system_name}: {e!s}")
-                self.logger.error(f"Commit failed for {checkpoint.system_name}: {e}")
+                self.logger.exception(f"Commit failed for {checkpoint.system_name}: {e}")
 
         return {"successful": successful_commits, "errors": errors}
 
@@ -359,7 +359,7 @@ class TransactionCoordinator:
 
             except Exception as e:
                 # Log but continue rolling back other systems
-                self.logger.error(f"Rollback failed for {checkpoint.system_name}: {e}")
+                self.logger.exception(f"Rollback failed for {checkpoint.system_name}: {e}")
 
     def _get_system_by_name(self, name: str) -> StorageSystem:
         """Get storage system by name"""

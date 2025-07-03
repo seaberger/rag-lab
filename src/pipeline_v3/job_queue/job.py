@@ -234,9 +234,9 @@ class JobManager:
         self,
         job_id: str,
         status: JobStatus,
-        progress: float = None,
-        worker_id: str = None,
-        error_message: str = None,
+        progress: float | None = None,
+        worker_id: str | None = None,
+        error_message: str | None = None,
     ) -> bool:
         """Update job status and progress."""
         job = self.get_job(job_id)

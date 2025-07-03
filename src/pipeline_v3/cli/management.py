@@ -1270,12 +1270,12 @@ async def main():
         if e.code == 0:
             sys.exit(0)
         else:
-            logger.error(f"Argument parsing failed: {e} | Command: {command_string}")
+            logger.exception(f"Argument parsing failed: {e} | Command: {command_string}")
             raise CLIArgumentError(
                 f"Invalid command line arguments: {e}", command_string=command_string
             )
     except argparse.ArgumentError as e:
-        logger.error(f"Argument parsing failed: {e} | Command: {command_string}")
+        logger.exception(f"Argument parsing failed: {e} | Command: {command_string}")
         raise CLIArgumentError(
             f"Invalid command line arguments: {e}", command_string=command_string
         )

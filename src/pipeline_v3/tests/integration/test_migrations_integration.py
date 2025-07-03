@@ -222,7 +222,7 @@ def test_migration_error_recovery():
         failed = False
         try:
             manager.apply_migration(invalid_migration)
-            assert False, "Expected migration to fail"
+            raise AssertionError("Expected migration to fail")
         except Exception:
             # Expected to fail
             failed = True

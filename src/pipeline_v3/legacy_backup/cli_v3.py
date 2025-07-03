@@ -85,7 +85,7 @@ Note: This is the development CLI for Pipeline v3. Full queue management
 
     # Load configuration
     try:
-        config = PipelineConfig.from_yaml(args.config)
+        PipelineConfig.from_yaml(args.config)
         logger.info(f"✅ Loaded configuration from: {args.config}")
         logger.info(f"🚀 Pipeline v3 starting with mode: {args.mode}")
     except Exception as e:
