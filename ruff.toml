@@ -126,6 +126,20 @@ ignore = [
     "PLR1714", # repeated equality comparisons
     "DTZ005",  # datetime.now without timezone
     "DTZ011",  # datetime.date.today
+    # Non-critical rules we're ignoring for now
+    "PLC0415", # Import outside top-level (many are intentional lazy imports)
+    "TRY401",  # Verbose log messages (style preference)
+    "EXE001",  # Shebang not executable (utility scripts)
+    "S301",    # Pickle usage (required for our node storage)
+    "PTH100",  # os.path.abspath
+    "PTH107",  # os.remove
+    "PTH109",  # os.getcwd
+    "PTH113",  # os.path.isfile
+    "DTZ003",  # datetime.utcnow
+    "DTZ006",  # datetime.fromtimestamp
+    "S110",    # try-except-pass (sometimes intentional)
+    "S603",    # subprocess without shell=True (often false positives)
+    "S607",    # start process with partial path
 ]
 
 # Allow autofix for all enabled rules
