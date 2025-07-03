@@ -16,8 +16,8 @@ import pytest
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from storage.keyword_index import BM25Index as KeywordIndex
 from core.registry import DocumentRegistry
+from storage.keyword_index import BM25Index as KeywordIndex
 
 
 class TestSQLInjectionProtection:
@@ -72,17 +72,17 @@ class TestSQLInjectionProtection:
         for malicious_input in malicious_inputs:
             # Should handle malicious file paths safely
             doc_id = registry.register_document(
-                source=malicious_input, 
-                content_hash=f"test_hash_{malicious_input}", 
+                source=malicious_input,
+                content_hash=f"test_hash_{malicious_input}",
                 size=1000,
                 modified_time=0,
                 metadata={"test": "data"}
             )
 
-            # Should handle malicious metadata safely  
+            # Should handle malicious metadata safely
             doc_id2 = registry.register_document(
-                source=f"test_{malicious_input}.pdf", 
-                content_hash=f"test_hash2_{malicious_input}", 
+                source=f"test_{malicious_input}.pdf",
+                content_hash=f"test_hash2_{malicious_input}",
                 size=1000,
                 modified_time=0,
                 metadata={"key": malicious_input}
@@ -103,7 +103,7 @@ class TestSQLInjectionProtection:
         """Test that keyword search is safe from SQL injection."""
         # Add some test documents
         from llama_index.core.schema import TextNode
-        
+
         test_node = TextNode(
             text="This is a test document with some content.",
             metadata={"type": "test", "title": "Test Document"}
@@ -210,7 +210,7 @@ class TestSQLInjectionProtection:
 
             # Test keyword index
             from llama_index.core.schema import TextNode
-            
+
             test_node = TextNode(
                 text=f"Content with {special_input}",
                 metadata={"test": special_input, "title": special_input}
