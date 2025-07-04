@@ -2,6 +2,8 @@
 
 A production-ready document processing pipeline with advanced features including **database migration framework** for safe system evolution and enterprise deployment.
 
+<!-- CI Test: Verifying Qdrant server integration -->
+
 [![Pipeline v3 CI](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml)
 [![Tests](https://img.shields.io/badge/tests-169%2F176%20passing-yellow)](./tests/)
 [![Coverage](https://img.shields.io/badge/coverage-12%25-red)](./tests/)
