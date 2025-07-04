@@ -123,16 +123,16 @@ Return JSON format:
 }}"""
 
             @retry_api_call(max_attempts=3)
-            async def call_batch_api():
+            async def call_batch_api(api_prompt):
                 client = OpenAI()
                 return client.chat.completions.create(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": api_prompt}],
                     temperature=0.1,
                     max_tokens=800,
                 )
 
-            response = await call_batch_api()
+            response = await call_batch_api(prompt)
             result_text = response.choices[0].message.content.strip()
 
             # Parse batch results

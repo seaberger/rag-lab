@@ -244,8 +244,8 @@ class SimpleBM25Index:
                 if term in self.doc_term_freqs[doc_id]:
                     # BM25 formula
                     tf = self.doc_term_freqs[doc_id][term]
-                    df = self.doc_freq[term]
-                    idf = math.log((self.N - df + 0.5) / (df + 0.5) + 1)
+                    doc_freq = self.doc_freq[term]
+                    idf = math.log((self.N - doc_freq + 0.5) / (doc_freq + 0.5) + 1)
 
                     numerator = idf * tf * (self.k1 + 1)
                     denominator = tf + self.k1 * (1 - self.b + self.b * doc_len / self.avgdl)
