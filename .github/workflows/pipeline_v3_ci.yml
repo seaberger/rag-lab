@@ -84,24 +84,26 @@ jobs:
           --cov-append \
           --junit-xml=test-results/integration-results.xml
 
-    # Run Qdrant tests separately with delays
-    - name: Run search/Qdrant tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/test_search_integration.py -v \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/search-results.xml
-      continue-on-error: true  # Allow failures until Qdrant server mode
+    # Skip Qdrant tests in CI until server mode is implemented (Issue #71)
+    # These tests hang in GitHub Actions due to file lock contention
+    # - name: Run search/Qdrant tests
+    #   run: |
+    #     uv run pytest src/pipeline_v3/tests/integration/test_search_integration.py -v \
+    #       --cov=src.pipeline_v3 \
+    #       --cov-append \
+    #       --junit-xml=test-results/search-results.xml
+    #   continue-on-error: true  # Allow failures until Qdrant server mode
 
-    # Run E2E tests with extended timeout
-    - name: Run E2E tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/test_e2e_integration.py -v \
-          --timeout=600 \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/e2e-results.xml
-      continue-on-error: true  # Allow failures until Qdrant server mode
+    # Skip E2E tests in CI until server mode is implemented (Issue #71)
+    # These tests also use Qdrant and can hang in GitHub Actions
+    # - name: Run E2E tests
+    #   run: |
+    #     uv run pytest src/pipeline_v3/tests/integration/test_e2e_integration.py -v \
+    #       --timeout=600 \
+    #       --cov=src.pipeline_v3 \
+    #       --cov-append \
+    #       --junit-xml=test-results/e2e-results.xml
+    #   continue-on-error: true  # Allow failures until Qdrant server mode
 
     - name: Run regression tests
       run: |
