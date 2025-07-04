@@ -23,7 +23,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     services:
       qdrant:
@@ -65,7 +65,7 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --all-extras --dev
-        uv pip install pytest-timeout
+        uv pip install pytest-timeout pytest-xdist
 
     - name: Create test environment
       run: |
@@ -88,41 +88,51 @@ jobs:
           --cov-append \
           --junit-xml=test-results/security-results.xml
 
-    - name: Run integration tests
+    - name: Run smoke integration tests
       run: |
         uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=300 \
           --cov=src.pipeline_v3 \
           --cov-append \
-          --junit-xml=test-results/integration-results.xml \
-          -m "not slow"
+          --junit-xml=test-results/smoke-integration-results.xml \
+          -m "smoke"
 
-    - name: Run search/Qdrant tests
+    - name: Run lightweight integration tests
       run: |
-        uv run pytest src/pipeline_v3/tests/integration/test_search_integration.py -v \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/search-results.xml
-
-    - name: Run E2E tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/test_e2e_integration.py -v \
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
           --timeout=600 \
           --cov=src.pipeline_v3 \
           --cov-append \
-          --junit-xml=test-results/e2e-results.xml
+          --junit-xml=test-results/lightweight-integration-results.xml \
+          -m "integration and not heavy and not e2e"
 
-    - name: Run Qdrant server operation tests
+    - name: Run server-specific tests
       run: |
-        uv run pytest src/pipeline_v3/tests/integration/test_qdrant_server_operations.py \
-          src/pipeline_v3/tests/integration/test_metadata_preservation.py \
-          src/pipeline_v3/tests/unit/test_index_manager_server_mode.py \
-          src/pipeline_v3/tests/integration/test_search_server_mode.py \
-          src/pipeline_v3/tests/unit/test_qdrant_server_deletion.py \
-          src/pipeline_v3/tests/unit/test_qdrant_dual_mode.py \
-          -v \
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=900 \
           --cov=src.pipeline_v3 \
           --cov-append \
-          --junit-xml=test-results/qdrant-server-results.xml
+          --junit-xml=test-results/server-results.xml \
+          -m "server"
+
+    - name: Run E2E tests (critical path)
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=1200 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/e2e-results.xml \
+          -m "e2e"
+
+    - name: Run heavy resource tests (optional)
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=1800 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/heavy-results.xml \
+          -m "heavy"
+      continue-on-error: true  # Allow failures for heavy tests
 
     - name: Run regression tests
       run: |

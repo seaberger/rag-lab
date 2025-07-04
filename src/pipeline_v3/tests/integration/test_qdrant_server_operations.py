@@ -48,6 +48,10 @@ class TestQdrantServerOperations:
             pass
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(900)  # 15 minutes for full lifecycle
     async def test_document_lifecycle_server_mode(self, server_pipeline):
         """Test complete document lifecycle in server mode."""
         pipeline = server_pipeline
@@ -166,6 +170,10 @@ class TestQdrantServerOperations:
                 os.unlink(test_file)
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for deletion tests
     async def test_delete_from_vector_index_server_mode(self, server_pipeline):
         """Test delete_from_vector_index uses proper server deletion."""
         pipeline = server_pipeline
@@ -213,6 +221,10 @@ class TestQdrantServerOperations:
             os.unlink(test_file)
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for search tests
     async def test_search_vector_server_mode(self, server_pipeline):
         """Test vector search works correctly in server mode."""
         pipeline = server_pipeline
@@ -263,6 +275,10 @@ class TestQdrantServerOperations:
         assert any("laser" in r["content"].lower() for r in results), "Laser content not found"
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(300)  # 5 minutes for metadata tests
     async def test_metadata_preservation_server_mode(self, server_pipeline):
         """Test that metadata is properly preserved in server mode."""
         pipeline = server_pipeline
@@ -313,6 +329,11 @@ class TestQdrantServerOperations:
             assert payload.get("doc_id") == doc_id, "doc_id not found in chunk payload"
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.heavy
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(900)  # 15 minutes for batch operations
     async def test_batch_operations_server_mode(self, server_pipeline):
         """Test batch document operations work correctly."""
         pipeline = server_pipeline
@@ -369,6 +390,10 @@ class TestQdrantServerOperations:
                 os.unlink(test_file)
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for filtered search
     async def test_search_with_filters_server_mode(self, server_pipeline):
         """Test search with metadata filters in server mode."""
         pipeline = server_pipeline
@@ -411,6 +436,11 @@ class TestQdrantServerOperations:
                 os.unlink(test_file)
 
     @pytest.mark.asyncio
+    @pytest.mark.server
+    @pytest.mark.integration
+    @pytest.mark.heavy
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(900)  # 15 minutes for collection isolation
     async def test_collection_isolation(self, test_config):
         """Test that different collections are properly isolated."""
         # Create two pipelines with different collections

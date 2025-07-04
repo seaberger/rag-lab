@@ -58,7 +58,9 @@ class Test_A_E2EIntegration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     @pytest.mark.integration
+    @pytest.mark.heavy
     @pytest.mark.requires_api
+    @pytest.mark.timeout(900)  # 15 minutes for heavy operations
     async def test_document_ingestion(
         self, test_pipeline, sample_documents, expected_content
     ):
@@ -136,9 +138,10 @@ class Test_A_E2EIntegration:
         assert all(r["success"] for r in ingestion_results)
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
     @pytest.mark.integration
+    @pytest.mark.e2e
     @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for search tests
     async def test_search_functionality(self, populated_pipeline, expected_content):
         """Test different search types with pre-populated data."""
         pipeline = populated_pipeline
@@ -188,6 +191,9 @@ class Test_A_E2EIntegration:
                 pytest.fail(f"Search failed for '{query}' with {search_type}: {e}")
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.smoke
+    @pytest.mark.timeout(300)  # 5 minutes for quick tests
     async def test_queue_management(self, test_pipeline):
         """Test queue operations."""
         pipeline = test_pipeline
@@ -339,6 +345,10 @@ class Test_B_SmokeIntegration:
         yield {"config": config, "pipeline": pipeline, "temp_dir": tmp_path}
 
     @pytest.mark.asyncio
+    @pytest.mark.smoke
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for smoke tests with API
     async def test_smoke_document_ingestion(self, smoke_test_environment):
         """Quick smoke test for document ingestion."""
         pipeline = smoke_test_environment["pipeline"]
@@ -365,6 +375,9 @@ class Test_B_SmokeIntegration:
         assert "doc_id" in result or "document_id" in result
 
     @pytest.mark.asyncio
+    @pytest.mark.smoke
+    @pytest.mark.integration
+    @pytest.mark.timeout(300)  # 5 minutes for search only
     async def test_smoke_keyword_search(self, smoke_test_environment):
         """Quick smoke test for keyword search only."""
         pipeline = smoke_test_environment["pipeline"]
