@@ -195,7 +195,16 @@ async def populated_pipeline(test_pipeline, test_config):
 @pytest.fixture
 def sample_documents():
     """Provide paths to sample documents for testing."""
-    sample_dir = Path("data/sample_docs")
+    # Find the project root by looking for the data directory
+    current_dir = Path(__file__).parent
+    while current_dir != current_dir.parent:
+        if (current_dir / "data" / "sample_docs").exists():
+            sample_dir = current_dir / "data" / "sample_docs"
+            break
+        current_dir = current_dir.parent
+    else:
+        # Fallback to absolute path if needed
+        sample_dir = Path("/Users/seanbergman/Repositories/rag_lab/data/sample_docs")
 
     return {
         "small_datasheet": sample_dir / "FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf",

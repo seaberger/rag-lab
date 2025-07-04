@@ -3,6 +3,13 @@ End-to-End Integration Tests for Pipeline v3
 
 Comprehensive integration tests with real documents to validate
 the complete pipeline functionality before production deployment.
+
+IMPORTANT: Test classes are prefixed with letters to control execution order:
+- Test_A_* : Run first - create and index documents
+- Test_B_* : Run second - smoke tests
+- Test_Z_* : Run last - cleanup and isolation tests
+
+This ensures data dependencies are satisfied (e.g., search tests have documents to find).
 """
 
 import os
@@ -26,8 +33,11 @@ from pipeline_v3.utils.config import PipelineConfig
 from pipeline_v3.utils.monitoring import ProgressMonitor
 
 
-class TestE2EIntegration:
-    """End-to-end integration tests with real documents."""
+class Test_A_E2EIntegration:
+    """End-to-end integration tests with real documents.
+
+    Named with A prefix to ensure it runs first alphabetically.
+    """
 
     def get_test_documents(self, test_docs_path: Path, limit: int = 5) -> list[Path]:
         """Get list of test documents."""
@@ -285,7 +295,7 @@ class TestE2EIntegration:
         assert status["indexes"]["keyword_index"]["entry_count"] >= 0
 
 
-class TestSmokeIntegration:
+class Test_B_SmokeIntegration:
     """Quick smoke tests for CI/CD - focused on speed over comprehensiveness."""
 
     @pytest_asyncio.fixture
@@ -370,8 +380,11 @@ class TestSmokeIntegration:
         assert isinstance(queue_status, dict)
 
 
-class TestDatabaseIsolation:
-    """Test database isolation and environment separation."""
+class Test_Z_DatabaseIsolation:
+    """Test database isolation and environment separation.
+
+    Named with Z prefix to ensure it runs last alphabetically.
+    """
 
     @pytest.mark.asyncio
     async def test_environment_isolation(self, test_base_dir):
