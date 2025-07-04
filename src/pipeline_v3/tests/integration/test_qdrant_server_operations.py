@@ -7,6 +7,7 @@ correctly in server mode, addressing issues found with LlamaIndex abstractions.
 
 import asyncio
 import pytest
+import pytest_asyncio
 import sys
 import time
 from pathlib import Path
@@ -15,10 +16,10 @@ from unittest.mock import Mock
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from pipeline_v3.core.index_manager import IndexManager, IndexType
-from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
-from pipeline_v3.utils.config import PipelineConfig
-from pipeline_v3.utils.common_utils import logger
+from core.index_manager import IndexManager, IndexType
+from pipeline.enhanced_core import EnhancedPipeline
+from utils.config import PipelineConfig
+from utils.common_utils import logger
 from qdrant_client import QdrantClient
 from qdrant_client.http import exceptions as qdrant_exceptions
 
@@ -27,7 +28,7 @@ from qdrant_client.http import exceptions as qdrant_exceptions
 class TestQdrantServerOperations:
     """Test all Qdrant operations work correctly in server mode."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def server_pipeline(self, test_config):
         """Create pipeline with server mode enforced."""
         # Ensure server mode
@@ -63,9 +64,14 @@ class TestQdrantServerOperations:
 
         try:
             # 1. Add document
+            # Create temporary file with content
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write(content_v1)
+                test_file = f.name
+
             result = await pipeline.process_document(
-                source="test_doc.md",
-                content=content_v1,
+                source=test_file,
                 metadata={"version": 1, "test": True}
             )
             assert result["status"] == "success"
@@ -85,12 +91,16 @@ class TestQdrantServerOperations:
             # Verify metadata
             for chunk in chunks_v1:
                 assert chunk.payload.get("doc_id") == doc_id
-                assert "text" in chunk.payload
+                # In server mode, text is in _node_content
+                assert "_node_content" in chunk.payload or "text" in chunk.payload
 
             # 3. Update document (force reprocess)
+            # Update file with new content
+            with open(test_file, 'w') as f:
+                f.write(content_v2)
+
             result = await pipeline.process_document(
-                source="test_doc.md",
-                content=content_v2,
+                source=test_file,
                 metadata={"version": 2, "test": True},
                 force_reprocess=True
             )
@@ -107,14 +117,27 @@ class TestQdrantServerOperations:
 
             # Check no old content remains
             for chunk in chunks_v2:
-                chunk_text = chunk.payload.get("text", "")
+                # Extract text from server mode payload
+                if "_node_content" in chunk.payload:
+                    import json
+                    node_content = json.loads(chunk.payload["_node_content"])
+                    chunk_text = node_content.get("text", "")
+                else:
+                    chunk_text = chunk.payload.get("text", "")
                 assert "V1" not in chunk_text, f"Found old content in chunk: {chunk_text[:50]}"
                 assert "first version" not in chunk_text.lower()
 
             # Check new content exists
+            def get_text_from_chunk(chunk):
+                if "_node_content" in chunk.payload:
+                    import json
+                    node_content = json.loads(chunk.payload["_node_content"])
+                    return node_content.get("text", "")
+                return chunk.payload.get("text", "")
+
             has_new_content = any(
-                "V2" in chunk.payload.get("text", "") or
-                "UPDATED" in chunk.payload.get("text", "")
+                "V2" in get_text_from_chunk(chunk) or
+                "UPDATED" in get_text_from_chunk(chunk)
                 for chunk in chunks_v2
             )
             assert has_new_content, "New content not found in chunks"
@@ -136,6 +159,11 @@ class TestQdrantServerOperations:
 
         except Exception as e:
             pytest.fail(f"Document lifecycle test failed: {e}")
+        finally:
+            # Clean up temporary file
+            import os
+            if 'test_file' in locals() and os.path.exists(test_file):
+                os.unlink(test_file)
 
     @pytest.mark.asyncio
     async def test_delete_from_vector_index_server_mode(self, server_pipeline):
@@ -143,9 +171,13 @@ class TestQdrantServerOperations:
         pipeline = server_pipeline
 
         # Add a test document
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            f.write("Test content for delete operation")
+            test_file = f.name
+
         result = await pipeline.process_document(
-            source="test_delete.md",
-            content="Test content for delete operation",
+            source=test_file,
             metadata={"test": "delete_vector"}
         )
         assert result["status"] == "success"
@@ -175,6 +207,11 @@ class TestQdrantServerOperations:
         )[0]
         assert len(chunks_after) == 0, "Chunks remain after delete_from_vector_index"
 
+        # Clean up test file
+        import os
+        if os.path.exists(test_file):
+            os.unlink(test_file)
+
     @pytest.mark.asyncio
     async def test_search_vector_server_mode(self, server_pipeline):
         """Test vector search works correctly in server mode."""
@@ -188,10 +225,16 @@ class TestQdrantServerOperations:
         ]
 
         doc_ids = []
+        test_files = []
         for content, metadata in test_docs:
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write(content)
+                test_file = f.name
+                test_files.append(test_file)
+
             result = await pipeline.process_document(
-                source=f"test_{len(doc_ids)}.md",
-                content=content,
+                source=test_file,
                 metadata=metadata
             )
             assert result["status"] == "success"
@@ -233,9 +276,13 @@ class TestQdrantServerOperations:
             "custom_field": "custom_value"
         }
 
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            f.write("Document with metadata for testing")
+            test_file = f.name
+
         result = await pipeline.process_document(
-            source="metadata_test.pdf",
-            content="Document with metadata for testing",
+            source=test_file,
             metadata=test_metadata
         )
         assert result["status"] == "success"
@@ -273,11 +320,17 @@ class TestQdrantServerOperations:
         # Add multiple documents in batch
         num_docs = 5
         doc_ids = []
+        test_files = []
 
         for i in range(num_docs):
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write(f"Batch test document {i} with unique content {i * 100}")
+                test_file = f.name
+                test_files.append(test_file)
+
             result = await pipeline.process_document(
-                source=f"batch_test_{i}.md",
-                content=f"Batch test document {i} with unique content {i * 100}",
+                source=test_file,
                 metadata={"batch": True, "index": i}
             )
             assert result["status"] == "success"
@@ -309,6 +362,12 @@ class TestQdrantServerOperations:
         for doc_id in doc_ids:
             assert doc_id not in remaining_doc_ids, f"Doc {doc_id} still has chunks"
 
+        # Clean up test files
+        import os
+        for test_file in test_files:
+            if os.path.exists(test_file):
+                os.unlink(test_file)
+
     @pytest.mark.asyncio
     async def test_search_with_filters_server_mode(self, server_pipeline):
         """Test search with metadata filters in server mode."""
@@ -317,11 +376,17 @@ class TestQdrantServerOperations:
         # Add documents with different categories
         categories = ["sensors", "lasers", "optics"]
         doc_ids = []
+        test_files = []
 
         for i, category in enumerate(categories):
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write(f"Document about {category} technology and applications")
+                test_file = f.name
+                test_files.append(test_file)
+
             result = await pipeline.process_document(
-                source=f"filter_test_{i}.md",
-                content=f"Document about {category} technology and applications",
+                source=test_file,
                 metadata={"category": category, "year": 2025}
             )
             assert result["status"] == "success"
@@ -338,6 +403,12 @@ class TestQdrantServerOperations:
         # All results should be from sensors category (if post-filtering works)
         # Note: This might not filter properly until Issue #23 is resolved
         assert isinstance(results, list), "Results should be a list"
+
+        # Clean up test files
+        import os
+        for test_file in test_files:
+            if os.path.exists(test_file):
+                os.unlink(test_file)
 
     @pytest.mark.asyncio
     async def test_collection_isolation(self, test_config):
@@ -357,19 +428,29 @@ class TestQdrantServerOperations:
         pipeline1 = EnhancedPipeline(config1)
         pipeline2 = EnhancedPipeline(config2)
 
+        test_files = []
         try:
             # Add document to pipeline1
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write("Document in collection 1")
+                test_file1 = f.name
+                test_files.append(test_file1)
+
             result1 = await pipeline1.process_document(
-                source="iso_test_1.md",
-                content="Document in collection 1",
+                source=test_file1,
                 metadata={"collection": 1}
             )
             assert result1["status"] == "success"
 
             # Add document to pipeline2
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write("Document in collection 2")
+                test_file2 = f.name
+                test_files.append(test_file2)
+
             result2 = await pipeline2.process_document(
-                source="iso_test_2.md",
-                content="Document in collection 2",
+                source=test_file2,
                 metadata={"collection": 2}
             )
             assert result2["status"] == "success"
@@ -389,3 +470,9 @@ class TestQdrantServerOperations:
                 pipeline2.index_manager.qdrant_client.delete_collection(collection2)
             except Exception:
                 pass
+
+            # Clean up test files
+            import os
+            for test_file in test_files:
+                if os.path.exists(test_file):
+                    os.unlink(test_file)

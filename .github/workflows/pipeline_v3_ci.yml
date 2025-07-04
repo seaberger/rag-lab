@@ -116,6 +116,9 @@ jobs:
         uv run pytest src/pipeline_v3/tests/integration/test_qdrant_server_operations.py \
           src/pipeline_v3/tests/integration/test_metadata_preservation.py \
           src/pipeline_v3/tests/unit/test_index_manager_server_mode.py \
+          src/pipeline_v3/tests/integration/test_search_server_mode.py \
+          src/pipeline_v3/tests/unit/test_qdrant_server_deletion.py \
+          src/pipeline_v3/tests/unit/test_qdrant_dual_mode.py \
           -v \
           --cov=src.pipeline_v3 \
           --cov-append \
@@ -276,6 +279,9 @@ jobs:
         uv sync --all-extras --dev
 
     - name: Run quick smoke test
+      env:
+        SKIP_QDRANT_CHECK: "true"
       run: |
         uv run python -m src.pipeline_v3.cli_main --help
-        uv run pytest src/pipeline_v3/tests/unit/test_cli_simple.py -v
+        # Run only tests that don't require Qdrant server
+        uv run pytest src/pipeline_v3/tests/unit/test_cli_simple.py -v -m "not requires_qdrant_server"

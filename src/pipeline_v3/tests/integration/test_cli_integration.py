@@ -25,6 +25,7 @@ from job_queue.manager import DocumentQueue, JobPriority
 from utils.config import PipelineConfig
 
 
+@pytest.mark.requires_qdrant_server
 class TestCLIIntegration:
     """Integration tests for CLI with real components."""
 

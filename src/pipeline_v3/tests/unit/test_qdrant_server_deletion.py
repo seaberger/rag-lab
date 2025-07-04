@@ -14,15 +14,15 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from src.pipeline_v3.core.index_manager import IndexManager, IndexType
-from src.pipeline_v3.utils.config import PipelineConfig
+from core.index_manager import IndexManager, IndexType
+from utils.config import PipelineConfig
 
 
 class TestQdrantServerDeletion:
     """Test Qdrant server mode deletion functionality."""
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_remove_document_server_mode(self, mock_vector_store_class, mock_qdrant_client_class):
         """Test that remove_document uses proper filter deletion in server mode."""
         # Create config with server mode
@@ -58,13 +58,19 @@ class TestQdrantServerDeletion:
         success = manager.remove_document(doc_id, IndexType.VECTOR)
 
         # Verify direct Qdrant client delete was called with proper filter
+        from qdrant_client.models import FilterSelector, Filter, FieldCondition, MatchValue
         mock_client.delete.assert_called_once_with(
             collection_name=config.qdrant.collection_name,
-            points_selector={
-                "filter": {
-                    "must": [{"key": "doc_id", "match": {"value": doc_id}}]
-                }
-            },
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="doc_id",
+                            match=MatchValue(value=doc_id)
+                        )
+                    ]
+                )
+            ),
         )
 
         # Verify LlamaIndex delete was NOT called
@@ -72,8 +78,8 @@ class TestQdrantServerDeletion:
 
         assert success is True
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_remove_document_local_mode(self, mock_vector_store_class, mock_qdrant_client_class):
         """Test that remove_document uses LlamaIndex delete in local mode."""
         # Create config with local mode
@@ -112,8 +118,8 @@ class TestQdrantServerDeletion:
 
         assert success is True
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_remove_document_both_indexes(self, mock_vector_store_class, mock_qdrant_client_class):
         """Test removal from both vector and keyword indexes."""
         # Create config with server mode
@@ -159,13 +165,19 @@ class TestQdrantServerDeletion:
         success = manager.remove_document(doc_id, IndexType.BOTH)
 
         # Verify Qdrant deletion
+        from qdrant_client.models import FilterSelector, Filter, FieldCondition, MatchValue
         mock_client.delete.assert_called_once_with(
             collection_name=config.qdrant.collection_name,
-            points_selector={
-                "filter": {
-                    "must": [{"key": "doc_id", "match": {"value": doc_id}}]
-                }
-            },
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="doc_id",
+                            match=MatchValue(value=doc_id)
+                        )
+                    ]
+                )
+            ),
         )
 
         # Verify keyword index deletion
@@ -177,8 +189,8 @@ class TestQdrantServerDeletion:
 
         assert success is True
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_remove_document_error_handling(self, mock_vector_store_class, mock_qdrant_client_class):
         """Test error handling during document removal."""
         # Create config with server mode
@@ -205,6 +217,7 @@ class TestQdrantServerDeletion:
         # Mock registry entries
         mock_entries = [Mock(index_type=IndexType.VECTOR.value)]
         manager.registry.get_index_entries = Mock(return_value=mock_entries)
+        manager.registry.remove_index_entries = Mock()
 
         # Test document removal with error
         doc_id = "test_doc_error"

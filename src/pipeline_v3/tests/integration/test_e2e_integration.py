@@ -25,14 +25,15 @@ import yaml
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from pipeline_v3.core.index_manager import IndexManager
-from pipeline_v3.core.registry import DocumentRegistry
-from pipeline_v3.job_queue.manager import DocumentQueue
-from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
-from pipeline_v3.utils.config import PipelineConfig
-from pipeline_v3.utils.monitoring import ProgressMonitor
+from core.index_manager import IndexManager
+from core.registry import DocumentRegistry
+from job_queue.manager import DocumentQueue
+from pipeline.enhanced_core import EnhancedPipeline
+from utils.config import PipelineConfig
+from utils.monitoring import ProgressMonitor
 
 
+@pytest.mark.requires_qdrant_server
 class Test_A_E2EIntegration:
     """End-to-end integration tests with real documents.
 
@@ -312,6 +313,7 @@ class Test_A_E2EIntegration:
         assert status["indexes"]["keyword_index"]["entry_count"] >= 0
 
 
+@pytest.mark.requires_qdrant_server
 class Test_B_SmokeIntegration:
     """Quick smoke tests for CI/CD - focused on speed over comprehensiveness."""
 
@@ -394,6 +396,7 @@ class Test_B_SmokeIntegration:
         assert isinstance(queue_status, dict)
 
 
+@pytest.mark.requires_qdrant_server
 class Test_Z_DatabaseIsolation:
     """Test database isolation and environment separation.
 

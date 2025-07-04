@@ -160,7 +160,7 @@ class TestCLI:
         cli._parse_metadata = Mock(return_value={"type": "datasheet"})
 
         # Mock pipeline response
-        cli.pipeline.process_document.return_value = {"status": "success"}
+        cli.pipeline.process_document = AsyncMock(return_value={"status": "success"})
 
         # Test execution
         await cli.handle_add(args)
@@ -188,7 +188,7 @@ class TestCLI:
         args.fusion_method = "rrf"
 
         # Mock search results
-        cli.pipeline.search.return_value = [
+        cli.pipeline.search = AsyncMock(return_value=[
             {
                 "source": "doc1.pdf",
                 "score": 0.95,
@@ -199,7 +199,7 @@ class TestCLI:
                 "score": 0.87,
                 "content": "Advanced laser measurement technologies...",
             },
-        ]
+        ])
 
         # Test execution
         await cli.handle_search(args)
@@ -260,7 +260,7 @@ class TestCLI:
         args.json = False
 
         # Mock component status (some methods might be async)
-        cli.pipeline.get_status = Mock(return_value={"state": "ready"})
+        cli.pipeline.get_status = AsyncMock(return_value={"state": "ready"})
         cli.queue.get_status = Mock(return_value={"state": "running"})
         cli.registry.get_statistics = Mock(return_value={"total_documents": 10})
         cli.index_manager.get_status = Mock(return_value={"healthy_indexes": 2})
@@ -285,7 +285,7 @@ class TestCLI:
         args.cleanup = False
         args.consistency_check = False
 
-        cli.index_manager.repair_indexes.return_value = "repair_completed"
+        cli.index_manager.repair_indexes = AsyncMock(return_value="repair_completed")
 
         await cli.handle_maintenance(args)
         cli.index_manager.repair_indexes.assert_called_once()
@@ -294,7 +294,7 @@ class TestCLI:
         args.repair = False
         args.consistency_check = True
 
-        cli.index_manager.verify_consistency.return_value = "consistency_ok"
+        cli.index_manager.verify_consistency = AsyncMock(return_value="consistency_ok")
 
         await cli.handle_maintenance(args)
         cli.index_manager.verify_consistency.assert_called_once()
@@ -361,7 +361,7 @@ class TestCLI:
 
         # Mock search results
         test_results = [{"source": "test.pdf", "score": 0.9}]
-        cli.pipeline.search.return_value = test_results
+        cli.pipeline.search = AsyncMock(return_value=test_results)
 
         # Capture output (in real implementation, this would print JSON)
         await cli.handle_search(args)

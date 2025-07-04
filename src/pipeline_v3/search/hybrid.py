@@ -78,15 +78,60 @@ class HybridSearch:
                 collection_name=collection_name_to_use, ids=[chunk_id]
             )[0]
 
+            # Extract payload data handling server mode serialization
+            payload_data = self._extract_payload_from_point(point)
+
             results.append(
                 {
                     "chunk_id": chunk_id,
-                    "text": point.payload["text"],
+                    "text": payload_data.get("text", ""),
                     "score": score,
-                    "doc_id": point.payload["doc_id"],
-                    "source": point.payload["source"],
-                    "metadata": point.payload,
+                    "doc_id": payload_data.get("doc_id", "unknown"),
+                    "source": payload_data.get("source", "unknown"),
+                    "metadata": payload_data,
                 }
             )
 
         return results
+
+    def _extract_payload_from_point(self, point) -> dict:
+        """Extract data from Qdrant point, handling server mode serialization.
+
+        In server mode, node data is serialized in _node_content field.
+        This method extracts the actual data regardless of storage format.
+        """
+        try:
+            payload = point.payload
+
+            # Check if this is server mode format with _node_content
+            if "_node_content" in payload and isinstance(payload["_node_content"], str):
+                import json
+
+                node_content = json.loads(payload["_node_content"])
+
+                # Extract commonly needed fields
+                extracted = {
+                    "text": node_content.get("text", ""),
+                    "metadata": node_content.get("metadata", {}),
+                    "doc_id": payload.get("doc_id")
+                    or node_content.get("metadata", {}).get("doc_id", "unknown"),
+                    "source": node_content.get("metadata", {}).get("source", "unknown"),
+                }
+
+                # Merge top-level payload fields (excluding _node_content)
+                for key, value in payload.items():
+                    if key not in ["_node_content", "_node_type"]:
+                        extracted[key] = value
+
+                # Merge metadata fields
+                if "metadata" in extracted:
+                    extracted.update(extracted["metadata"])
+
+                return extracted
+            else:
+                # Direct payload format (local mode or legacy)
+                return dict(payload)
+
+        except Exception:
+            # Return safe defaults on error
+            return {"text": "", "doc_id": "unknown", "source": "unknown", "metadata": {}}

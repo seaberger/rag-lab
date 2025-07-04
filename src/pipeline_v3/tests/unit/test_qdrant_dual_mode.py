@@ -11,7 +11,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from src.pipeline_v3.utils.config import PipelineConfig, QdrantSettings, QdrantLocalSettings, QdrantServerSettings
+from utils.config import PipelineConfig, QdrantSettings, QdrantLocalSettings, QdrantServerSettings
 
 
 class TestQdrantDualModeConfig:
@@ -72,11 +72,11 @@ qdrant:
 class TestIndexManagerDualMode:
     """Test IndexManager with dual-mode support."""
 
-    @patch('qdrant_client.QdrantClient')
-    @patch('llama_index.vector_stores.qdrant.QdrantVectorStore')
-    def test_local_mode_initialization(self, mock_vector_store, mock_qdrant_client):
+    @patch('core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    def test_local_mode_initialization(self, mock_qdrant_client, mock_vector_store):
         """Test IndexManager initializes correctly in local mode."""
-        from src.pipeline_v3.core.index_manager import IndexManager
+        from core.index_manager import IndexManager
 
         config = PipelineConfig()
         config.qdrant.mode = "local"  # Explicitly set to local mode for this test
@@ -92,12 +92,12 @@ class TestIndexManagerDualMode:
         mock_qdrant_client.assert_called_once_with(path=config.qdrant.local.path)
         mock_vector_store.assert_called_once()
 
-    @patch('qdrant_client.QdrantClient')
-    @patch('llama_index.vector_stores.qdrant.QdrantVectorStore')
+    @patch('core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
     @patch.dict('os.environ', {'QDRANT_API_KEY': 'env-test-key'})  # pragma: allowlist secret
-    def test_server_mode_initialization(self, mock_vector_store, mock_qdrant_client):
+    def test_server_mode_initialization(self, mock_qdrant_client, mock_vector_store):
         """Test IndexManager initializes correctly in server mode."""
-        from src.pipeline_v3.core.index_manager import IndexManager
+        from core.index_manager import IndexManager
 
         config = PipelineConfig()
         config.qdrant.mode = "server"
@@ -132,7 +132,7 @@ class TestIndexManagerDualMode:
     @patch('qdrant_client.QdrantClient')
     def test_collection_creation(self, mock_qdrant_client):
         """Test collection creation when it doesn't exist."""
-        from src.pipeline_v3.core.index_manager import IndexManager
+        from core.index_manager import IndexManager
 
         config = PipelineConfig()
         config.qdrant.mode = "server"

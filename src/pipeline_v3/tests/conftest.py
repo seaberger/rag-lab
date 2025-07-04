@@ -17,35 +17,49 @@ import pytest_asyncio
 
 # Import cleanup fixtures
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from pipeline.enhanced_core import EnhancedPipeline
 from qdrant_client import QdrantClient
 from qdrant_client.http import exceptions as qdrant_exceptions
 
-from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
-from pipeline_v3.utils.config import PipelineConfig
+from utils.config import PipelineConfig
 
 # Test environment name
 TEST_ENVIRONMENT = "test_env"
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def ensure_qdrant_server():
-    """Ensure Qdrant server is running for all tests."""
+    """Ensure Qdrant server is running for tests that require it.
+
+    This fixture should be explicitly requested by tests that need Qdrant.
+    Tests that don't need Qdrant won't be affected.
+    """
     try:
         # Try to connect to the Qdrant server
         client = QdrantClient(host="localhost", port=6333, timeout=5)
         client.get_collections()
         client.close()
+        print("✓ Qdrant server is running")
     except (qdrant_exceptions.UnexpectedResponse, ConnectionError, Exception) as e:
-        # In CI/CD, the service should be running
-        # Locally, developers need to start it
+        # In CI/CD, the service should be running for main test job
+        # Compatibility tests will skip these tests with the marker
         if os.getenv("CI"):
             pytest.fail(f"Qdrant server is not running in CI environment: {e}")
         else:
             pytest.skip(
                 f"Qdrant server is not running. Start it with: ./scripts/qdrant_server.sh start\nError: {e}"
             )
+
+
+@pytest.fixture
+def qdrant_required(ensure_qdrant_server):
+    """Fixture to explicitly require Qdrant for a test.
+
+    Use this fixture in tests that need Qdrant connectivity.
+    """
+    return True
 
 
 def create_test_config(

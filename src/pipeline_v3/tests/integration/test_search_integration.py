@@ -27,6 +27,7 @@ from storage.keyword_index import BM25Index as KeywordIndex
 from utils.config import PipelineConfig
 
 
+@pytest.mark.requires_qdrant_server
 class TestSearchIntegration:
     """Integration tests for search functionality."""
 

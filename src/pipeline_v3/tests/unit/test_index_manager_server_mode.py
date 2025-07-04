@@ -14,8 +14,8 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-from src.pipeline_v3.core.index_manager import IndexManager, IndexType
-from src.pipeline_v3.utils.config import PipelineConfig
+from core.index_manager import IndexManager, IndexType
+from utils.config import PipelineConfig
 from llama_index.core.schema import TextNode
 
 
@@ -38,8 +38,8 @@ class TestIndexManagerServerMode:
         config.qdrant.mode = "local"
         return config
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_delete_from_vector_index_server_mode(self, mock_vector_store_class, mock_qdrant_client_class, server_config):
         """Test delete_from_vector_index uses direct client in server mode."""
         # Mock setup
@@ -63,13 +63,19 @@ class TestIndexManagerServerMode:
         result = asyncio.run(manager.delete_from_vector_index(doc_id))
 
         # Verify direct client was used
+        from qdrant_client.models import FilterSelector, Filter, FieldCondition, MatchValue
         mock_client.delete.assert_called_once_with(
             collection_name=server_config.qdrant.collection_name,
-            points_selector={
-                "filter": {
-                    "must": [{"key": "doc_id", "match": {"value": doc_id}}]
-                }
-            },
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="doc_id",
+                            match=MatchValue(value=doc_id)
+                        )
+                    ]
+                )
+            ),
         )
 
         # Verify LlamaIndex delete was NOT called
@@ -77,8 +83,8 @@ class TestIndexManagerServerMode:
 
         assert result is True
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_delete_from_vector_index_local_mode(self, mock_vector_store_class, mock_qdrant_client_class, local_config):
         """Test delete_from_vector_index uses LlamaIndex in local mode."""
         # Mock setup
@@ -105,12 +111,13 @@ class TestIndexManagerServerMode:
 
         assert result is True
 
-    @patch('src.pipeline_v3.core.index_manager.VectorStoreIndex')
-    @patch('src.pipeline_v3.core.index_manager.StorageContext')
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.OpenAIEmbedding')
+    @patch('core.index_manager.VectorStoreIndex')
+    @patch('core.index_manager.StorageContext')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_add_nodes_metadata_handling(self, mock_vector_store_class, mock_qdrant_client_class,
-                                       mock_storage_context, mock_vector_index, server_config):
+                                       mock_storage_context, mock_vector_index, mock_embedding, server_config):
         """Test add_nodes properly handles metadata in server mode."""
         # Mock setup
         mock_client = Mock()
@@ -157,8 +164,8 @@ class TestIndexManagerServerMode:
 
         assert success is True
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_search_vector_result_handling(self, mock_vector_store_class, mock_qdrant_client_class, server_config):
         """Test search_vector handles different result structures."""
         # Mock setup
@@ -216,8 +223,8 @@ class TestIndexManagerServerMode:
 
         assert results == []  # Should return empty list on error
 
-    @patch('src.pipeline_v3.core.index_manager.qdrant_client.QdrantClient')
-    @patch('src.pipeline_v3.core.index_manager.QdrantVectorStore')
+    @patch('core.index_manager.qdrant_client.QdrantClient')
+    @patch('core.index_manager.QdrantVectorStore')
     def test_remove_document_both_modes(self, mock_vector_store_class, mock_qdrant_client_class):
         """Test remove_document works correctly in both server and local modes."""
         # Test data
