@@ -20,6 +20,7 @@ try:
     from llama_index.core.vector_stores import VectorStoreQuery
     from llama_index.embeddings.openai import OpenAIEmbedding
     from llama_index.vector_stores.qdrant import QdrantVectorStore
+    from qdrant_client.models import Distance, VectorParams
 
     LLAMA_INDEX_AVAILABLE = True
 except ImportError:
@@ -68,7 +69,7 @@ class IndexManager:
         logger.info(f"IndexManager initialized with Qdrant: {self.qdrant_path}")
 
     def _init_qdrant(self) -> None:
-        """Initialize Qdrant vector store."""
+        """Initialize Qdrant vector store (supports both local and server modes)."""
         if not LLAMA_INDEX_AVAILABLE:
             logger.warning("LlamaIndex not available - vector operations disabled")
             self.qdrant_client = None
@@ -76,8 +77,36 @@ class IndexManager:
             return
 
         try:
-            # Create Qdrant client
-            self.qdrant_client = qdrant_client.QdrantClient(path=self.qdrant_path)
+            # Create Qdrant client based on mode
+            if self.config.qdrant.mode == "server":
+                # Server mode configuration
+                import os
+
+                logger.info(
+                    f"Initializing Qdrant in server mode: {self.config.qdrant.server.host}:{self.config.qdrant.server.port}"
+                )
+
+                # Get API key from environment if not in config
+                api_key = self.config.qdrant.server.api_key
+                if api_key is None:
+                    api_key = os.getenv("QDRANT_API_KEY")
+
+                self.qdrant_client = qdrant_client.QdrantClient(
+                    host=self.config.qdrant.server.host,
+                    port=self.config.qdrant.server.port,
+                    grpc_port=self.config.qdrant.server.grpc_port,
+                    api_key=api_key,
+                    https=self.config.qdrant.server.https,
+                    timeout=self.config.qdrant.server.timeout,
+                )
+
+                # Ensure collection exists
+                self._ensure_collection_exists()
+
+            else:
+                # Local mode (default)
+                logger.info(f"Initializing Qdrant in local mode: {self.qdrant_path}")
+                self.qdrant_client = qdrant_client.QdrantClient(path=self.qdrant_path)
 
             # Initialize vector store
             self.vector_store = QdrantVectorStore(
@@ -92,6 +121,32 @@ class IndexManager:
             logger.error(f"Failed to initialize Qdrant: {e}")
             self.qdrant_client = None
             self.vector_store = None
+
+    def _ensure_collection_exists(self) -> None:
+        """Ensure the Qdrant collection exists with proper configuration."""
+        try:
+            # Check if collection exists
+            collections = self.qdrant_client.get_collections()
+            collection_names = [col.name for col in collections.collections]
+
+            if self.config.qdrant.collection_name not in collection_names:
+                logger.info(f"Creating Qdrant collection: {self.config.qdrant.collection_name}")
+
+                # Create collection with proper vector configuration
+                self.qdrant_client.create_collection(
+                    collection_name=self.config.qdrant.collection_name,
+                    vectors_config=VectorParams(
+                        size=self.config.openai.dimensions,
+                        distance=Distance.COSINE,
+                    ),
+                )
+                logger.info(f"Created collection: {self.config.qdrant.collection_name}")
+            else:
+                logger.info(f"Collection already exists: {self.config.qdrant.collection_name}")
+
+        except Exception as e:
+            logger.error(f"Error ensuring collection exists: {e}")
+            raise
 
     def _init_keyword_index(self) -> None:
         """Initialize SQLite-based keyword index."""
