@@ -19,11 +19,33 @@ import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from qdrant_client import QdrantClient
+from qdrant_client.http import exceptions as qdrant_exceptions
+
 from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
 from pipeline_v3.utils.config import PipelineConfig
 
 # Test environment name
 TEST_ENVIRONMENT = "test_env"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_qdrant_server():
+    """Ensure Qdrant server is running for all tests."""
+    try:
+        # Try to connect to the Qdrant server
+        client = QdrantClient(host="localhost", port=6333, timeout=5)
+        client.get_collections()
+        client.close()
+    except (qdrant_exceptions.UnexpectedResponse, ConnectionError, Exception) as e:
+        # In CI/CD, the service should be running
+        # Locally, developers need to start it
+        if os.getenv("CI"):
+            pytest.fail(f"Qdrant server is not running in CI environment: {e}")
+        else:
+            pytest.skip(
+                f"Qdrant server is not running. Start it with: ./scripts/qdrant_server.sh start\nError: {e}"
+            )
 
 
 def create_test_config(
@@ -62,14 +84,28 @@ def create_test_config(
     return config
 
 
-def cleanup_qdrant_resources(pipeline_or_index_manager):
+def cleanup_qdrant_resources(pipeline_or_index_manager, config=None):
     """Properly cleanup Qdrant connections and resources."""
     try:
         # Handle both pipeline and index_manager objects
         if hasattr(pipeline_or_index_manager, "index_manager"):
             index_manager = pipeline_or_index_manager.index_manager
+            if not config and hasattr(pipeline_or_index_manager, "config"):
+                config = pipeline_or_index_manager.config
         else:
             index_manager = pipeline_or_index_manager
+
+        # In server mode, delete the test collection
+        if config and config.qdrant.mode == "server" and hasattr(index_manager, "qdrant_client"):
+            try:
+                if index_manager.qdrant_client:
+                    # Delete the test collection if it exists
+                    collections = index_manager.qdrant_client.get_collections().collections
+                    collection_names = [c.name for c in collections]
+                    if config.qdrant.collection_name in collection_names:
+                        index_manager.qdrant_client.delete_collection(config.qdrant.collection_name)
+            except Exception as e:
+                print(f"Warning: Error deleting test collection: {e}")
 
         # Close Qdrant client connection if it exists
         if hasattr(index_manager, "qdrant_client") and index_manager.qdrant_client:
@@ -139,34 +175,6 @@ def clear_test_databases(config: PipelineConfig):
             db_file.unlink()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_qdrant_server():
-    """Ensure Qdrant server is running for all tests."""
-    import time
-
-    import requests
-
-    # Check if Qdrant server is running
-    max_retries = 3
-    for i in range(max_retries):
-        try:
-            response = requests.get("http://localhost:6333/readyz", timeout=2)
-            if response.status_code == 200:
-                print("✓ Qdrant server is running")
-                return
-        except requests.exceptions.RequestException:
-            if i < max_retries - 1:
-                print(f"Qdrant server not responding, retry {i + 1}/{max_retries}...")
-                time.sleep(2)
-
-    # If we get here, server is not running
-    pytest.fail(
-        "Qdrant server is not running!\n"
-        "Please start it with: ./scripts/qdrant_server.sh start\n"
-        "Or run tests with local mode: pytest -k 'not requires_qdrant_server'"
-    )
-
-
 @pytest.fixture(scope="session")
 def test_base_dir():
     """Provide a base directory for all test data."""
@@ -214,7 +222,7 @@ async def test_pipeline(test_config):
     yield pipeline
 
     # Proper cleanup of Qdrant resources
-    cleanup_qdrant_resources(pipeline)
+    cleanup_qdrant_resources(pipeline, test_config)
 
     # Optional: Clear databases if needed for this specific test
     # clear_test_databases(test_config)

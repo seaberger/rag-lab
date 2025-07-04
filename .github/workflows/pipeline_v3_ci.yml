@@ -25,6 +25,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+          - 6334:6334
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -76,34 +88,38 @@ jobs:
           --cov-append \
           --junit-xml=test-results/security-results.xml
 
-    - name: Run integration tests (non-Qdrant)
+    - name: Run integration tests
       run: |
         uv run pytest src/pipeline_v3/tests/integration/ -v \
-          -k "not search and not vector and not e2e" \
           --cov=src.pipeline_v3 \
           --cov-append \
-          --junit-xml=test-results/integration-results.xml
+          --junit-xml=test-results/integration-results.xml \
+          -m "not slow"
 
-    # Skip Qdrant tests in CI until server mode is implemented (Issue #71)
-    # These tests hang in GitHub Actions due to file lock contention
-    # - name: Run search/Qdrant tests
-    #   run: |
-    #     uv run pytest src/pipeline_v3/tests/integration/test_search_integration.py -v \
-    #       --cov=src.pipeline_v3 \
-    #       --cov-append \
-    #       --junit-xml=test-results/search-results.xml
-    #   continue-on-error: true  # Allow failures until Qdrant server mode
+    - name: Run search/Qdrant tests
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/test_search_integration.py -v \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/search-results.xml
 
-    # Skip E2E tests in CI until server mode is implemented (Issue #71)
-    # These tests also use Qdrant and can hang in GitHub Actions
-    # - name: Run E2E tests
-    #   run: |
-    #     uv run pytest src/pipeline_v3/tests/integration/test_e2e_integration.py -v \
-    #       --timeout=600 \
-    #       --cov=src.pipeline_v3 \
-    #       --cov-append \
-    #       --junit-xml=test-results/e2e-results.xml
-    #   continue-on-error: true  # Allow failures until Qdrant server mode
+    - name: Run E2E tests
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/test_e2e_integration.py -v \
+          --timeout=600 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/e2e-results.xml
+
+    - name: Run Qdrant server operation tests
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/test_qdrant_server_operations.py \
+          src/pipeline_v3/tests/integration/test_metadata_preservation.py \
+          src/pipeline_v3/tests/unit/test_index_manager_server_mode.py \
+          -v \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/qdrant-server-results.xml
 
     - name: Run regression tests
       run: |

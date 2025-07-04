@@ -17,14 +17,14 @@ from src.pipeline_v3.utils.config import PipelineConfig, QdrantSettings, QdrantL
 class TestQdrantDualModeConfig:
     """Test Qdrant dual-mode configuration."""
 
-    def test_default_local_mode(self):
-        """Test that default configuration uses local mode."""
+    def test_default_server_mode(self):
+        """Test that default configuration uses server mode."""
         config = PipelineConfig()
 
-        assert config.qdrant.mode == "local"
+        assert config.qdrant.mode == "server"
         assert config.qdrant.local.path == "./qdrant_data_v3"
         assert config.qdrant.collection_name == "datasheets_v3"
-        # Test legacy path property
+        # Test legacy path property (returns local path even in server mode for compatibility)
         assert config.qdrant.path == "./qdrant_data_v3"
 
     def test_server_mode_config(self):
@@ -79,7 +79,7 @@ class TestIndexManagerDualMode:
         from src.pipeline_v3.core.index_manager import IndexManager
 
         config = PipelineConfig()
-        config.qdrant.mode = "local"
+        config.qdrant.mode = "local"  # Explicitly set to local mode for this test
 
         # Mock the client instance
         mock_client_instance = Mock()

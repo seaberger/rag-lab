@@ -46,8 +46,23 @@ class EmbeddingManager:
         Settings.chunk_size = chunk_size
         Settings.chunk_overlap = chunk_overlap
 
-        # Initialize Qdrant
-        self.qdrant_client = QdrantClient(path=self.qdrant_path)
+        # Initialize Qdrant based on mode
+        if config and config.qdrant.mode == "server":
+            import os
+
+            api_key = config.qdrant.server.api_key or os.getenv("QDRANT_API_KEY")
+            self.qdrant_client = QdrantClient(
+                host=config.qdrant.server.host,
+                port=config.qdrant.server.port,
+                grpc_port=config.qdrant.server.grpc_port,
+                api_key=api_key,
+                https=config.qdrant.server.https,
+                timeout=config.qdrant.server.timeout,
+            )
+        else:
+            # Local mode (default for backward compatibility when no config)
+            self.qdrant_client = QdrantClient(path=self.qdrant_path)
+
         self._init_collection()
 
     def _init_collection(self):

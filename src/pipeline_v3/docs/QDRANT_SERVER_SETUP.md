@@ -152,6 +152,54 @@ spec:
           claimName: qdrant-pvc
 ```
 
+## ⚠️ Important: Document Update Behavior
+
+When updating documents in server mode, the system ensures complete chunk removal:
+
+### How It Works
+
+1. **Server Mode** (Default): Uses filter-based deletion to ensure ALL chunks are removed:
+   ```python
+   # Deletes all chunks with matching doc_id
+   client.delete(
+       collection_name=collection_name,
+       points_selector={
+           "filter": {"must": [{"key": "doc_id", "match": {"value": doc_id}}]}
+       }
+   )
+   ```
+
+2. **Local Mode**: Uses LlamaIndex's delete method for file-based storage
+
+### Why This Matters
+
+- When you update a document (e.g., using `--force`), the system:
+  1. Detects the document already exists (via fingerprint hash)
+  2. Removes ALL old chunks from Qdrant
+  3. Adds new chunks from the updated content
+
+- This prevents:
+  - Mixed old/new content in search results
+  - Orphaned chunks taking up space
+  - Inconsistent search behavior
+
+### Example: Updating a Document
+
+```bash
+# Initial processing
+uv run python -m src.pipeline_v3.cli_main add datasheet_v1.pdf
+
+# Document gets updated externally...
+
+# Force reprocess to update all chunks
+uv run python -m src.pipeline_v3.cli_main add datasheet_v1.pdf --force
+
+# The system will:
+# 1. Remove all old chunks
+# 2. Process the new version
+# 3. Add fresh chunks
+```
+
 ## 🎯 Benefits of Server Mode
 
 ### Immediate Benefits

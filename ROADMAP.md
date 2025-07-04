@@ -79,6 +79,10 @@ Improve how documents are parsed and chunked:
   - Test infrastructure updated to use server mode
   - Comprehensive documentation updates
   - Dashboard available at http://localhost:6333/dashboard
+  - Fixed critical chunk deletion issue in server mode:
+    - Server mode now uses filter-based deletion to ensure all chunks are removed
+    - Prevents orphaned chunks when documents are updated with `--force`
+    - Maintains data consistency during document lifecycle operations
 
 ### Quality Assurance & CI/CD (July 2025)
 - **[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions ✅ (July 3)

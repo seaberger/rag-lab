@@ -470,11 +470,26 @@ class IndexManager:
                 try:
                     vector_entries = [e for e in entries if e.index_type == IndexType.VECTOR.value]
                     if vector_entries:
-                        # QdrantVectorStore.delete() expects ref_doc_id (document ID), not node IDs
-                        self.vector_store.delete(doc_id)
-                        logger.info(
-                            f"Removed {len(vector_entries)} vector entries for document {doc_id[:8]}"
-                        )
+                        # In server mode, use direct Qdrant client for proper chunk deletion
+                        if self.config.qdrant.mode == "server" and self.qdrant_client:
+                            # Use filter-based deletion to ensure all chunks are removed
+                            self.qdrant_client.delete(
+                                collection_name=self.config.qdrant.collection_name,
+                                points_selector={
+                                    "filter": {
+                                        "must": [{"key": "doc_id", "match": {"value": doc_id}}]
+                                    }
+                                },
+                            )
+                            logger.info(
+                                f"Removed all chunks for document {doc_id[:8]} using server mode deletion"
+                            )
+                        else:
+                            # For local mode, use LlamaIndex's delete method
+                            self.vector_store.delete(doc_id)
+                            logger.info(
+                                f"Removed {len(vector_entries)} vector entries for document {doc_id[:8]}"
+                            )
 
                 except Exception as e:
                     logger.error(f"Failed to remove from vector index: {e}")
@@ -1243,9 +1258,21 @@ class IndexManager:
                 logger.warning("Vector store not available")
                 return False
 
-            # Use the existing vector store delete method
-            # QdrantVectorStore.delete() expects ref_doc_id (document ID)
-            self.vector_store.delete(doc_id)
+            # In server mode, use direct Qdrant client for proper chunk deletion
+            if self.config.qdrant.mode == "server" and self.qdrant_client:
+                # Use filter-based deletion to ensure all chunks are removed
+                self.qdrant_client.delete(
+                    collection_name=self.config.qdrant.collection_name,
+                    points_selector={
+                        "filter": {"must": [{"key": "doc_id", "match": {"value": doc_id}}]}
+                    },
+                )
+                logger.info(
+                    f"Deleted all chunks for document {doc_id[:8]} using server mode deletion"
+                )
+            else:
+                # For local mode, use LlamaIndex's delete method
+                self.vector_store.delete(doc_id)
 
             logger.info(f"Deleted document {doc_id[:8]} from vector index")
             return True
