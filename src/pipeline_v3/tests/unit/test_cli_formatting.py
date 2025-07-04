@@ -17,11 +17,11 @@ class TestOutputFormatter:
         """Test basic JSON formatting."""
         data = {"key": "value", "number": 42}
         result = OutputFormatter.format_json(data)
-        
+
         # Should be valid JSON
         parsed = json.loads(result)
         assert parsed == data
-        
+
         # Should be indented (default 2 spaces)
         assert "  " in result
 
@@ -29,7 +29,7 @@ class TestOutputFormatter:
         """Test JSON formatting with custom indent."""
         data = {"nested": {"key": "value"}}
         result = OutputFormatter.format_json(data, indent=4)
-        
+
         # Should use 4-space indentation
         lines = result.split('\n')
         assert any(line.startswith('    ') for line in lines)
@@ -39,7 +39,7 @@ class TestOutputFormatter:
         dt = datetime(2023, 1, 1, 12, 0, 0)
         data = {"timestamp": dt, "value": 42}
         result = OutputFormatter.format_json(data)
-        
+
         # Should handle datetime serialization
         parsed = json.loads(result)
         assert "2023-01-01" in parsed["timestamp"]
@@ -56,7 +56,7 @@ class TestOutputFormatter:
             {"name": "Jane", "age": 25, "city": "LA"}
         ]
         result = OutputFormatter.format_table(data)
-        
+
         lines = result.split('\n')
         assert len(lines) == 4  # header, separator, 2 data rows
         assert "name" in lines[0]
@@ -70,7 +70,7 @@ class TestOutputFormatter:
         data = [{"a": 1, "b": 2, "c": 3}]
         headers = ["a", "c"]  # Skip column "b"
         result = OutputFormatter.format_table(data, headers)
-        
+
         assert "a" in result
         assert "c" in result
         assert "b" not in result
@@ -82,7 +82,7 @@ class TestOutputFormatter:
             {"name": "Jane", "city": "LA"}  # Missing age
         ]
         result = OutputFormatter.format_table(data)
-        
+
         # Should handle missing values gracefully
         lines = result.split('\n')
         assert len(lines) == 4
@@ -95,12 +95,12 @@ class TestOutputFormatter:
             {"short": "very long value here", "very_long_column_name": "c"}
         ]
         result = OutputFormatter.format_table(data)
-        
+
         # Should align columns properly
         lines = result.split('\n')
         header_line = lines[0]
         data_line = lines[2]
-        
+
         # Column positions should align
         short_pos = header_line.find("short")
         long_pos = header_line.find("very_long_column_name")
@@ -114,7 +114,7 @@ class TestOutputFormatter:
             "uptime": "24h"
         }
         result = OutputFormatter.format_status(status_data)
-        
+
         assert "System Status:" in result
         assert "version: 1.0.0" in result
         assert "status: running" in result
@@ -132,9 +132,9 @@ class TestOutputFormatter:
             }
         }
         result = OutputFormatter.format_status(status_data)
-        
+
         lines = result.split('\n')
-        
+
         # Should have nested structure
         assert "database:" in result
         assert "  status: connected" in result
@@ -161,7 +161,7 @@ class TestOutputFormatter:
             }
         ]
         result = OutputFormatter.format_search_results(results)
-        
+
         assert "Found 2 results:" in result
         assert "1. document1.pdf (score: 0.950)" in result
         assert "2. document2.pdf (score: 0.870)" in result
@@ -178,7 +178,7 @@ class TestOutputFormatter:
             }
         ]
         result = OutputFormatter.format_search_results(results, detailed=True)
-        
+
         assert "Metadata: {'page': 1, 'section': 'intro'}" in result
         assert "This is some content" in result
 
@@ -192,12 +192,12 @@ class TestOutputFormatter:
                 "content": long_content
             }
         ]
-        
+
         # Test non-detailed (100 char limit)
         result = OutputFormatter.format_search_results(results, detailed=False)
         content_line = [line for line in result.split('\n') if line.strip().startswith('a')]
         assert len(content_line[0].strip()) <= 104  # 100 + "..."
-        
+
         # Test detailed (200 char limit)
         result_detailed = OutputFormatter.format_search_results(results, detailed=True)
         content_lines = [line for line in result_detailed.split('\n') if "Content:" in line]
@@ -213,7 +213,7 @@ class TestOutputFormatter:
         result = OutputFormatter.format_progress_bar(25, 100)
         assert "25%" in result
         assert "(25/100)" in result
-        
+
         # Should have some filled and some unfilled sections
         assert "=" in result
         assert "-" in result
@@ -228,7 +228,7 @@ class TestOutputFormatter:
     def test_format_progress_bar_custom_width(self):
         """Test progress bar with custom width."""
         result = OutputFormatter.format_progress_bar(50, 100, width=20)
-        
+
         # Should use custom width
         bar_section = result[result.find('[') + 1:result.find(']')]
         assert len(bar_section) == 20

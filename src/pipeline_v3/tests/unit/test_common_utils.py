@@ -244,24 +244,24 @@ class TestLoggingSetup:
         """Test setup_logging with explicit parameters."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "test.log"
-            
+
             # Clear existing handlers to avoid conflicts
             root_logger = logging.getLogger()
             for handler in root_logger.handlers[:]:
                 root_logger.removeHandler(handler)
-            
+
             logger = setup_logging(level="DEBUG", log_file=str(log_file))
-            
+
             assert isinstance(logger, logging.Logger)
-            
+
             # Test that logging works - need to get a fresh logger
             test_logger = logging.getLogger("test_logger")
             test_logger.info("Test message")
-            
+
             # Force flush handlers
             for handler in logging.getLogger().handlers:
                 handler.flush()
-            
+
             # File should exist and contain message
             assert log_file.exists()
             log_content = log_file.read_text()
@@ -275,20 +275,20 @@ class TestLoggingSetup:
         mock_config.logging.level = "INFO"
         mock_config.logging.file = "config_test.log"
         mock_config_class.from_yaml.return_value = mock_config
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             # Change to temp directory so log file is created there
             original_cwd = Path.cwd()
             try:
                 os.chdir(temp_dir)
-                
+
                 logger = setup_logging()
-                
+
                 assert isinstance(logger, logging.Logger)
-                
+
                 # Verify config was used
                 mock_config_class.from_yaml.assert_called_once()
-                
+
             finally:
                 os.chdir(original_cwd)
 
@@ -300,15 +300,15 @@ class TestLoggingSetup:
         mock_config.logging.level = "ERROR"  # Config says ERROR
         mock_config.logging.file = "override_test.log"
         mock_config_class.from_yaml.return_value = mock_config
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "override_test.log"
-            
+
             # Override level to DEBUG
             logger = setup_logging(level="DEBUG", log_file=str(log_file))
-            
+
             assert isinstance(logger, logging.Logger)
-            
+
             # Function should work (config call is mocked)
             assert isinstance(logger, logging.Logger)
 
@@ -316,7 +316,7 @@ class TestLoggingSetup:
     def test_init_cli_logging(self, mock_setup_logging):
         """Test init_cli_logging function."""
         init_cli_logging()
-        
+
         # Should call setup_logging with no parameters
         mock_setup_logging.assert_called_once_with()
 
@@ -324,15 +324,15 @@ class TestLoggingSetup:
         """Test that logging setup creates proper handlers."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "handlers_test.log"
-            
+
             logger = setup_logging(level="DEBUG", log_file=str(log_file))
-            
+
             # Get the root logger to check handlers
             root_logger = logging.getLogger()
-            
+
             # Should have at least 2 handlers (console and file)
             assert len(root_logger.handlers) >= 2
-            
+
             # Check handler types
             handler_types = [type(h).__name__ for h in root_logger.handlers]
             assert "StreamHandler" in handler_types
@@ -342,26 +342,26 @@ class TestLoggingSetup:
         """Test that log messages are formatted consistently."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "format_test.log"
-            
+
             # Clear existing handlers
             root_logger = logging.getLogger()
             for handler in root_logger.handlers[:]:
                 root_logger.removeHandler(handler)
-            
+
             logger = setup_logging(level="DEBUG", log_file=str(log_file))
-            
+
             # Log a test message with a fresh logger
             test_message = "Test format consistency"
             test_logger = logging.getLogger("format_test")
             test_logger.info(test_message)
-            
+
             # Force flush
             for handler in logging.getLogger().handlers:
                 handler.flush()
-            
+
             # Read log file content
             log_content = log_file.read_text()
-            
+
             # Should contain timestamp, logger name, level, and message
             assert test_message in log_content
             assert "INFO" in log_content
@@ -378,12 +378,12 @@ class TestIntegrationScenarios:
         parse_error = ParseError("Parse failed")
         network_error = NetworkError("Network failed")
         cli_error = CLIArgumentError("CLI failed")
-        
+
         # All should be instances of PipelineError
         assert isinstance(parse_error, PipelineError)
         assert isinstance(network_error, PipelineError)
         assert isinstance(cli_error, PipelineError)
-        
+
         # Should be distinguishable by specific type
         assert not isinstance(parse_error, NetworkError)
         assert not isinstance(network_error, ParseError)
@@ -393,12 +393,12 @@ class TestIntegrationScenarios:
     async def test_retry_with_mixed_exceptions(self):
         """Test retry decorator handling different exception types."""
         call_count = 0
-        
+
         @retry_api_call(max_attempts=4)
         async def test_func():
             nonlocal call_count
             call_count += 1
-            
+
             if call_count == 1:
                 raise NetworkError("Network timeout")
             elif call_count == 2:
@@ -407,7 +407,7 @@ class TestIntegrationScenarios:
                 raise Exception("Generic error")
             else:
                 return "finally_success"
-        
+
         result = await test_func()
         assert result == "finally_success"
         assert call_count == 4
@@ -416,35 +416,35 @@ class TestIntegrationScenarios:
         """Test complete logging workflow from setup to output."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = Path(temp_dir) / "workflow_test.log"
-            
+
             # Clear existing handlers
             root_logger = logging.getLogger()
             for handler in root_logger.handlers[:]:
                 root_logger.removeHandler(handler)
-            
+
             # Setup logging
             logger = setup_logging(level="DEBUG", log_file=str(log_file))
-            
+
             # Create a fresh test logger
             test_logger = logging.getLogger("workflow_test")
-            
+
             # Log messages at different levels
             test_logger.debug("Debug message")
             test_logger.info("Info message")
             test_logger.warning("Warning message")
             test_logger.error("Error message")
-            
+
             # Force flush all handlers
             for handler in logging.getLogger().handlers:
                 handler.flush()
-            
+
             # Verify all messages are in the file
             log_content = log_file.read_text()
             assert "Debug message" in log_content
             assert "Info message" in log_content
             assert "Warning message" in log_content
             assert "Error message" in log_content
-            
+
             # Verify log levels are included
             assert "DEBUG" in log_content
             assert "INFO" in log_content

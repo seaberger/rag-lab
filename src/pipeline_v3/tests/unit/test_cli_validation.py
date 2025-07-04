@@ -19,7 +19,7 @@ class TestInputValidator:
         """Test file path validation when file exists."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
             file_path = f.name
-        
+
         try:
             result = InputValidator.validate_file_path(file_path)
             assert isinstance(result, Path)
@@ -61,7 +61,7 @@ class TestInputValidator:
         """Test directory path validation when path is not a directory."""
         with tempfile.NamedTemporaryFile(delete=False) as f:
             file_path = f.name
-        
+
         try:
             with pytest.raises(ValidationError, match="Path is not a directory"):
                 InputValidator.validate_directory_path(file_path)
@@ -72,7 +72,7 @@ class TestInputValidator:
         """Test metadata validation with valid input."""
         metadata_list = ["key1=value1", "key2=123", "key3={\"nested\": true}"]
         result = InputValidator.validate_metadata(metadata_list)
-        
+
         expected = {
             "key1": "value1",
             "key2": 123,
