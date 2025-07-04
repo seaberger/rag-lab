@@ -1,5 +1,6 @@
-# Production Pipeline v3 Configuration
-# Extends v2.1 configuration with enterprise production features
+# Local Mode Pipeline v3 Configuration
+# Use this configuration to run Pipeline v3 with local file-based Qdrant storage
+# instead of the default server mode
 
 # Core pipeline settings
 pipeline:
@@ -80,7 +81,7 @@ monitoring:
 # Vector store settings
 qdrant:
   # Mode: "local" for file-based storage, "server" for Qdrant server
-  mode: server  # DEFAULT NOW SERVER - local still supported
+  mode: local  # EXPLICIT LOCAL MODE - use this config for file-based storage
 
   # Local mode settings
   local:

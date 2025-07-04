@@ -1,6 +1,16 @@
 # Qdrant Server Setup Guide
 
-This guide explains how to set up and use Qdrant in server mode for production deployments.
+⚡ **UPDATE**: Server mode is now the DEFAULT for Pipeline v3! This guide explains how to set up and manage the Qdrant server.
+
+## Server Mode is Now Default
+
+As of the latest update, Pipeline v3 uses Qdrant server mode by default instead of local file storage. This provides:
+- Better performance and scalability
+- No file lock conflicts during parallel operations
+- Production-ready architecture from the start
+- Easy transition to cloud deployments
+
+To use the legacy local mode, use: `--config config_local.yaml`
 
 ## 🚀 Quick Start
 
@@ -17,13 +27,16 @@ This will:
 - Wait for server to be ready
 - Display dashboard URL: http://localhost:6333/dashboard
 
-### 2. Configure Pipeline for Server Mode
+### 2. Pipeline Configuration
 
 ```bash
-# Use the server configuration
-export PIPELINE_CONFIG=config_server.yaml
+# Server mode is now the default!
+uv run python -m src.pipeline_v3.cli_main status
 
-# Or specify directly
+# To use local mode instead (file-based storage):
+uv run python -m src.pipeline_v3.cli_main --config config_local.yaml status
+
+# To explicitly use server config (optional, as it's the default):
 uv run python -m src.pipeline_v3.cli_main --config config_server.yaml status
 ```
 

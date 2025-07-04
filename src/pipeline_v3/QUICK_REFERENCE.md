@@ -21,6 +21,23 @@
 - **Issue #11**: Configurable timeout handling with `--timeout` and `--timeout-per-page`
 - **Issue #9**: Consolidated CLI with full v2.1 feature parity
 
+## ⚠️ **CRITICAL: Start Qdrant Server First!** ⚠️
+
+**Pipeline v3 now uses Qdrant server mode by default!** You MUST start the server before processing:
+
+```bash
+# ✅ REQUIRED - Start Qdrant server first
+./scripts/qdrant_server.sh start
+
+# Dashboard available at: http://localhost:6333/dashboard
+```
+
+**For offline/local development only:**
+```bash
+# Use local file storage instead
+python cli_main.py --config config_local.yaml [command]
+```
+
 ## ⚠️ **CRITICAL PRODUCTION WARNING** ⚠️
 
 **Direct CLI commands timeout after 2 minutes!** Since PDF processing takes ~30-45 seconds per page:
@@ -44,19 +61,22 @@ python cli_main.py add "docs/*.pdf"  # Processes reliably
 
 ### Quick Start Flow (<10 lines)
 ```bash
-# Modern document processing with type classification
+# 1. Start Qdrant server (REQUIRED first step!)
+./scripts/qdrant_server.sh start
+
+# 2. Modern document processing with type classification
 python cli_main.py add document.pdf --document-type datasheet --processing-options keywords
 
-# Advanced hybrid search with adaptive fusion
+# 3. Advanced hybrid search with adaptive fusion
 python cli_main.py search "laser sensors" --fusion-method adaptive --top-k 5
 
-# Directory processing with filtering
+# 4. Directory processing with filtering
 python cli_main.py add /docs --recursive --include-pattern "*.pdf" --exclude-pattern "**/test/**"
 
-# URL batch processing
+# 5. URL batch processing
 python cli_main.py add dummy --url-file batch_urls.json --workers 3
 
-# Page-range processing for large documents
+# 6. Page-range processing for large documents
 python cli_main.py add manual.pdf --pages "1-10" --document-type manual
 ```
 
@@ -294,6 +314,11 @@ python cli_main.py config set chunking.chunk_overlap 128
 ## Troubleshooting
 
 ```bash
+# Qdrant server issues
+./scripts/qdrant_server.sh status   # Check if running
+./scripts/qdrant_server.sh logs     # View server logs
+./scripts/qdrant_server.sh restart  # Restart if needed
+
 # Debug issues
 python cli_main.py --verbose status
 python cli_main.py maintenance --repair --cleanup

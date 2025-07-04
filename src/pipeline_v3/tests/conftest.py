@@ -46,7 +46,8 @@ def create_test_config(
     config.storage.document_registry_path = str(env_path / "document_registry.db")
 
     config.cache.directory = str(env_path / "cache")
-    config.qdrant.path = str(env_path / "qdrant_data")
+    # Configure Qdrant for server mode (baseline for all tests)
+    config.qdrant.mode = "server"
     # Create unique collection name per test to avoid conflicts
     config.qdrant.collection_name = f"datasheets_{environment}_{unique_id}"
 
@@ -101,10 +102,30 @@ def clear_test_databases(config: PipelineConfig):
     if cache_dir.exists():
         shutil.rmtree(cache_dir)
 
-    # Remove Qdrant data
-    qdrant_dir = Path(config.qdrant.path)
-    if qdrant_dir.exists():
-        shutil.rmtree(qdrant_dir)
+    # Handle Qdrant cleanup based on mode
+    if config.qdrant.mode == "server":
+        # For server mode, delete the test collection if it exists
+        try:
+            from qdrant_client import QdrantClient
+
+            client = QdrantClient(
+                host=config.qdrant.server.host,
+                port=config.qdrant.server.port,
+                timeout=5,  # Short timeout for cleanup
+            )
+            # Check if collection exists and delete it
+            collections = client.get_collections()
+            collection_names = [col.name for col in collections.collections]
+            if config.qdrant.collection_name in collection_names:
+                client.delete_collection(config.qdrant.collection_name)
+                print(f"Deleted test collection: {config.qdrant.collection_name}")
+        except Exception as e:
+            print(f"Warning: Could not clean up Qdrant collection: {e}")
+    else:
+        # For local mode, remove Qdrant data directory
+        qdrant_dir = Path(config.qdrant.path)
+        if qdrant_dir.exists():
+            shutil.rmtree(qdrant_dir)
 
     # Remove individual database files
     for db_path in [
@@ -116,6 +137,34 @@ def clear_test_databases(config: PipelineConfig):
         db_file = Path(db_path)
         if db_file.exists():
             db_file.unlink()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_qdrant_server():
+    """Ensure Qdrant server is running for all tests."""
+    import time
+
+    import requests
+
+    # Check if Qdrant server is running
+    max_retries = 3
+    for i in range(max_retries):
+        try:
+            response = requests.get("http://localhost:6333/readyz", timeout=2)
+            if response.status_code == 200:
+                print("✓ Qdrant server is running")
+                return
+        except requests.exceptions.RequestException:
+            if i < max_retries - 1:
+                print(f"Qdrant server not responding, retry {i + 1}/{max_retries}...")
+                time.sleep(2)
+
+    # If we get here, server is not running
+    pytest.fail(
+        "Qdrant server is not running!\n"
+        "Please start it with: ./scripts/qdrant_server.sh start\n"
+        "Or run tests with local mode: pytest -k 'not requires_qdrant_server'"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -138,13 +187,18 @@ def test_config(test_base_dir):
     clear_test_databases(config)
 
     # Ensure directories exist
-    for path in [
+    paths_to_create = [
         config.storage.base_dir,
         config.cache.directory,
-        config.qdrant.path,
         Path(config.job_queue.job_storage_path).parent,
         Path(config.fingerprint.storage_path).parent,
-    ]:
+    ]
+
+    # Only create qdrant path for local mode
+    if config.qdrant.mode == "local":
+        paths_to_create.append(config.qdrant.path)
+
+    for path in paths_to_create:
         Path(path).mkdir(parents=True, exist_ok=True)
 
     yield config
@@ -259,6 +313,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "requires_api: marks tests that require API keys")
     config.addinivalue_line("markers", "security: marks security-focused tests")
     config.addinivalue_line("markers", "unit: marks unit tests (fast, isolated)")
+    config.addinivalue_line(
+        "markers", "requires_qdrant_server: marks tests that require Qdrant server"
+    )
 
 
 # Skip tests if no API key

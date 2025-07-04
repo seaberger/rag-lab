@@ -90,7 +90,7 @@ class QdrantServerSettings:
 
 @dataclass
 class QdrantSettings:
-    mode: str = "local"  # "local" or "server"
+    mode: str = "server"  # "local" or "server" - DEFAULT NOW SERVER
     local: QdrantLocalSettings = field(default_factory=QdrantLocalSettings)
     server: QdrantServerSettings = field(default_factory=QdrantServerSettings)
     collection_name: str = "datasheets_v3"

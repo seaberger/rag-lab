@@ -11,6 +11,16 @@ A production-ready document processing pipeline with advanced features including
 
 Pipeline v3 delivers a complete, production-ready document processing system built on the stable v2.1 foundation. It adds enterprise-grade features including intelligent queue management, document lifecycle operations, and comprehensive CLI tools for production deployment.
 
+### 🚨 Important: Qdrant Server Mode is Now Default!
+Pipeline v3 now uses **Qdrant server mode** by default instead of local file storage. This provides:
+- ✅ Better performance and scalability
+- ✅ No file lock conflicts during parallel operations
+- ✅ Production-ready architecture from the start
+- ✅ Easy transition to cloud deployments
+
+**To start Qdrant server**: `./scripts/qdrant_server.sh start`
+**To use legacy local mode**: `--config config_local.yaml`
+
 ### ✨ Key Capabilities
 
 - **🔄 Queue-Based Processing** - Scalable concurrent document processing with job persistence
@@ -94,6 +104,20 @@ Essential commands for daily use:
 - **[Phase 3 Plan](./PHASE3_PLAN.md)** - CLI implementation details
 - **[Architecture](./docs/architecture.md)** - Technical system design
 
+### 🗄️ Vector Storage Options
+
+Pipeline v3 supports two vector storage modes:
+
+1. **Server Mode (Default)** - Production-ready Qdrant server
+   - Requires: `./scripts/qdrant_server.sh start`
+   - Dashboard: http://localhost:6333/dashboard
+   - Best for: Production, parallel processing, multiple clients
+
+2. **Local Mode** - File-based storage for development
+   - Usage: `--config config_local.yaml`
+   - Storage: `./qdrant_data_v3/`
+   - Best for: Offline development, simple testing
+
 ## 📁 Project Structure
 
 ```
@@ -157,10 +181,13 @@ src/pipeline_v3/
 ### Prerequisites
 
 ```bash
-# Ensure you have the required dependencies
+# 1. Start Qdrant server (REQUIRED - now the default)
+./scripts/qdrant_server.sh start
+
+# 2. Ensure you have the required dependencies
 uv sync
 
-# Verify environment variables are set
+# 3. Verify environment variables are set
 cat .env  # Should contain OPENAI_API_KEY, LLAMA_CLOUD_API_KEY, etc.
 ```
 

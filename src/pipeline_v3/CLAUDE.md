@@ -65,12 +65,17 @@ data/lmc_docs/datasheets/
 
 ### Storage Isolation (v3-specific paths)
 - **Cache:** `./cache_v3/` - LZ4 compressed API responses ✅
-- **Vector Store:** `./qdrant_data_v3/` - Qdrant embeddings ✅
+- **Vector Store:** Qdrant server (default) or `./qdrant_data_v3/` (local mode) ✅
 - **Keyword Index:** `./keyword_index_v3.db` - SQLite FTS5 search ✅
 - **Registry:** `./document_registry_v3.db` - Document state tracking ✅
 - **Jobs:** `./jobs_v3.db` - Queue management ✅
 - **Fingerprints:** `./fingerprints_v3.db` - Change detection ✅
 - **Storage Artifacts:** `./storage_data_v3/` - JSONL artifacts ✅
+
+### 🚨 Qdrant Server Mode is Now Default!
+- **Server Mode**: Default configuration uses Qdrant server at localhost:6333
+- **Local Mode**: Use `--config config_local.yaml` for file-based storage
+- **Start Server**: `./scripts/qdrant_server.sh start`
 
 ## Current Status 🎉
 
@@ -198,9 +203,11 @@ uv run python -m src.pipeline_v3.cli_main search "PM10" --type keyword
 
 ## Key Configuration
 
-Configuration via `config.yaml`:
+Configuration via `config.yaml` (server mode default):
 - **OpenAI Models:** gpt-4.1 for vision, gpt-4.1-mini for keywords, text-embedding-3-small for embeddings
-- **Qdrant Settings:** `./qdrant_data_v3`, collection: `datasheets_v3`, dimensions: 1536
+- **Qdrant Settings:**
+  - **Default (Server):** `localhost:6333`, collection: `datasheets_v3`, dimensions: 1536
+  - **Local Mode:** Use `config_local.yaml` for file-based storage at `./qdrant_data_v3`
 - **Storage:** `./storage_data_v3` (JSONL artifacts with full datasheet content)
 - **Cache:** LZ4 compression, configurable TTL
 - **Queue:** Configurable workers, async processing

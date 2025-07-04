@@ -2,9 +2,9 @@
 
 This document provides the current development priorities and active issues for the RAG Lab project. It serves as the single source of truth for development planning.
 
-**Last Updated:** January 4, 2025
-**Active GitHub Issues:** 17 open
-**Critical Architecture Gaps:** 12 (see [ISSUES.md](ISSUES.md))
+**Last Updated:** July 4, 2025
+**Active GitHub Issues:** 16 open
+**Critical Architecture Gaps:** 11 (see [ISSUES.md](ISSUES.md))
 
 ## 🚨 Immediate Priorities (Security & Stability)
 
@@ -15,14 +15,14 @@ Must be addressed before any production deployment:
 
 ### Quality Assurance (HIGH)
 ~~Enable automated quality control:~~
-- ~~**[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions and Security Testing~~ ✅ **COMPLETED**
+- ~~**[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions and Security Testing~~ ✅ **COMPLETED (July 3, 2025)**
 
-### Infrastructure & Scalability (HIGH)
-Critical for production deployment and concurrent usage:
-- **[Issue #71](https://github.com/seaberger/rag-lab/issues/71)**: Implement Qdrant Server Mode for Production Scalability (Phase 2)
-  - Resolves test isolation issues and enables concurrent access
-  - Required for multi-tenant/business group support
-  - Docker-based deployment for production environments
+### ~~Infrastructure & Scalability (HIGH)~~ ✅ **COMPLETED**
+~~Critical for production deployment and concurrent usage:~~
+- ~~**[Issue #71](https://github.com/seaberger/rag-lab/issues/71)**: Implement Qdrant Server Mode for Production Scalability~~ ✅ **COMPLETED (July 4, 2025)**
+  - ~~Resolves test isolation issues and enables concurrent access~~
+  - ~~Required for multi-tenant/business group support~~
+  - ~~Docker-based deployment for production environments~~
 
 ## 🔍 Core Feature Improvements
 
@@ -66,18 +66,27 @@ Improve how documents are parsed and chunked:
 ### Observability (LOW)
 - **[Issue #66](https://github.com/seaberger/rag-lab/issues/66)**: Implement Structured JSON Logging with Operation Tracking
 
-### Performance (LOW)
-- **[Issue #5](https://github.com/seaberger/rag-lab/issues/5)**: ~~Upgrade to Qdrant server~~ (Superseded by Issue #71)
+### ~~Performance (LOW)~~ ✅ **COMPLETED**
+- ~~**[Issue #5](https://github.com/seaberger/rag-lab/issues/5)**: Upgrade to Qdrant server~~ ✅ **COMPLETED via Issue #71**
 
 ## ✅ Recently Completed (Last 30 Days)
 
-### Quality Assurance & CI/CD (January 2025)
-- **[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions ✅
+### Infrastructure & Scalability (July 2025)
+- **[Issue #71](https://github.com/seaberger/rag-lab/issues/71)**: Implement Qdrant Server Mode for Production Scalability ✅ (July 4)
+  - Server mode is now the DEFAULT configuration
+  - Docker-based Qdrant server with management scripts
+  - Dual-mode support (server for production, local for development)
+  - Test infrastructure updated to use server mode
+  - Comprehensive documentation updates
+  - Dashboard available at http://localhost:6333/dashboard
+
+### Quality Assurance & CI/CD (July 2025)
+- **[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions ✅ (July 3)
   - Comprehensive Pipeline v3 CI with full test coverage
   - Quick CI for fast PR feedback (~3 minutes)
   - Pre-commit hooks for code quality
   - Test isolation and resource cleanup
-- **[Issue #72](https://github.com/seaberger/rag-lab/issues/72)**: Fix failing quick CI/CD workflow ✅
+- **[Issue #72](https://github.com/seaberger/rag-lab/issues/72)**: Fix failing quick CI/CD workflow ✅ (July 3)
 
 ### Infrastructure & Reliability (December 2024)
 - **[Issue #27](https://github.com/seaberger/rag-lab/issues/27)**: Cross-System Consistency Guarantees ✅
@@ -106,13 +115,15 @@ Improve how documents are parsed and chunked:
 - **CI/CD pipeline** with dual workflows (quick + comprehensive)
 - **Pre-commit hooks** for code quality
 - **Test coverage** tracking (currently 12%, targeting 70%)
+- **Qdrant server mode** as default for production scalability
+- **Docker-based deployment** for vector database
 
 ### What Needs Work 🔧
 - **Security vulnerabilities** (SQL injection, path traversal, SSRF)
-- **Qdrant local mode limitations** preventing concurrent access
 - **Search filtering** could be more powerful
 - **Chunking strategies** are basic
 - **Type checking** (247 mypy errors need cleanup)
+- **Test coverage** needs improvement (12% → 70% target)
 
 ### What's Nice to Have 💭
 - Multi-tenant support
@@ -125,10 +136,10 @@ Improve how documents are parsed and chunked:
 For developers looking to contribute:
 
 1. **Security First**: Review and help fix security vulnerabilities (#61, #62)
-2. **Infrastructure**: Help implement Qdrant server mode (#71)
-3. **Improve Search**: Work on metadata filtering improvements (#53, #54)
-4. **Add Tests**: Increase test coverage from 12% to 70%
-5. **Type Safety**: Help fix mypy errors (247 issues)
+2. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
+3. **Add Tests**: Increase test coverage from 12% to 70%
+4. **Type Safety**: Help fix mypy errors (247 issues)
+5. **Document Processing**: Improve chunking strategies (#14, #15)
 6. Check [CLAUDE.md](CLAUDE.md) for project setup
 7. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
 
