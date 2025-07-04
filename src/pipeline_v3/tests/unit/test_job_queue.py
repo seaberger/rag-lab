@@ -12,8 +12,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from job_queue.job import JobManager, JobType
+from job_queue.job import JobManager
 from job_queue.job import JobStatus as JobStatusPersistent
+from job_queue.job import JobType
 from job_queue.manager import DocumentQueue, JobPriority, JobStatus, QueueJob
 
 from utils.config import PipelineConfig

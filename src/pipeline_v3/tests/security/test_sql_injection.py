@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.registry import DocumentRegistry
 from storage.keyword_index import BM25Index as KeywordIndex
+
 from utils.config import PipelineConfig
 
 

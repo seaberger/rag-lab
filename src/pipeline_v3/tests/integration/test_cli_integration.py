@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from cli.management import PipelineCLI
 from core.registry import DocumentRegistry
 from job_queue.manager import DocumentQueue, JobPriority
+
 from utils.config import PipelineConfig
 
 
@@ -45,10 +46,10 @@ class TestCLIIntegration:
             cli.config = test_config
 
             # Initialize real components (not mocks)
-            from pipeline.enhanced_core import EnhancedPipeline
-            from core.registry import DocumentRegistry
             from core.index_manager import IndexManager
+            from core.registry import DocumentRegistry
             from job_queue.manager import DocumentQueue
+            from pipeline.enhanced_core import EnhancedPipeline
 
             cli.pipeline = EnhancedPipeline(config=test_config)
             cli.registry = DocumentRegistry(config=test_config)

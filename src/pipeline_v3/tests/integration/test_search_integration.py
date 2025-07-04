@@ -19,8 +19,8 @@ import pytest_asyncio
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from search.hybrid import HybridSearch
 from core.index_manager import IndexManager
+from search.hybrid import HybridSearch
 from storage.keyword_index import BM25Index as KeywordIndex
 
 # Vector storage is handled by Qdrant directly through IndexManager
@@ -302,7 +302,7 @@ class TestSearchIntegration:
         query_embedding = await mock_embeddings.get_embeddings("measurement device")
 
         # Filter by category using Qdrant's Filter
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
 
         category_filter = Filter(
             must=[FieldCondition(key="category", match=MatchValue(value="sensors"))]

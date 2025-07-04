@@ -6,7 +6,6 @@ Tests the DocumentQueue, FingerprintManager, and JobManager components.
 """
 
 import asyncio
-
 # Add current directory to path for imports
 import sys
 import tempfile

@@ -27,7 +27,8 @@ except ImportError:
         pass
 
 from core.database_base import DatabaseBase
-from core.migrations import Migration, MigrationManager, load_migrations_from_sql_files
+from core.migrations import (Migration, MigrationManager,
+                             load_migrations_from_sql_files)
 
 
 def test_migration_manager_basic():

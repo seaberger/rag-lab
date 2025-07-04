@@ -17,12 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     from core.pipeline import ingest_sources
 
-    from utils.common_utils import (
-        CLIArgumentError,
-        ConfigLoadError,
-        DependencyError,
-        logger,
-    )
+    from utils.common_utils import (CLIArgumentError, ConfigLoadError,
+                                    DependencyError, logger)
     from utils.config import PipelineConfig
     from utils.env_utils import setup_environment
 except ImportError as e:

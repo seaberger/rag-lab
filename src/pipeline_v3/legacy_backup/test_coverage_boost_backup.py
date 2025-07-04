@@ -18,14 +18,14 @@ import pytest
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from utils.chunking_metadata import KeywordGenerator
+from utils.cleanup import cleanup_temp_resources, get_resource_manager
+from utils.common_utils import init_cli_logging, logger
 # Import key modules that need coverage
 from utils.config import PipelineConfig
-from utils.common_utils import init_cli_logging, logger
 from utils.env_utils import setup_environment
 from utils.monitoring import ProgressMonitor
 from utils.validation import DocumentValidator, ValidationError
-from utils.chunking_metadata import KeywordGenerator
-from utils.cleanup import cleanup_temp_resources, get_resource_manager
 
 
 class TestCoverageBoost:
@@ -247,11 +247,8 @@ class TestCoverageBoost:
 
     def test_url_utils_coverage(self, temp_dir):
         """Test URL utilities."""
-        from utils.url_utils import (
-            extract_urls_from_file,
-            validate_url_list,
-            create_url_batch_file,
-        )
+        from utils.url_utils import (create_url_batch_file,
+                                     extract_urls_from_file, validate_url_list)
 
         # Test URL validation
         valid_urls = ["https://example.com/doc.pdf", "http://test.com/file.pdf"]
@@ -313,11 +310,9 @@ class TestCoverageBoost:
     @pytest.mark.asyncio
     async def test_openai_client_coverage(self):
         """Test OpenAI client utilities."""
-        from utils.openai_client import (
-            OpenAIClientFactory,
-            create_vision_client,
-            create_text_client,
-        )
+        from utils.openai_client import (OpenAIClientFactory,
+                                         create_text_client,
+                                         create_vision_client)
 
         # Test factory with mocked OpenAI
         with patch("openai.OpenAI") as mock_openai_class:

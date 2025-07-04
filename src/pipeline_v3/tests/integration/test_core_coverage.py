@@ -18,19 +18,21 @@ import pytest
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from core.fingerprint import FingerprintManager
+from core.migrations import (Migration, MigrationManager,
+                             load_migrations_from_sql_files)
+from core.registry import DocumentRegistry, DocumentState
+from job_queue.job import JobManager, JobStatus, JobType
+from job_queue.manager import DocumentQueue, JobPriority
+from storage.cache import CacheManager
+
+from utils.cleanup import cleanup_temp_resources, get_resource_manager
+from utils.common_utils import init_cli_logging, logger
 # Test core imports and boost their coverage
 from utils.config import PipelineConfig
-from utils.common_utils import init_cli_logging, logger
 from utils.env_utils import setup_environment
 from utils.monitoring import ProgressMonitor
 from utils.validation import DocumentValidator, ValidationError
-from utils.cleanup import cleanup_temp_resources, get_resource_manager
-from core.registry import DocumentRegistry, DocumentState
-from core.fingerprint import FingerprintManager
-from storage.cache import CacheManager
-from job_queue.manager import DocumentQueue, JobPriority
-from job_queue.job import JobManager, JobType, JobStatus
-from core.migrations import Migration, MigrationManager, load_migrations_from_sql_files
 
 
 class TestCoreCoverage:

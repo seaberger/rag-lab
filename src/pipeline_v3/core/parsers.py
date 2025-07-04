@@ -13,11 +13,7 @@ try:
     from utils.config import PipelineConfig
     from utils.enhanced_retry import enhanced_retry_api_call
     from utils.openai_client import create_vision_client
-    from utils.page_range import (
-        PageProgressMonitor,
-        PageRangeParser,
-        get_page_count_from_pdf,
-    )
+    from utils.page_range import PageProgressMonitor, PageRangeParser, get_page_count_from_pdf
 except ImportError:
     # Fallback for when running from different directory
     import sys
@@ -29,11 +25,7 @@ except ImportError:
     from utils.config import PipelineConfig
     from utils.enhanced_retry import enhanced_retry_api_call
     from utils.openai_client import create_vision_client
-    from utils.page_range import (
-        PageProgressMonitor,
-        PageRangeParser,
-        get_page_count_from_pdf,
-    )
+    from utils.page_range import PageProgressMonitor, PageRangeParser, get_page_count_from_pdf
 
 
 def _find_poppler() -> str | None:

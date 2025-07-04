@@ -26,7 +26,8 @@ except ImportError:
     except ImportError:
         pass
 
-from core.migrations import Migration, MigrationManager, load_migrations_from_sql_files
+from core.migrations import (Migration, MigrationManager,
+                             load_migrations_from_sql_files)
 
 
 def test_real_migration_files():

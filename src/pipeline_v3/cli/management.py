@@ -29,12 +29,7 @@ from pathlib import Path
 from typing import Any
 
 # Import custom exceptions and logger
-from utils.common_utils import (
-    CLIArgumentError,
-    ConfigLoadError,
-    DependencyError,
-    logger,
-)
+from utils.common_utils import CLIArgumentError, ConfigLoadError, DependencyError, logger
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -57,11 +52,7 @@ try:
     from utils.config import PipelineConfig
     from utils.env_utils import setup_environment
     from utils.monitoring import ProgressMonitor
-    from utils.url_utils import (
-        create_url_batch_file,
-        extract_urls_from_file,
-        validate_url_list,
-    )
+    from utils.url_utils import create_url_batch_file, extract_urls_from_file, validate_url_list
 
     CORE_AVAILABLE = True
 except ImportError as e:

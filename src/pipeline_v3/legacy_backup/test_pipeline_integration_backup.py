@@ -18,15 +18,16 @@ import pytest
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from pipeline.enhanced_core import EnhancedPipeline
-from core.registry import DocumentRegistry
-from core.index_manager import IndexManager
-from storage.keyword_index import BM25Index
 from core.fingerprint import FingerprintManager
-from job_queue.manager import DocumentQueue
+from core.index_manager import IndexManager
+from core.registry import DocumentRegistry
 from job_queue.job import JobManager
-from utils.config import PipelineConfig
+from job_queue.manager import DocumentQueue
+from pipeline.enhanced_core import EnhancedPipeline
 from storage.cache import CacheManager
+from storage.keyword_index import BM25Index
+
+from utils.config import PipelineConfig
 
 # Vector storage is handled by Qdrant directly through IndexManager
 

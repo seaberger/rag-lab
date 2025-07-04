@@ -6,7 +6,6 @@ Tests the DocumentRegistry, IndexManager, ChangeDetector, and EnhancedPipeline c
 """
 
 import asyncio
-
 # Add current directory to path for imports
 import sys
 import tempfile

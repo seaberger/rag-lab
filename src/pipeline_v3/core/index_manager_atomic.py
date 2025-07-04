@@ -23,11 +23,7 @@ from .storage_adapters import (
     RegistryAdapter,
     StorageArtifactsAdapter,
 )
-from .transaction_coordinator import (
-    OperationType,
-    TransactionCoordinator,
-    TransactionOperation,
-)
+from .transaction_coordinator import OperationType, TransactionCoordinator, TransactionOperation
 
 
 class AtomicIndexManager(IndexManager):

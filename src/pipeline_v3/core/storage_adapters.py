@@ -21,12 +21,7 @@ from qdrant_client.models import PointStruct
 from ..core.fingerprint import FingerprintManager
 from ..core.registry import DocumentRegistry, DocumentState
 from ..storage.keyword_index import BM25Index
-from .transaction_coordinator import (
-    Checkpoint,
-    OperationType,
-    StorageSystem,
-    TransactionOperation,
-)
+from .transaction_coordinator import Checkpoint, OperationType, StorageSystem, TransactionOperation
 
 
 class RegistryAdapter(StorageSystem):

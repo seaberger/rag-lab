@@ -17,7 +17,8 @@ def test_imports():
     print("🧪 Testing imports...")
 
     try:
-        from utils.config import PipelineConfig as _PipelineConfig  # noqa: F401
+        from utils.config import \
+            PipelineConfig as _PipelineConfig  # noqa: F401
 
         print("✅ PipelineConfig import successful")
     except ImportError as e:
@@ -41,7 +42,8 @@ def test_imports():
         return False
 
     try:
-        from core.parsers import DocumentClassifier as _DocumentClassifier  # noqa: F401
+        from core.parsers import \
+            DocumentClassifier as _DocumentClassifier  # noqa: F401
 
         print("✅ DocumentClassifier import successful")
     except ImportError as e:

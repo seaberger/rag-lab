@@ -403,7 +403,7 @@ class Test_Z_DatabaseIsolation:
     @pytest.mark.asyncio
     async def test_environment_isolation(self, test_base_dir):
         """Test that different environments have isolated databases."""
-        from ..conftest import create_test_config, clear_test_databases
+        from ..conftest import clear_test_databases, create_test_config
 
         # Create two different environments
         config1 = create_test_config(test_base_dir, "env1")

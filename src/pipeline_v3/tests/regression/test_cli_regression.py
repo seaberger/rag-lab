@@ -32,12 +32,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from cli.management import PipelineCLI
 
-from utils.common_utils import (
-    CLIArgumentError,
-    ConfigLoadError,
-    DependencyError,
-    init_cli_logging,
-)
+from utils.common_utils import (CLIArgumentError, ConfigLoadError,
+                                DependencyError, init_cli_logging)
 
 
 class TestCLIBackwardCompatibility:
