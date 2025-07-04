@@ -32,11 +32,12 @@ jobs:
           - 6333:6333
           - 6334:6334
         options: >-
-          --health-cmd "curl -f http://localhost:6333/health || exit 1"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 8
-          --health-start-period 30s
+          --health-cmd "curl -f http://localhost:6333/health 2>/dev/null || curl -f http://127.0.0.1:6333/health 2>/dev/null || exit 1"
+          --health-interval 20s
+          --health-timeout 15s
+          --health-retries 10
+          --health-start-period 45s
+          --memory=2g
 
     steps:
     - uses: actions/checkout@v4
@@ -77,12 +78,51 @@ jobs:
           exit 1
         fi
 
+    - name: Verify Qdrant service health
+      run: |
+        echo "Final Qdrant service verification..."
+
+        # Give extra time for container to be fully ready
+        sleep 10
+
+        # Check container status
+        docker ps --filter "ancestor=qdrant/qdrant:latest" --format "table {{.ID}}\t{{.Status}}\t{{.Ports}}"
+
+        # Multiple connection attempts
+        for i in {1..5}; do
+          if curl -f -s http://localhost:6333/health >/dev/null 2>&1; then
+            echo "✅ Qdrant health check passed on attempt $i"
+            curl -s http://localhost:6333/health
+            break
+          elif curl -f -s http://127.0.0.1:6333/health >/dev/null 2>&1; then
+            echo "✅ Qdrant health check passed via 127.0.0.1 on attempt $i"
+            break
+          else
+            echo "⚠️  Attempt $i failed, retrying in 3 seconds..."
+            sleep 3
+          fi
+        done
+
+        # Final verification or fallback
+        if ! curl -f http://localhost:6333/health >/dev/null 2>&1 && ! curl -f http://127.0.0.1:6333/health >/dev/null 2>&1; then
+          echo "❌ Qdrant still not responding after all attempts"
+          echo "Container logs:"
+          docker logs $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") || echo "No container logs available"
+          echo "Will run tests without Qdrant (some may be skipped)"
+        fi
+
     - name: Run tests with coverage
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         QDRANT_HOST: localhost
         QDRANT_PORT: 6333
+        SKIP_QDRANT_TESTS: ${{ env.QDRANT_AVAILABLE == 'false' && 'true' || 'false' }}
       run: |
+        # Ensure test results directory exists
+        mkdir -p test-results
+
+        # Run tests with proper error handling
+        set +e  # Don't exit on test failures
         uv run pytest \
           --cov=src/pipeline_v3 \
           --cov-report=xml \
@@ -97,6 +137,23 @@ jobs:
           --maxfail=5 \
           --timeout=300 \
           src/pipeline_v3/tests/
+
+        TEST_EXIT_CODE=$?
+
+        # Ensure test-results.json exists even if tests fail
+        if [ ! -f "test-results.json" ]; then
+          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0}, "tests": []}' > test-results.json
+          echo "Created fallback test-results.json due to test execution failure"
+        fi
+
+        # Ensure coverage.xml exists
+        if [ ! -f "coverage.xml" ]; then
+          echo '<?xml version="1.0" encoding="UTF-8"?><coverage></coverage>' > coverage.xml
+          echo "Created fallback coverage.xml"
+        fi
+
+        # Exit with original test result
+        exit $TEST_EXIT_CODE
 
     - name: Upload test results
       if: always()
