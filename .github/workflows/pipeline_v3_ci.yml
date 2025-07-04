@@ -19,6 +19,8 @@ on:
 env:
   PYTHON_VERSION: '3.12'
   UV_VERSION: '0.5.13'
+  QDRANT_HOST: 'localhost'
+  QDRANT_PORT: '6333'
 
 jobs:
   test:
@@ -32,10 +34,11 @@ jobs:
           - 6333:6333
           - 6334:6334
         options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd "curl -f http://localhost:6333/health || exit 1"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 8
+          --health-start-period 30s
 
     steps:
     - uses: actions/checkout@v4
@@ -67,10 +70,49 @@ jobs:
         uv sync --all-extras --dev
         uv pip install pytest-timeout pytest-xdist
 
+    - name: Wait for Qdrant service
+      run: |
+        echo "Waiting for Qdrant service to be ready..."
+        for i in {1..30}; do
+          if curl -f http://localhost:6333/health >/dev/null 2>&1; then
+            echo "Qdrant is ready!"
+            curl -s http://localhost:6333/health | jq .
+            break
+          fi
+          echo "Attempt $i: Qdrant not ready yet, waiting 5 seconds..."
+          sleep 5
+        done
+
+        # Final verification
+        if ! curl -f http://localhost:6333/health >/dev/null 2>&1; then
+          echo "ERROR: Qdrant health check failed after 150 seconds"
+          docker logs $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") || true
+          exit 1
+        fi
+
     - name: Create test environment
       run: |
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+        echo "QDRANT_HOST=localhost" >> .env
+        echo "QDRANT_PORT=6333" >> .env
         mkdir -p test_data
+        mkdir -p test-results
+
+    - name: Verify test environment
+      run: |
+        echo "=== Environment Verification ==="
+        echo "OPENAI_API_KEY: $(if [ -n "$OPENAI_API_KEY" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)"
+        echo "Qdrant Health: $(curl -s http://localhost:6333/health | jq -r '.status // "Error"' || echo "Connection failed")"
+        echo "Python: $(python --version)"
+        echo "UV: $(uv --version)"
+        echo "Working Directory: $(pwd)"
+        echo "Test Data Directory: $(ls -la test_data/ || echo 'Not created yet')"
+
+        # Test basic imports
+        uv run python -c "from src.pipeline_v3.core.registry import DocumentRegistry; print('✓ Core imports work')"
+        uv run python -c "from src.pipeline_v3.storage.vector_store import QdrantStore; print('✓ Vector store imports work')"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run unit tests
       run: |
@@ -81,6 +123,8 @@ jobs:
           --cov-report=html \
           --cov-report=term-missing \
           --junit-xml=test-results/unit-results.xml
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run security tests
       run: |
@@ -88,6 +132,8 @@ jobs:
           --cov=src.pipeline_v3 \
           --cov-append \
           --junit-xml=test-results/security-results.xml
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run smoke integration tests
       run: |
@@ -97,6 +143,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/smoke-integration-results.xml \
           -m "smoke"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run lightweight integration tests
       run: |
@@ -106,6 +154,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/lightweight-integration-results.xml \
           -m "integration and not heavy and not e2e"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run server-specific tests
       run: |
@@ -115,6 +165,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/server-results.xml \
           -m "server"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run E2E tests (critical path)
       run: |
@@ -124,6 +176,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/e2e-results.xml \
           -m "e2e"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run heavy resource tests (optional)
       run: |
@@ -134,6 +188,8 @@ jobs:
           --junit-xml=test-results/heavy-results.xml \
           -m "heavy"
       continue-on-error: true  # Allow failures for heavy tests
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run regression tests
       run: |
@@ -142,6 +198,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/regression-results.xml
       continue-on-error: true  # Allow some failures
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Generate coverage report
       run: |
@@ -173,6 +231,28 @@ jobs:
         path: |
           coverage.xml
           htmlcov/
+
+    - name: Collect diagnostic information
+      if: failure()
+      run: |
+        echo "=== Diagnostic Information ==="
+        echo "Qdrant container status:"
+        docker ps -a --filter "ancestor=qdrant/qdrant:latest" || echo "No Qdrant container found"
+
+        echo "Qdrant container logs:"
+        docker logs $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") || echo "No Qdrant logs available"
+
+        echo "Qdrant health endpoint:"
+        curl -v http://localhost:6333/health || echo "Health check failed"
+
+        echo "Environment variables:"
+        env | grep -E "(OPENAI|QDRANT|PYTHON|UV)" || echo "No relevant env vars found"
+
+        echo "Test results directory:"
+        ls -la test-results/ || echo "No test results directory"
+
+        echo "Recent test output:"
+        find test-results/ -name "*.xml" -exec echo "=== {} ===" \; -exec tail -20 {} \; 2>/dev/null || echo "No XML files found"
 
     - name: Check test summary
       if: always()
@@ -292,6 +372,7 @@ jobs:
     - name: Run quick smoke test
       env:
         SKIP_QDRANT_CHECK: "true"
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
         uv run python -m src.pipeline_v3.cli_main --help
         # Run utility tests (fast, no external dependencies)

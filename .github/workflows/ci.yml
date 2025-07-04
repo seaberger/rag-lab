@@ -9,8 +9,10 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
-  UV_VERSION: "0.4.18"
+  UV_VERSION: "0.5.13"
   MIN_COVERAGE: 10
+  QDRANT_HOST: "localhost"
+  QDRANT_PORT: "6333"
 
 permissions:
   contents: read
@@ -30,10 +32,11 @@ jobs:
           - 6333:6333
           - 6334:6334
         options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd "curl -f http://localhost:6333/health || exit 1"
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 8
+          --health-start-period 30s
 
     steps:
     - uses: actions/checkout@v4
@@ -54,9 +57,31 @@ jobs:
         uv sync --all-extras --dev
         uv pip install pytest-cov pytest-html pytest-json-report pytest-asyncio pytest-timeout
 
+    - name: Wait for Qdrant service
+      run: |
+        echo "Waiting for Qdrant service to be ready..."
+        for i in {1..30}; do
+          if curl -f http://localhost:6333/health >/dev/null 2>&1; then
+            echo "Qdrant is ready!"
+            curl -s http://localhost:6333/health | jq . || curl -s http://localhost:6333/health
+            break
+          fi
+          echo "Attempt $i: Qdrant not ready yet, waiting 5 seconds..."
+          sleep 5
+        done
+
+        # Final verification
+        if ! curl -f http://localhost:6333/health >/dev/null 2>&1; then
+          echo "ERROR: Qdrant health check failed after 150 seconds"
+          docker logs $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") || true
+          exit 1
+        fi
+
     - name: Run tests with coverage
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        QDRANT_HOST: localhost
+        QDRANT_PORT: 6333
       run: |
         uv run pytest \
           --cov=src/pipeline_v3 \
