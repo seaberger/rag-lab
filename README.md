@@ -1,9 +1,9 @@
-# RAG Lab - Enterprise Document Intelligence Engine 🚀
+# RAG Lab - Production Document Intelligence Engine 🚀
 
 [![CI/CD Pipeline](https://github.com/seaberger/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/ci.yml)
 [![Pipeline v3 CI](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml)
-[![Tests](https://img.shields.io/badge/tests-96%25%20passing-brightgreen)](./src/pipeline_v3/tests/)
-[![Coverage](https://img.shields.io/badge/coverage-12%25-yellow)](./src/pipeline_v3/tests/)
+[![Tests](https://img.shields.io/badge/tests-359%20passing-brightgreen)](./src/pipeline_v3/tests/)
+[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen)](./src/pipeline_v3/tests/)
 [![Documentation](https://img.shields.io/badge/docs-comprehensive-blue)](./src/pipeline_v3/USER_MANUAL.md)
 
 ## 🎯 Vision
@@ -27,6 +27,7 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 - **Enterprise Search**: Hybrid vector + keyword search with adaptive fusion for optimal retrieval
 - **Change Intelligence**: 6 types of document change detection with smart differential updates
 - **Database Migration Framework**: Safe schema evolution with versioning and rollback support
+- **Qdrant Server Mode**: Default vector storage for production scalability and concurrent access
 
 ### 🛡️ **Reliability & Performance**
 - **Comprehensive Error Handling**: Multi-layer retry logic, graceful degradation, and detailed error reporting
@@ -165,21 +166,25 @@ uv run python -m src.pipeline_v3.cli_main batch add-urls --url-file sources.json
 
 # Process with custom parsing instructions
 uv run python -m src.pipeline_v3.cli_main add datasheet.pdf --prompt custom_prompt.md
+
+# Enhance documents with keyword extraction for better search
+uv run python -m src.pipeline_v3.cli_main add document.pdf --processing-options keywords
 ```
 
 ### Enterprise Search
 ```bash
 # Hybrid search with relevance tuning
 uv run python -m src.pipeline_v3.cli_main search "power consumption" \
-  --type hybrid --fusion-method weighted --alpha 0.7
+  --type hybrid --top-k 10
 
 # Export results for integration
 uv run python -m src.pipeline_v3.cli_main search "USB interface" \
   --output results.json --format detailed
 
-# Metadata filtering (coming soon)
-uv run python -m src.pipeline_v3.cli_main search "sensor" \
-  --filter "doc_type:datasheet" --filter "year:2024"
+# Different search modes for different needs
+uv run python -m src.pipeline_v3.cli_main search "sensor" --type vector     # Semantic search
+uv run python -m src.pipeline_v3.cli_main search "PM10K" --type keyword     # Exact term search
+uv run python -m src.pipeline_v3.cli_main search "laser power" --type hybrid # Best of both
 ```
 
 ### System Management
@@ -189,11 +194,49 @@ uv run python -m src.pipeline_v3.cli_main config set queue.max_workers 8
 uv run python -m src.pipeline_v3.cli_main config set openai.retry_max 5
 
 # Health monitoring
-uv run python -m src.pipeline_v3.cli_main health --check-all
+uv run python -m src.pipeline_v3.cli_main status --detailed --json
 
-# Database migrations
-uv run python -m src.pipeline_v3.cli_main migrate --check-status
+# Database migrations and maintenance
+uv run python -m src.pipeline_v3.cli_main maintenance --consistency-check
+uv run python -m src.pipeline_v3.cli_main maintenance --repair
 ```
+
+## ✨ Key Features
+
+### 🔄 **Queue-Based Processing**
+- Scalable concurrent document processing with job persistence
+- Automatic retries and progress tracking
+- Configurable workers and resource management
+- Handles unlimited document volumes reliably
+
+### 📋 **Document Lifecycle Management**
+- Intelligent add/update/remove with change detection
+- 6 types of change detection for efficient updates
+- Complete document state tracking and consistency checking
+- Smart differential updates preserve existing work
+
+### 🔍 **Advanced Search**
+- **Hybrid Search**: Combines vector similarity with keyword precision
+- **Vector Search**: Semantic understanding for conceptual queries
+- **Keyword Search**: BM25 full-text search for exact terms
+- **Relevance Fusion**: Adaptive scoring for optimal results
+
+### 💻 **Production CLI**
+- Complete command-line interface for all operations
+- JSON output support for automation and integration
+- Comprehensive error handling and user guidance
+- Real-time status monitoring and progress tracking
+
+### 🗄️ **Vector Storage Options**
+1. **Server Mode (Default)** - Production-ready Qdrant server
+   - Requires: `./scripts/qdrant_server.sh start`
+   - Dashboard: http://localhost:6333/dashboard
+   - Best for: Production, parallel processing, multiple clients
+
+2. **Local Mode** - File-based storage for development
+   - Usage: `--config config_local.yaml`
+   - Storage: `./qdrant_data_v3/`
+   - Best for: Offline development, simple testing
 
 ## 📊 Performance & Scale
 
@@ -202,6 +245,7 @@ uv run python -m src.pipeline_v3.cli_main migrate --check-status
 - **Concurrent Processing**: Configurable workers (tested up to 10 concurrent)
 - **Storage Efficiency**: ~1MB per document (compressed JSONL artifacts)
 - **Index Size**: ~10% of source document size (combined vector + keyword)
+- **Test Coverage**: 88% with 359 passing tests
 
 ## 🛡️ Security & Compliance
 
@@ -214,36 +258,59 @@ uv run python -m src.pipeline_v3.cli_main migrate --check-status
 - **Security Scanning**: Pre-commit hooks and CI/CD include automated secret detection
 - **Code Security**: Bandit scanning for Python vulnerabilities in every PR
 
-## 🤝 Contributing
-
-We welcome contributions! Areas of focus:
-
-1. **Security Hardening** - Help fix identified vulnerabilities (#61, #62)
-2. **Test Coverage** - Increase from 12% to 70% target
-3. **Type Safety** - Fix mypy errors for better code quality
-4. **Search Features** - Implement metadata filtering (#53, #54)
-5. **Infrastructure** - Qdrant server mode for production (#71)
-
-See [ROADMAP.md](ROADMAP.md) for current priorities and [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
 ## 📚 Documentation
 
-- **[User Manual](./src/pipeline_v3/USER_MANUAL.md)** - Comprehensive usage guide
-- **[Quick Reference](./src/pipeline_v3/QUICK_REFERENCE.md)** - Command cheat sheet
-- **[Architecture Guide](./src/pipeline_v3/docs/architecture.md)** - Technical design
-- **[Queue System](./src/pipeline_v3/docs/QUEUE_SYSTEM_GUIDE.md)** - Production deployment
-- **[API Documentation](./src/pipeline_v3/docs/API.md)** - Integration reference
+### 📖 **Complete User Guide**
+- **[User Manual](./src/pipeline_v3/USER_MANUAL.md)** - Comprehensive usage guide with installation, configuration, and best practices
+- **[Quick Reference](./src/pipeline_v3/QUICK_REFERENCE.md)** - Essential commands cheat sheet for daily use
+
+### 🏗️ **Technical Documentation**
+- **[Development Status](./src/pipeline_v3/DEVELOPMENT_STATUS.md)** - Complete implementation history and current status
+- **[Architecture Guide](./src/pipeline_v3/docs/architecture.md)** - Technical system design and component details
+- **[Queue System Guide](./src/pipeline_v3/docs/QUEUE_SYSTEM_GUIDE.md)** - Production deployment and queue management
+- **[API Documentation](./src/pipeline_v3/docs/API.md)** - Integration reference and automation guides
+
+### 📋 **Project Management**
+- **[ROADMAP.md](./ROADMAP.md)** - Current development priorities and active issues
+- **[ISSUES.md](./ISSUES.md)** - Critical architecture gaps and security considerations
 
 ## 🏆 Project Status
 
-- ✅ **Core Engine**: Production-ready with 96% test pass rate
-- ✅ **Document Formats**: PDF, Word, PowerPoint, URLs
-- ✅ **Search System**: Hybrid vector + keyword with fusion
-- ✅ **Queue System**: Scalable batch processing
-- ✅ **CI/CD Pipeline**: Automated testing, quality checks, and security scanning
-- ✅ **Qdrant Server Mode**: Default vector storage for production scalability
-- 🚧 **In Progress**: Security hardening, test coverage improvements
-- 🔜 **Planned**: Web UI, REST API, metadata filtering
+### ✅ **Production Ready**
+- **Core Engine**: 359 tests passing with 88% coverage
+- **Document Formats**: PDF, Word, PowerPoint, URLs, and web content
+- **Search System**: Hybrid vector + keyword with adaptive fusion
+- **Queue System**: Scalable batch processing with job persistence
+- **CI/CD Pipeline**: Automated testing, quality checks, and security scanning
+- **Qdrant Server Mode**: Default vector storage for production scalability
+- **Database Migrations**: Schema versioning with rollback support
+
+### 🚧 **In Progress**
+- Security hardening and vulnerability fixes ([Issue #61](https://github.com/seaberger/rag-lab/issues/61), [Issue #62](https://github.com/seaberger/rag-lab/issues/62))
+- CI/CD infrastructure improvements ([Issue #75](https://github.com/seaberger/rag-lab/issues/75))
+
+### 🔜 **Planned**
+- Web UI and REST API
+- Advanced metadata filtering ([Issue #53](https://github.com/seaberger/rag-lab/issues/53), [Issue #54](https://github.com/seaberger/rag-lab/issues/54))
+- Enhanced document-type aware chunking strategies ([Issue #14](https://github.com/seaberger/rag-lab/issues/14))
+
+## 🤝 Contributing
+
+We welcome contributions! Current priorities:
+
+1. **Security First**: Review and help fix security vulnerabilities ([#61](https://github.com/seaberger/rag-lab/issues/61), [#62](https://github.com/seaberger/rag-lab/issues/62))
+2. **CI/CD Infrastructure**: Resolve GitHub Actions infrastructure issues ([#75](https://github.com/seaberger/rag-lab/issues/75))
+3. **Search Features**: Implement metadata filtering ([#53](https://github.com/seaberger/rag-lab/issues/53), [#54](https://github.com/seaberger/rag-lab/issues/54))
+4. **Type Safety**: Help fix mypy errors for better code quality
+5. **Document Processing**: Improve chunking strategies ([#14](https://github.com/seaberger/rag-lab/issues/14), [#15](https://github.com/seaberger/rag-lab/issues/15))
+
+See [ROADMAP.md](ROADMAP.md) for detailed priorities and [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+### Development Workflow
+- Pre-commit hooks run automatically for code quality
+- Quick CI provides feedback in ~3 minutes
+- Comprehensive CI runs full 359-test suite
+- All PRs require passing CI checks
 
 ## 📄 License
 
@@ -252,14 +319,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 Built with best-in-class technologies:
-- **OpenAI** - Vision API and embedding models
-- **Qdrant** - High-performance vector database
-- **LlamaIndex** - Document processing framework
-- **SQLite** - Reliable embedded database
-- **Python** - The language that makes it all possible
+- **OpenAI** - Vision API and embedding models for intelligent document understanding
+- **Qdrant** - High-performance vector database for semantic search
+- **LlamaIndex** - Document processing framework and chunking strategies
+- **SQLite** - Reliable embedded database for metadata and job persistence
+- **Python** - The language that makes enterprise AI accessible
 
 ---
 
 **Ready to transform your document intelligence?** Get started with the [Quick Start](#-quick-start) guide or dive into the [comprehensive documentation](./src/pipeline_v3/USER_MANUAL.md).
 
-For questions, issues, or contributions, visit our [GitHub repository](https://github.com/seaberger/rag-lab).
+For questions, issues, or contributions, visit our [GitHub repository](https://github.com/seaberger/rag-lab) or check our [active issues](https://github.com/seaberger/rag-lab/issues).

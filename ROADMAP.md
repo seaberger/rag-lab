@@ -4,7 +4,7 @@ This document provides the current development priorities and active issues for 
 
 **Last Updated:** July 4, 2025
 **Active GitHub Issues:** 16 open
-**Critical Architecture Gaps:** 11 (see [ISSUES.md](ISSUES.md))
+**Critical Architecture Gaps:** 9 (see [ISSUES.md](ISSUES.md))
 
 ## 🚨 Immediate Priorities (Security & Stability)
 
@@ -13,9 +13,12 @@ Must be addressed before any production deployment:
 - **[Issue #61](https://github.com/seaberger/rag-lab/issues/61)**: Security Audit & Fixes: SQL Injection, Path Traversal, and SSRF Protection
 - **[Issue #62](https://github.com/seaberger/rag-lab/issues/62)**: Input Validation Framework and Secrets Management
 
-### Quality Assurance (HIGH)
-~~Enable automated quality control:~~
-- ~~**[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions and Security Testing~~ ✅ **COMPLETED (July 3, 2025)**
+### Infrastructure Issues (HIGH)
+Blocking automated CI/CD validation:
+- **[Issue #75](https://github.com/seaberger/rag-lab/issues/75)**: CI/CD Pipeline Failures on GitHub Actions
+  - Qdrant container health check failures in GitHub Actions environment
+  - Missing OpenAI API key configuration in remote testing
+  - Local testing works perfectly (359 tests pass), remote infrastructure needs fixes
 
 ### ~~Infrastructure & Scalability (HIGH)~~ ✅ **COMPLETED**
 ~~Critical for production deployment and concurrent usage:~~
@@ -23,6 +26,10 @@ Must be addressed before any production deployment:
   - ~~Resolves test isolation issues and enables concurrent access~~
   - ~~Required for multi-tenant/business group support~~
   - ~~Docker-based deployment for production environments~~
+
+### ~~Quality Assurance (HIGH)~~ ✅ **COMPLETED**
+~~Enable automated quality control:~~
+- ~~**[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions and Security Testing~~ ✅ **COMPLETED (July 3, 2025)**
 
 ## 🔍 Core Feature Improvements
 
@@ -118,16 +125,16 @@ Improve how documents are parsed and chunked:
 - Error handling and reliability
 - **CI/CD pipeline** with dual workflows (quick + comprehensive)
 - **Pre-commit hooks** for code quality
-- **Test coverage** tracking (currently 12%, targeting 70%)
+- **Test coverage** tracking (currently 88%, excellent improvement from 26%)
 - **Qdrant server mode** as default for production scalability
 - **Docker-based deployment** for vector database
 
 ### What Needs Work 🔧
 - **Security vulnerabilities** (SQL injection, path traversal, SSRF)
+- **CI/CD infrastructure** (GitHub Actions container issues)
 - **Search filtering** could be more powerful
 - **Chunking strategies** are basic
 - **Type checking** (247 mypy errors need cleanup)
-- **Test coverage** needs improvement (12% → 70% target)
 
 ### What's Nice to Have 💭
 - Multi-tenant support
@@ -140,8 +147,8 @@ Improve how documents are parsed and chunked:
 For developers looking to contribute:
 
 1. **Security First**: Review and help fix security vulnerabilities (#61, #62)
-2. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
-3. **Add Tests**: Increase test coverage from 12% to 70%
+2. **Fix CI/CD**: Resolve GitHub Actions infrastructure issues (#75)
+3. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
 4. **Type Safety**: Help fix mypy errors (247 issues)
 5. **Document Processing**: Improve chunking strategies (#14, #15)
 6. Check [CLAUDE.md](CLAUDE.md) for project setup
