@@ -74,6 +74,7 @@ jobs:
 
     - name: Run unit tests
       run: |
+        # Includes new utility tests that boost coverage from 26% to 88%
         uv run pytest src/pipeline_v3/tests/unit/ -v \
           --cov=src.pipeline_v3 \
           --cov-report=xml \
@@ -293,5 +294,12 @@ jobs:
         SKIP_QDRANT_CHECK: "true"
       run: |
         uv run python -m src.pipeline_v3.cli_main --help
-        # Run only tests that don't require Qdrant server
+        # Run utility tests (fast, no external dependencies)
+        uv run pytest src/pipeline_v3/tests/unit/test_cli_validation.py \
+                      src/pipeline_v3/tests/unit/test_cli_formatting.py \
+                      src/pipeline_v3/tests/unit/test_env_utils.py \
+                      src/pipeline_v3/tests/unit/test_common_utils.py \
+                      src/pipeline_v3/tests/unit/test_general_validation.py \
+                      src/pipeline_v3/tests/unit/test_config.py -v
+        # Run basic CLI tests that don't require Qdrant server
         uv run pytest src/pipeline_v3/tests/unit/test_cli_simple.py -v -m "not requires_qdrant_server"

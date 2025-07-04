@@ -4,12 +4,8 @@ End-to-End Integration Tests for Pipeline v3
 Comprehensive integration tests with real documents to validate
 the complete pipeline functionality before production deployment.
 
-IMPORTANT: Test classes are prefixed with letters to control execution order:
-- Test_A_* : Run first - create and index documents
-- Test_B_* : Run second - smoke tests
-- Test_Z_* : Run last - cleanup and isolation tests
-
-This ensures data dependencies are satisfied (e.g., search tests have documents to find).
+Note: Tests are now designed to be independent using proper fixtures
+instead of relying on alphabetical execution order.
 """
 
 import os
@@ -34,10 +30,10 @@ from utils.monitoring import ProgressMonitor
 
 
 @pytest.mark.requires_qdrant_server
-class Test_A_E2EIntegration:
+class TestE2EIntegration:
     """End-to-end integration tests with real documents.
 
-    Named with A prefix to ensure it runs first alphabetically.
+    Tests are independent and use proper fixtures for data setup.
     """
 
     def get_test_documents(self, test_docs_path: Path, limit: int = 5) -> list[Path]:
@@ -320,7 +316,7 @@ class Test_A_E2EIntegration:
 
 
 @pytest.mark.requires_qdrant_server
-class Test_B_SmokeIntegration:
+class TestSmokeIntegration:
     """Quick smoke tests for CI/CD - focused on speed over comprehensiveness."""
 
     @pytest_asyncio.fixture
@@ -410,10 +406,10 @@ class Test_B_SmokeIntegration:
 
 
 @pytest.mark.requires_qdrant_server
-class Test_Z_DatabaseIsolation:
+class TestDatabaseIsolation:
     """Test database isolation and environment separation.
 
-    Named with Z prefix to ensure it runs last alphabetically.
+    Tests are independent and use proper cleanup fixtures.
     """
 
     @pytest.mark.asyncio
