@@ -54,13 +54,25 @@ def main():
         ([sys.executable, "cli_main.py", "search", "--help"], "Search Command Help"),
         # Queue management help
         ([sys.executable, "cli_main.py", "queue", "--help"], "Queue Management Help"),
-        ([sys.executable, "cli_main.py", "queue", "status", "--help"], "Queue Status Help"),
+        (
+            [sys.executable, "cli_main.py", "queue", "status", "--help"],
+            "Queue Status Help",
+        ),
         # System operations help
         ([sys.executable, "cli_main.py", "status", "--help"], "System Status Help"),
-        ([sys.executable, "cli_main.py", "maintenance", "--help"], "Maintenance Operations Help"),
+        (
+            [sys.executable, "cli_main.py", "maintenance", "--help"],
+            "Maintenance Operations Help",
+        ),
         # Configuration help
-        ([sys.executable, "cli_main.py", "config", "--help"], "Configuration Management Help"),
-        ([sys.executable, "cli_main.py", "config", "list", "--help"], "Config List Help"),
+        (
+            [sys.executable, "cli_main.py", "config", "--help"],
+            "Configuration Management Help",
+        ),
+        (
+            [sys.executable, "cli_main.py", "config", "list", "--help"],
+            "Config List Help",
+        ),
     ]
 
     success_count = 0

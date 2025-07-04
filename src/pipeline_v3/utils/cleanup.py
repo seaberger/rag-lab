@@ -54,14 +54,16 @@ def cleanup_temp_resources() -> None:
 
 
 @contextmanager
-def temporary_file(suffix: str | None = None, prefix: str | None = None, dir: Path | None = None):  # noqa: A002
+def temporary_file(
+    suffix: str | None = None, prefix: str | None = None, directory: Path | None = None
+):
     """
     Context manager for creating and cleaning up temporary files.
 
     Args:
         suffix: File suffix (e.g., '.pdf')
         prefix: File prefix (e.g., 'download_')
-        dir: Directory to create file in (defaults to system temp)
+        directory: Directory to create file in (defaults to system temp)
 
     Yields:
         Path to the temporary file
@@ -70,7 +72,7 @@ def temporary_file(suffix: str | None = None, prefix: str | None = None, dir: Pa
     try:
         # Create temporary file
         with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=suffix, prefix=prefix, dir=dir, delete=False
+            mode="wb", suffix=suffix, prefix=prefix, dir=directory, delete=False
         ) as tf:
             temp_file = Path(tf.name)
             register_temp_file(temp_file)

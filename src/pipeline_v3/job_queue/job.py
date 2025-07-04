@@ -92,7 +92,8 @@ class JobManager:
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.conn = sqlite3.connect(str(self.storage_path))
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS jobs (
                 job_id TEXT PRIMARY KEY,
                 source TEXT NOT NULL,
@@ -111,21 +112,28 @@ class JobManager:
                 metadata TEXT,  -- JSON
                 intermediate_state TEXT  -- JSON
             )
-        """)
+        """
+        )
 
         # Create indexes for performance
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_jobs_priority_created
             ON jobs(priority, created_at)
-        """)
+        """
+        )
 
         self.conn.commit()
         logger.info("Job database initialized")
@@ -385,7 +393,8 @@ class JobManager:
 
     def get_job_statistics(self) -> dict[str, Any]:
         """Get comprehensive job statistics."""
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT
                 status,
                 COUNT(*) as count,
@@ -394,7 +403,8 @@ class JobManager:
                 SUM(retry_count) as total_retries
             FROM jobs
             GROUP BY status
-        """)
+        """
+        )
 
         stats_by_status = {}
         total_jobs = 0
@@ -416,9 +426,11 @@ class JobManager:
             total_retries += retries
 
         # Get oldest and newest jobs
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT MIN(created_at), MAX(created_at) FROM jobs
-        """)
+        """
+        )
         row = cursor.fetchone()
         oldest_job = row[0]
         newest_job = row[1]

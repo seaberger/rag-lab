@@ -93,7 +93,9 @@ def test_fingerprint_manager():
 
         with FingerprintManager(config) as fingerprint_mgr:
             # Create test file
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False
+            ) as f:
                 f.write("This is test content for fingerprinting")
                 test_file = Path(f.name)
 
@@ -104,7 +106,9 @@ def test_fingerprint_manager():
 
                 # Compute and store fingerprint
                 fingerprint = fingerprint_mgr.compute_fingerprint(test_file)
-                fingerprint_mgr.update_fingerprint(fingerprint, "test_doc_id", "processed")
+                fingerprint_mgr.update_fingerprint(
+                    fingerprint, "test_doc_id", "processed"
+                )
                 print("✅ Fingerprint computed and stored")
 
                 # Test unchanged document
@@ -171,7 +175,9 @@ def test_job_manager():
             # Test job listing
             all_jobs = job_mgr.list_jobs()
             pending_jobs = job_mgr.list_jobs(JobStatus.PROCESSING)
-            print(f"✅ Job listing: {len(all_jobs)} total, {len(pending_jobs)} processing")
+            print(
+                f"✅ Job listing: {len(all_jobs)} total, {len(pending_jobs)} processing"
+            )
 
             # Test statistics
             stats = job_mgr.get_job_statistics()

@@ -59,6 +59,7 @@ class TestCLIIntegration:
 
             # Cleanup Qdrant resources from all components
             from ..conftest import cleanup_qdrant_resources
+
             cleanup_qdrant_resources(cli.pipeline)
             cleanup_qdrant_resources(cli.index_manager)
 
@@ -76,22 +77,27 @@ class TestCLIIntegration:
                     "manufacturer": "Test Corp",
                     "specifications": [{"category": "Test", "details": {}}],
                     "key_features": ["CLI Feature"],
-                    "datasheet_content": "CLI test content"
+                    "datasheet_content": "CLI test content",
                 }
+
             instance.process_document_pages = AsyncMock(side_effect=mock_process)
 
             async def mock_embed(text):
                 return [0.1] * 1536
+
             instance.get_embeddings = AsyncMock(side_effect=mock_embed)
 
             async def mock_keywords(text):
                 return ["cli", "test", "keyword"]
+
             instance.extract_keywords = AsyncMock(side_effect=mock_keywords)
 
             yield instance
 
     @pytest.mark.asyncio
-    async def test_cli_add_command_integration(self, cli_instance, mock_openai_for_cli, temp_dir):
+    async def test_cli_add_command_integration(
+        self, cli_instance, mock_openai_for_cli, temp_dir
+    ):
         """Test CLI add command with real pipeline integration."""
         # Create test file
         test_file = os.path.join(temp_dir, "cli_test.pdf")
@@ -99,14 +105,14 @@ class TestCLIIntegration:
             f.write(b"CLI test PDF content")
 
         # Mock pipeline document processing
-        with patch.object(cli_instance.pipeline, 'process_document') as mock_process:
+        with patch.object(cli_instance.pipeline, "process_document") as mock_process:
             # Set up mock return value
             mock_process.return_value = {
                 "doc_id": "test_doc_123",
                 "status": "success",
                 "action": "indexed",
                 "chunks": 3,
-                "processing_time": 1.5
+                "processing_time": 1.5,
             }
 
             # Create mock args
@@ -137,26 +143,30 @@ class TestCLIIntegration:
 
             # Check that metadata was parsed correctly (should be in kwargs)
             call_kwargs = call_args.kwargs if call_args.kwargs else {}
-            if 'metadata' in call_kwargs:
-                metadata = call_kwargs['metadata']
+            if "metadata" in call_kwargs:
+                metadata = call_kwargs["metadata"]
                 assert metadata.get("type") == "cli_test"
                 assert metadata.get("version") == "1.0"
 
     @pytest.mark.asyncio
-    async def test_cli_search_integration(self, cli_instance, mock_openai_for_cli, temp_dir):
+    async def test_cli_search_integration(
+        self, cli_instance, mock_openai_for_cli, temp_dir
+    ):
         """Test CLI search with real index integration."""
         # First add a document
         test_file = os.path.join(temp_dir, "search_test.pdf")
         with open(test_file, "wb") as f:
             f.write(b"Search test content")
 
-        with patch.object(cli_instance.pipeline, 'process_document') as mock_process, \
-             patch.object(cli_instance.pipeline, 'search') as mock_search:
+        with (
+            patch.object(cli_instance.pipeline, "process_document") as mock_process,
+            patch.object(cli_instance.pipeline, "search") as mock_search,
+        ):
             # Mock successful document processing
             mock_process.return_value = {
                 "doc_id": "search_test_doc",
                 "status": "success",
-                "action": "indexed"
+                "action": "indexed",
             }
 
             # Mock search results
@@ -164,7 +174,7 @@ class TestCLIIntegration:
                 {
                     "content": "Laser sensor specifications",
                     "score": 0.95,
-                    "metadata": {"doc_id": "search_test_doc"}
+                    "metadata": {"doc_id": "search_test_doc"},
                 }
             ]
 
@@ -223,7 +233,7 @@ class TestCLIIntegration:
                 source=f"doc_{i}.pdf",
                 job_type="add",
                 priority=JobPriority.NORMAL,
-                metadata={"index": i}
+                metadata={"index": i},
             )
 
         # Test queue status
@@ -296,7 +306,7 @@ class TestCLIIntegration:
             return asdict(cli_instance.config)
 
         def get(key, default=None):
-            parts = key.split('.')
+            parts = key.split(".")
             obj = cli_instance.config
             for part in parts:
                 obj = getattr(obj, part, None)
@@ -305,7 +315,7 @@ class TestCLIIntegration:
             return obj
 
         def set_value(key, value):
-            parts = key.split('.')
+            parts = key.split(".")
             obj = cli_instance.config
             for part in parts[:-1]:
                 obj = getattr(obj, part)
@@ -359,7 +369,9 @@ class TestCLIIntegration:
         assert cli_instance.config.job_queue.max_concurrent == 8
 
     @pytest.mark.asyncio
-    async def test_cli_batch_operations(self, cli_instance, mock_openai_for_cli, temp_dir):
+    async def test_cli_batch_operations(
+        self, cli_instance, mock_openai_for_cli, temp_dir
+    ):
         """Test CLI batch processing capabilities."""
         # Create multiple test files
         test_files = []
@@ -369,15 +381,18 @@ class TestCLIIntegration:
                 f.write(f"Batch content {i}".encode())
             test_files.append(file_path)
 
-        with patch.object(cli_instance.pipeline, 'process_document_batch') as mock_batch:
+        with patch.object(
+            cli_instance.pipeline, "process_document_batch"
+        ) as mock_batch:
             # Set up mock return value for batch processing
             mock_batch.return_value = [
                 {
                     "doc_id": f"batch_doc_{i}",
                     "status": "success",
                     "action": "indexed",
-                    "source": test_files[i]
-                } for i in range(len(test_files))
+                    "source": test_files[i],
+                }
+                for i in range(len(test_files))
             ]
 
             # Test batch add with pattern
@@ -431,7 +446,11 @@ class TestCLIIntegration:
 
             # Verify error message was printed
             output = str(mock_print.call_args)
-            assert "no documents found" in output.lower() or "no files found" in output.lower() or "error" in output.lower()
+            assert (
+                "no documents found" in output.lower()
+                or "no files found" in output.lower()
+                or "error" in output.lower()
+            )
 
     def test_cli_parser_coverage(self, cli_instance):
         """Test CLI parser creation and argument parsing."""
@@ -444,7 +463,9 @@ class TestCLIIntegration:
         assert args.with_keywords is True
 
         # Test parsing search command
-        args = parser.parse_args(["search", "test query", "--type", "hybrid", "--top-k", "10"])
+        args = parser.parse_args(
+            ["search", "test query", "--type", "hybrid", "--top-k", "10"]
+        )
         assert args.command == "search"
         assert args.query == "test query"
         assert args.type == "hybrid"
@@ -464,7 +485,7 @@ class TestCLIIntegration:
             "status": {
                 "pipeline": {"state": "ready"},
                 "registry": {"total": 10},
-                "queue": {"pending": 0}
+                "queue": {"pending": 0},
             }
         }
 

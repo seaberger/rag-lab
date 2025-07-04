@@ -34,7 +34,9 @@ def test_document_registry():
 
         with DocumentRegistry(config) as registry:
             # Create test document
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False
+            ) as f:
                 f.write("This is test content for registry testing")
                 test_file = Path(f.name)
 
@@ -127,7 +129,9 @@ def test_index_manager():
                 if success:
                     print("✅ Document added to index")
                 else:
-                    print("⚠️  Document addition failed (expected without full LlamaIndex setup)")
+                    print(
+                        "⚠️  Document addition failed (expected without full LlamaIndex setup)"
+                    )
             except Exception as e:
                 print(f"⚠️  Document addition failed: {e} (expected without full setup)")
 
@@ -177,7 +181,9 @@ def test_change_detector():
 
         with ChangeDetector(config) as detector:
             # Create test file
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False
+            ) as f:
                 f.write("This is the original content for change detection testing.")
                 test_file = Path(f.name)
 
@@ -189,9 +195,9 @@ def test_change_detector():
                     metadata={"test": "metadata"},
                 )
 
-                assert analysis.change_type == ChangeType.NEW_DOCUMENT, (
-                    f"Expected NEW_DOCUMENT, got {analysis.change_type}"
-                )
+                assert (
+                    analysis.change_type == ChangeType.NEW_DOCUMENT
+                ), f"Expected NEW_DOCUMENT, got {analysis.change_type}"
                 print(f"✅ New document detected: {analysis.change_type.value}")
 
                 # Simulate document registration for change detection
@@ -200,7 +206,9 @@ def test_change_detector():
                 # Test content change detection
                 modified_content = "This is the MODIFIED content for change detection testing with additional text."
                 analysis2 = detector.analyze_changes(
-                    source=test_file, content=modified_content, metadata={"test": "metadata"}
+                    source=test_file,
+                    content=modified_content,
+                    metadata={"test": "metadata"},
                 )
 
                 print(
@@ -270,7 +278,9 @@ async def test_enhanced_pipeline():
                 with tempfile.NamedTemporaryFile(
                     mode="w", suffix=f"_test_{i}.txt", delete=False
                 ) as f:
-                    f.write(f"This is test document {i} with content for pipeline testing.")
+                    f.write(
+                        f"This is test document {i} with content for pipeline testing."
+                    )
                     test_docs.append(Path(f.name))
 
             try:
@@ -316,7 +326,9 @@ async def test_enhanced_pipeline():
 
                 # Test maintenance
                 maintenance = await pipeline.perform_maintenance()
-                print(f"✅ Maintenance completed: {maintenance.get('timestamp', 'N/A')}")
+                print(
+                    f"✅ Maintenance completed: {maintenance.get('timestamp', 'N/A')}"
+                )
 
             finally:
                 # Cleanup

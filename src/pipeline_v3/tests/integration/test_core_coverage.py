@@ -36,7 +36,6 @@ from core.migrations import Migration, MigrationManager, load_migrations_from_sq
 class TestCoreCoverage:
     """Tests to boost coverage of core modules."""
 
-
     def test_pipeline_config_comprehensive(self, test_base_dir):
         """Comprehensive test of PipelineConfig."""
         # Test default initialization
@@ -58,6 +57,7 @@ class TestCoreCoverage:
 
         # Test to_dict using dataclasses.asdict
         from dataclasses import asdict
+
         config_dict = asdict(config)
         assert isinstance(config_dict, dict)
         assert "openai" in config_dict
@@ -86,6 +86,7 @@ job_queue:
 
         # Test save method - PipelineConfig doesn't have save, so just verify it can be converted to dict
         from dataclasses import asdict
+
         config_dict = asdict(custom_config)
         assert isinstance(config_dict, dict)
 
@@ -103,12 +104,13 @@ job_queue:
 
         # Test registration
         import time
+
         doc_id = registry.register_document(
             source="test.pdf",
             content_hash="abc123",
             size=1024,
             modified_time=time.time(),
-            metadata={"author": "test", "version": "1.0", "doc_type": "datasheet"}
+            metadata={"author": "test", "version": "1.0", "doc_type": "datasheet"},
         )
         assert doc_id is not None
 
@@ -133,6 +135,7 @@ job_queue:
 
         # Test index updates
         from core.registry import IndexType
+
         registry.mark_indexed(doc_id, IndexType.BOTH, chunk_count=5)
         doc = registry.get_document(doc_id)
         assert doc.vector_indexed == True
@@ -177,7 +180,9 @@ job_queue:
         assert fingerprint.size == 12  # "test content" is 12 bytes
 
         # Store fingerprint
-        store.update_fingerprint(fingerprint, doc_id="doc1", processing_status="completed")
+        store.update_fingerprint(
+            fingerprint, doc_id="doc1", processing_status="completed"
+        )
 
         # Retrieve fingerprint
         retrieved = store.get_fingerprint(test_file)
@@ -214,7 +219,7 @@ job_queue:
             "content": "Test content",
             "metadata": {"type": "test"},
             "chunks": ["chunk1", "chunk2"],
-            "embedding": [0.1] * 1536
+            "embedding": [0.1] * 1536,
         }
 
         # Save to cache
@@ -237,7 +242,7 @@ job_queue:
         # Test with large data for compression
         large_data = {
             "content": "x" * 10000,
-            "chunks": ["chunk" * 100 for _ in range(10)]
+            "chunks": ["chunk" * 100 for _ in range(10)],
         }
 
         success = cache.put("large_doc", "large_prompt", large_data)
@@ -250,19 +255,21 @@ job_queue:
         queue = DocumentQueue(config=test_config)
 
         # Test job submission
-        job1_id = asyncio.run(queue.add_job(
-            source="doc1.pdf",
-            job_type="add",
-            priority=JobPriority.HIGH,
-            metadata={"test": True}
-        ))
+        job1_id = asyncio.run(
+            queue.add_job(
+                source="doc1.pdf",
+                job_type="add",
+                priority=JobPriority.HIGH,
+                metadata={"test": True},
+            )
+        )
         assert job1_id is not None
 
-        job2_id = asyncio.run(queue.add_job(
-            source="doc2.pdf",
-            job_type="update",
-            priority=JobPriority.NORMAL
-        ))
+        job2_id = asyncio.run(
+            queue.add_job(
+                source="doc2.pdf", job_type="update", priority=JobPriority.NORMAL
+            )
+        )
         assert job2_id is not None
 
         # Test queue status
@@ -301,7 +308,7 @@ job_queue:
             source="test.pdf",
             job_type=JobType.ADD,
             priority=2,
-            metadata={"key": "value"}
+            metadata={"key": "value"},
         )
         assert job_id is not None
 
@@ -318,11 +325,7 @@ job_queue:
         assert job.status == JobStatus.PROCESSING.value
 
         # Update with error
-        manager.update_job_status(
-            job_id,
-            JobStatus.FAILED,
-            error_message="Test error"
-        )
+        manager.update_job_status(job_id, JobStatus.FAILED, error_message="Test error")
         job = manager.get_job(job_id)
         assert job.status == JobStatus.FAILED.value
         assert job.error_message == "Test error"
@@ -482,14 +485,14 @@ job_queue:
                 version=1,
                 name="create_test_table",
                 up_sql="CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT);",
-                down_sql="DROP TABLE test_table;"
+                down_sql="DROP TABLE test_table;",
             ),
             Migration(
                 version=2,
                 name="add_column",
                 up_sql="ALTER TABLE test_table ADD COLUMN created_at TIMESTAMP;",
-                down_sql="ALTER TABLE test_table DROP COLUMN created_at;"
-            )
+                down_sql="ALTER TABLE test_table DROP COLUMN created_at;",
+            ),
         ]
 
         # Apply migrations

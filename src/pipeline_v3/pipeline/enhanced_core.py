@@ -140,7 +140,11 @@ class EnhancedPipeline:
                 try:
                     # Parse the document using OpenAI APIs for PDFs
                     content, pairs, parsed_metadata = await self._parse_document_with_openai(
-                        source, "temp_id", mode=mode, prompt_file=prompt_file, page_range=page_range
+                        source,
+                        "temp_id",
+                        mode=mode,
+                        prompt_file=prompt_file,
+                        page_range=page_range,
                     )
 
                     # Merge parsed metadata with provided metadata
@@ -725,7 +729,11 @@ class EnhancedPipeline:
             # Get document from registry
             doc = self.registry.get_document_by_source(source)
             if not doc:
-                return {"status": "error", "error": "document_not_found", "source": str(source)}
+                return {
+                    "status": "error",
+                    "error": "document_not_found",
+                    "source": str(source),
+                }
 
             # Remove from indexes
             success = self.index_manager.remove_document(doc.doc_id, index_types)
@@ -828,7 +836,8 @@ class EnhancedPipeline:
                     "success_rate": round(success_rate, 2),
                     "average_processing_time": round(avg_time, 2),
                     "documents_per_minute": round(
-                        total_processed / max(stats.get("total_processing_time", 1.0) / 60, 1), 2
+                        total_processed / max(stats.get("total_processing_time", 1.0) / 60, 1),
+                        2,
                     ),
                 },
                 "components": {

@@ -61,9 +61,7 @@ class TestCacheManager:
         # Create large data
         doc_hash = self._get_hash("large document")
         prompt_hash = self._get_hash("large prompt")
-        large_data = {
-            "items": [f"item_{i}" * 100 for i in range(1000)]
-        }
+        large_data = {"items": [f"item_{i}" * 100 for i in range(1000)]}
 
         # Cache it
         success = cache.put(doc_hash, prompt_hash, large_data)
@@ -162,7 +160,7 @@ class TestCacheManager:
         assert stats["hits"] == 2
         assert stats["misses"] == 1
         assert stats["errors"] == 0
-        assert stats["hit_rate"] == 2/3
+        assert stats["hit_rate"] == 2 / 3
         assert stats["cache_files"] == 3
         assert stats["cache_size_mb"] > 0
 

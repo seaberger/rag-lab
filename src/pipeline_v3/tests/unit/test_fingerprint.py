@@ -112,10 +112,14 @@ class TestFingerprintManager:
         test_file.write_text("test content")
 
         # Compute fingerprint with metadata
-        fp_with_meta = FingerprintManager.compute_fingerprint(test_file, include_metadata=True)
+        fp_with_meta = FingerprintManager.compute_fingerprint(
+            test_file, include_metadata=True
+        )
 
         # Compute fingerprint without metadata
-        fp_without_meta = FingerprintManager.compute_fingerprint(test_file, include_metadata=False)
+        fp_without_meta = FingerprintManager.compute_fingerprint(
+            test_file, include_metadata=False
+        )
 
         # Content hash should be the same
         assert fp_with_meta.content_hash == fp_without_meta.content_hash
@@ -163,7 +167,7 @@ class TestFingerprintManager:
         # Manually update last_seen for old fingerprint to make it old
         fingerprint_manager.conn.execute(
             "UPDATE fingerprints SET last_seen = ? WHERE source = ?",
-            (time.time() - (40 * 24 * 60 * 60), str(old_file.resolve()))  # 40 days ago
+            (time.time() - (40 * 24 * 60 * 60), str(old_file.resolve())),  # 40 days ago
         )
         fingerprint_manager.conn.commit()
 
@@ -242,7 +246,6 @@ class TestFingerprintManager:
 class TestChangeDetector:
     """Test suite for ChangeDetector."""
 
-
     @pytest.fixture
     def change_detector(self, test_base_dir):
         """Create a test change detector."""
@@ -275,7 +278,7 @@ class TestChangeDetector:
             source=test_file,
             content_hash=fp.content_hash,
             size=fp.size,
-            modified_time=fp.modified_time
+            modified_time=fp.modified_time,
         )
         change_detector.fingerprint_manager.update_fingerprint(fp, doc_id=doc_id)
 
@@ -286,7 +289,11 @@ class TestChangeDetector:
         # Analyze changes
         analysis = change_detector.analyze_changes(str(test_file), modified_content)
         # Since content is completely different, it should be COMPLETE_REWRITE
-        assert analysis.change_type in [ChangeType.MINOR_UPDATE, ChangeType.MAJOR_UPDATE, ChangeType.COMPLETE_REWRITE]
+        assert analysis.change_type in [
+            ChangeType.MINOR_UPDATE,
+            ChangeType.MAJOR_UPDATE,
+            ChangeType.COMPLETE_REWRITE,
+        ]
         assert analysis.update_strategy == UpdateStrategy.FULL_REINDEX
 
     def test_detect_unchanged_file(self, change_detector, test_base_dir):
@@ -302,7 +309,7 @@ class TestChangeDetector:
             source=test_file,
             content_hash=fp.content_hash,
             size=fp.size,
-            modified_time=fp.modified_time
+            modified_time=fp.modified_time,
         )
         change_detector.fingerprint_manager.update_fingerprint(fp, doc_id=doc_id)
 
@@ -314,8 +321,14 @@ class TestChangeDetector:
         # Due to the placeholder _simulate_old_chunks method, it will detect changes
         # even though the fingerprints match. In a real implementation with proper
         # chunk retrieval, this would be NO_CHANGE.
-        assert analysis.change_type in [ChangeType.NO_CHANGE, ChangeType.COMPLETE_REWRITE]
-        assert analysis.update_strategy in [UpdateStrategy.SKIP, UpdateStrategy.FULL_REINDEX]
+        assert analysis.change_type in [
+            ChangeType.NO_CHANGE,
+            ChangeType.COMPLETE_REWRITE,
+        ]
+        assert analysis.update_strategy in [
+            UpdateStrategy.SKIP,
+            UpdateStrategy.FULL_REINDEX,
+        ]
 
     def test_detect_metadata_only_change(self, change_detector, test_base_dir):
         """Test detection of metadata-only changes."""
@@ -330,7 +343,7 @@ class TestChangeDetector:
             source=test_file,
             content_hash=fp.content_hash,
             size=fp.size,
-            modified_time=fp.modified_time
+            modified_time=fp.modified_time,
         )
         change_detector.fingerprint_manager.update_fingerprint(fp, doc_id=doc_id)
 
@@ -341,7 +354,11 @@ class TestChangeDetector:
         # Analyze changes - metadata change might trigger minor update
         analysis = change_detector.analyze_changes(str(test_file), content)
         # Due to the placeholder _simulate_old_chunks method, it will detect changes
-        assert analysis.change_type in [ChangeType.NO_CHANGE, ChangeType.MINOR_UPDATE, ChangeType.COMPLETE_REWRITE]
+        assert analysis.change_type in [
+            ChangeType.NO_CHANGE,
+            ChangeType.MINOR_UPDATE,
+            ChangeType.COMPLETE_REWRITE,
+        ]
 
     def test_batch_change_detection(self, change_detector, test_base_dir):
         """Test batch change detection."""
@@ -360,7 +377,7 @@ class TestChangeDetector:
                 source=documents[i]["source"],
                 content_hash=fp.content_hash,
                 size=fp.size,
-                modified_time=fp.modified_time
+                modified_time=fp.modified_time,
             )
             change_detector.fingerprint_manager.update_fingerprint(fp, doc_id=doc_id)
 
@@ -372,9 +389,19 @@ class TestChangeDetector:
         analyses = change_detector.batch_analyze_changes(documents)
 
         # Due to the placeholder _simulate_old_chunks method, registered files will show as changed
-        assert analyses[0].change_type in [ChangeType.NO_CHANGE, ChangeType.COMPLETE_REWRITE]
-        assert analyses[1].change_type in [ChangeType.MINOR_UPDATE, ChangeType.MAJOR_UPDATE, ChangeType.COMPLETE_REWRITE]
-        assert analyses[2].change_type in [ChangeType.NO_CHANGE, ChangeType.COMPLETE_REWRITE]
+        assert analyses[0].change_type in [
+            ChangeType.NO_CHANGE,
+            ChangeType.COMPLETE_REWRITE,
+        ]
+        assert analyses[1].change_type in [
+            ChangeType.MINOR_UPDATE,
+            ChangeType.MAJOR_UPDATE,
+            ChangeType.COMPLETE_REWRITE,
+        ]
+        assert analyses[2].change_type in [
+            ChangeType.NO_CHANGE,
+            ChangeType.COMPLETE_REWRITE,
+        ]
         assert analyses[3].change_type == ChangeType.NEW_DOCUMENT
         assert analyses[4].change_type == ChangeType.NEW_DOCUMENT
 
@@ -404,7 +431,7 @@ class TestChangeDetector:
                 source=files[i],
                 content_hash=fp.content_hash,
                 size=fp.size,
-                modified_time=fp.modified_time
+                modified_time=fp.modified_time,
             )
             change_detector.fingerprint_manager.update_fingerprint(fp, doc_id=doc_id)
 
@@ -413,8 +440,7 @@ class TestChangeDetector:
 
         # Get recommendations with time budget
         recommendations = change_detector.get_update_recommendations(
-            time_budget=300.0,
-            max_documents=10
+            time_budget=300.0, max_documents=10
         )
 
         assert "recommendations" in recommendations

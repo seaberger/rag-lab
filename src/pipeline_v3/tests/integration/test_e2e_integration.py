@@ -58,7 +58,9 @@ class Test_A_E2EIntegration:
     @pytest.mark.slow
     @pytest.mark.integration
     @pytest.mark.requires_api
-    async def test_document_ingestion(self, test_pipeline, sample_documents, expected_content):
+    async def test_document_ingestion(
+        self, test_pipeline, sample_documents, expected_content
+    ):
         """Test document ingestion with real PDFs."""
         pipeline = test_pipeline
 
@@ -88,12 +90,14 @@ class Test_A_E2EIntegration:
 
                 processing_time = time.time() - start_time
 
-                ingestion_results.append({
-                    "document": doc_path.name,
-                    "success": True,
-                    "processing_time": processing_time,
-                    "result": result,
-                })
+                ingestion_results.append(
+                    {
+                        "document": doc_path.name,
+                        "success": True,
+                        "processing_time": processing_time,
+                        "result": result,
+                    }
+                )
 
                 # Verify the document was processed
                 assert result is not None
@@ -109,11 +113,15 @@ class Test_A_E2EIntegration:
 
                     # Check part numbers
                     for part_num in fieldmax_expected["part_numbers"]:
-                        assert part_num in markdown, f"Expected part number {part_num} not found"
+                        assert (
+                            part_num in markdown
+                        ), f"Expected part number {part_num} not found"
 
                     # Check keywords
                     for keyword in fieldmax_expected["keywords"][:3]:  # Check first 3
-                        assert keyword in markdown, f"Expected keyword {keyword} not found"
+                        assert (
+                            keyword in markdown
+                        ), f"Expected keyword {keyword} not found"
 
                     # Check model names
                     for model in fieldmax_expected["model_names"]:
@@ -153,7 +161,9 @@ class Test_A_E2EIntegration:
 
                 # Verify search returns results
                 assert isinstance(results, list)
-                assert len(results) > 0, f"No results found for '{query}' with {search_type}"
+                assert (
+                    len(results) > 0
+                ), f"No results found for '{query}' with {search_type}"
 
                 # Check first result contains expected content
                 first_result = results[0]
@@ -169,7 +179,9 @@ class Test_A_E2EIntegration:
                         found_any = True
                         break
 
-                assert found_any, f"Expected terms {expected_terms} not found in search results for '{query}'"
+                assert (
+                    found_any
+                ), f"Expected terms {expected_terms} not found in search results for '{query}'"
 
             except Exception as e:
                 pytest.fail(f"Search failed for '{query}' with {search_type}: {e}")
@@ -188,11 +200,12 @@ class Test_A_E2EIntegration:
 
         # Test adding a job
         from job_queue.manager import JobPriority
+
         job_id = await queue.add_job(
             source="test.pdf",
             job_type="add",
             priority=JobPriority.NORMAL,
-            metadata={"test": True}
+            metadata={"test": True},
         )
         assert job_id is not None
 
@@ -231,8 +244,14 @@ class Test_A_E2EIntegration:
 
         cli_tests = [
             (["python", "-m", "src.pipeline_v3.cli_main", "status"], "status command"),
-            (["python", "-m", "src.pipeline_v3.cli_main", "queue", "status"], "queue status"),
-            (["python", "-m", "src.pipeline_v3.cli_main", "config", "list"], "config list"),
+            (
+                ["python", "-m", "src.pipeline_v3.cli_main", "queue", "status"],
+                "queue status",
+            ),
+            (
+                ["python", "-m", "src.pipeline_v3.cli_main", "config", "list"],
+                "config list",
+            ),
         ]
 
         for cmd, description in cli_tests:
@@ -256,11 +275,14 @@ class Test_A_E2EIntegration:
                     capture_output=True,
                     text=True,
                     cwd=str(Path(__file__).parent.parent.parent.parent.parent),
-                    env=env
+                    env=env,
                 )
 
                 # CLI commands should at least not crash
-                assert result.returncode in [0, 1], f"{description} failed with code {result.returncode}"
+                assert result.returncode in [
+                    0,
+                    1,
+                ], f"{description} failed with code {result.returncode}"
 
             except Exception as e:
                 pytest.fail(f"CLI test '{description}' failed: {e}")
@@ -275,17 +297,12 @@ class Test_A_E2EIntegration:
         doc_path = sample_documents["small_datasheet"]
 
         result = await pipeline.process_document(
-            str(doc_path),
-            metadata={"source": "e2e_test", "document_type": "datasheet"}
+            str(doc_path), metadata={"source": "e2e_test", "document_type": "datasheet"}
         )
         assert result is not None
 
         # Step 2: Search for content
-        search_results = pipeline.search(
-            "measurement",
-            search_type="hybrid",
-            top_k=5
-        )
+        search_results = pipeline.search("measurement", search_type="hybrid", top_k=5)
         assert isinstance(search_results, list)
 
         # Step 3: Verify system status shows the document
@@ -303,6 +320,7 @@ class Test_B_SmokeIntegration:
         """Set up lightweight test environment for smoke tests."""
         # Use our improved config creation with unique ID for smoke tests
         from ..conftest import create_test_config
+
         config = create_test_config(tmp_path, environment="smoke", unique_id=None)
 
         # Smoke test settings - optimized for speed
@@ -316,11 +334,7 @@ class Test_B_SmokeIntegration:
         # Initialize pipeline
         pipeline = EnhancedPipeline(config)
 
-        yield {
-            "config": config,
-            "pipeline": pipeline,
-            "temp_dir": tmp_path
-        }
+        yield {"config": config, "pipeline": pipeline, "temp_dir": tmp_path}
 
     @pytest.mark.asyncio
     async def test_smoke_document_ingestion(self, smoke_test_environment):
@@ -342,7 +356,7 @@ class Test_B_SmokeIntegration:
         doc_path = pdfs[0]
         result = await pipeline.process_document(
             str(doc_path),
-            metadata={"source": "smoke_test", "document_type": "datasheet"}
+            metadata={"source": "smoke_test", "document_type": "datasheet"},
         )
 
         assert result is not None
@@ -404,11 +418,12 @@ class Test_Z_DatabaseIsolation:
         pipeline2 = EnhancedPipeline(config2)
 
         # Add a document to env1
-        test_doc = Path("data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf")
+        test_doc = Path(
+            "data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf"
+        )
         if test_doc.exists():
             result1 = await pipeline1.process_document(
-                str(test_doc),
-                metadata={"env": "env1"}
+                str(test_doc), metadata={"env": "env1"}
             )
             assert result1 is not None
 
@@ -436,7 +451,9 @@ class Test_Z_DatabaseIsolation:
         pipeline = test_pipeline
 
         # Add a document
-        test_doc = Path("data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf")
+        test_doc = Path(
+            "data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf"
+        )
         if test_doc.exists():
             await pipeline.process_document(str(test_doc))
 

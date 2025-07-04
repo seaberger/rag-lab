@@ -17,7 +17,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 try:
     from core.pipeline import ingest_sources
 
-    from utils.common_utils import CLIArgumentError, ConfigLoadError, DependencyError, logger
+    from utils.common_utils import (
+        CLIArgumentError,
+        ConfigLoadError,
+        DependencyError,
+        logger,
+    )
     from utils.config import PipelineConfig
     from utils.env_utils import setup_environment
 except ImportError as e:
@@ -62,7 +67,9 @@ Note: This is the development CLI for Pipeline v3. Full queue management
     )
 
     parser.add_argument(
-        "--config", default="config.yaml", help="Configuration file path (default: config.yaml)"
+        "--config",
+        default="config.yaml",
+        help="Configuration file path (default: config.yaml)",
     )
 
     parser.add_argument(
@@ -101,7 +108,9 @@ Note: This is the development CLI for Pipeline v3. Full queue management
     elif src_path.is_dir():
         # Find all PDF and MD files in directory
         sources = [
-            str(f) for f in src_path.rglob("*") if f.suffix.lower() in [".pdf", ".md", ".txt"]
+            str(f)
+            for f in src_path.rglob("*")
+            if f.suffix.lower() in [".pdf", ".md", ".txt"]
         ]
     else:
         # Try glob pattern

@@ -29,7 +29,12 @@ from pathlib import Path
 from typing import Any
 
 # Import custom exceptions and logger
-from utils.common_utils import CLIArgumentError, ConfigLoadError, DependencyError, logger
+from utils.common_utils import (
+    CLIArgumentError,
+    ConfigLoadError,
+    DependencyError,
+    logger,
+)
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -52,7 +57,11 @@ try:
     from utils.config import PipelineConfig
     from utils.env_utils import setup_environment
     from utils.monitoring import ProgressMonitor
-    from utils.url_utils import create_url_batch_file, extract_urls_from_file, validate_url_list
+    from utils.url_utils import (
+        create_url_batch_file,
+        extract_urls_from_file,
+        validate_url_list,
+    )
 
     CORE_AVAILABLE = True
 except ImportError as e:
@@ -163,7 +172,9 @@ class PipelineCLI:
 
             if PIPELINE_AVAILABLE:
                 self.pipeline = EnhancedPipeline(
-                    self.config, registry=self.registry, index_manager=self.index_manager
+                    self.config,
+                    registry=self.registry,
+                    index_manager=self.index_manager,
                 )
 
             self.queue = DocumentQueue(self.config)
@@ -178,7 +189,8 @@ class PipelineCLI:
             command_string = " ".join(sys.argv[1:])
             if "config" in str(e).lower():
                 raise ConfigLoadError(
-                    f"Configuration error during initialization: {e}", command_string=command_string
+                    f"Configuration error during initialization: {e}",
+                    command_string=command_string,
                 )
             raise DependencyError(
                 f"Error initializing pipeline: {e}. Make sure all dependencies are installed and configured properly",
@@ -229,11 +241,15 @@ Examples:
         # Add command
         add_parser = subparsers.add_parser("add", help="Add documents to pipeline")
         add_parser.add_argument(
-            "sources", nargs="+", help="Document paths, URLs, directories, or glob patterns"
+            "sources",
+            nargs="+",
+            help="Document paths, URLs, directories, or glob patterns",
         )
         add_parser.add_argument("--metadata", action="append", help="Metadata key=value pairs")
         add_parser.add_argument(
-            "--force", action="store_true", help="Force processing even if document exists"
+            "--force",
+            action="store_true",
+            help="Force processing even if document exists",
         )
         add_parser.add_argument(
             "--index-type",
@@ -254,7 +270,9 @@ Examples:
             help="Comma-separated processing options: keywords,enhanced-metadata,fast-mode",
         )
         add_parser.add_argument(
-            "--profile", type=str, help="Use a predefined processing profile from config"
+            "--profile",
+            type=str,
+            help="Use a predefined processing profile from config",
         )
 
         # DEPRECATED: Keep old parameters for backward compatibility
@@ -273,7 +291,9 @@ Examples:
         # Other parameters remain unchanged
         add_parser.add_argument("--prompt", help="Path to custom prompt file for parsing")
         add_parser.add_argument(
-            "--workers", type=int, help="Number of concurrent workers for batch processing"
+            "--workers",
+            type=int,
+            help="Number of concurrent workers for batch processing",
         )
         add_parser.add_argument(
             "--recursive", action="store_true", help="Recursively process directories"
@@ -289,7 +309,8 @@ Examples:
             help="Override timeout per page in seconds (default: 30)",
         )
         add_parser.add_argument(
-            "--url-file", help="Path to markdown or JSON file containing URLs to process"
+            "--url-file",
+            help="Path to markdown or JSON file containing URLs to process",
         )
         add_parser.add_argument(
             "--pages",
@@ -325,7 +346,10 @@ Examples:
         search_parser = subparsers.add_parser("search", help="Search documents")
         search_parser.add_argument("query", help="Search query")
         search_parser.add_argument(
-            "--type", choices=["vector", "keyword", "hybrid"], default="hybrid", help="Search type"
+            "--type",
+            choices=["vector", "keyword", "hybrid"],
+            default="hybrid",
+            help="Search type",
         )
         search_parser.add_argument(
             "--top-k", type=int, default=10, help="Number of results to return"
@@ -437,7 +461,9 @@ Examples:
             "--workers", type=int, default=2, help="Number of workers to test with"
         )
         test_queue_parser.add_argument(
-            "--with-keywords", action="store_true", help="Enable keyword generation during test"
+            "--with-keywords",
+            action="store_true",
+            help="Enable keyword generation during test",
         )
 
     async def run(self, args):
@@ -466,7 +492,8 @@ Examples:
         else:
             command_string = " ".join(sys.argv[1:])
             raise CLIArgumentError(
-                "Unknown command. Use --help for usage information.", command_string=command_string
+                "Unknown command. Use --help for usage information.",
+                command_string=command_string,
             )
 
     def _resolve_sources(
@@ -1303,7 +1330,8 @@ async def main():
     if not args.command:
         logger.error(f"No command specified | Command: {command_string}")
         raise CLIArgumentError(
-            "No command specified. Use --help for usage information.", command_string=command_string
+            "No command specified. Use --help for usage information.",
+            command_string=command_string,
         )
 
     # Run the CLI - let exceptions propagate up to top-level handler

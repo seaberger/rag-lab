@@ -46,10 +46,12 @@ def test_migration_manager_basic():
         assert version == 0, f"Expected version 0, got {version}"
 
         # Test migration table exists
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='schema_migrations'
-        """)
+        """
+        )
         result = cursor.fetchone()
         assert result is not None, "schema_migrations table not created"
 
@@ -89,10 +91,12 @@ def test_migration_application():
         assert version == 1, f"Expected version 1, got {version}"
 
         # Verify table was created
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='test_table'
-        """)
+        """
+        )
         result = cursor.fetchone()
         assert result is not None, "test_table not created"
 
@@ -125,10 +129,12 @@ def test_migration_rollback():
         manager.apply_migration(migration)
 
         # Verify table exists
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='test_table'
-        """)
+        """
+        )
         assert cursor.fetchone() is not None, "Table should exist before rollback"
 
         # Rollback
@@ -136,10 +142,12 @@ def test_migration_rollback():
         assert rolled_back == [1], f"Expected [1], got {rolled_back}"
 
         # Verify table is gone
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='test_table'
-        """)
+        """
+        )
         assert cursor.fetchone() is None, "Table should not exist after rollback"
 
         # Verify version
@@ -166,13 +174,15 @@ def test_database_base_integration():
 
         # Create test migration file
         migration_file = migrations_dir / "001_initial.sql"
-        migration_file.write_text("""
+        migration_file.write_text(
+            """
             CREATE TABLE test_table (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL
             );
             CREATE INDEX idx_test_name ON test_table(name);
-        """)
+        """
+        )
 
         # Create test database class
         class TestDatabase(DatabaseBase):
@@ -184,7 +194,9 @@ def test_database_base_integration():
                 core.database_base.__file__ = str(migrations_base / "fake.py")
 
                 try:
-                    super().__init__(db_path=db_path, migrations_subdir="test", db_name="TestDB")
+                    super().__init__(
+                        db_path=db_path, migrations_subdir="test", db_name="TestDB"
+                    )
                 finally:
                     core.database_base.__file__ = original_file
 
@@ -213,7 +225,9 @@ def test_database_base_integration():
             # Expected to fail due to path issues in test environment
             # But we can still verify the database file was created
             if db_path.exists():
-                print("   ✅ PASSED - DatabaseBase integration (with expected path issues)")
+                print(
+                    "   ✅ PASSED - DatabaseBase integration (with expected path issues)"
+                )
             else:
                 raise e
 
@@ -226,25 +240,31 @@ def test_migration_file_loading():
         migrations_dir = Path(temp_dir)
 
         # Create test migration files
-        (migrations_dir / "001_initial.sql").write_text("""
+        (migrations_dir / "001_initial.sql").write_text(
+            """
             -- Migration: 001_initial
             -- Description: Initial schema
             CREATE TABLE users (id INTEGER PRIMARY KEY);
-        """)
+        """
+        )
 
-        (migrations_dir / "002_add_name.up.sql").write_text("""
+        (migrations_dir / "002_add_name.up.sql").write_text(
+            """
             -- Migration: 002_add_name
             -- Description: Add name column
             ALTER TABLE users ADD COLUMN name TEXT;
-        """)
+        """
+        )
 
-        (migrations_dir / "002_add_name.down.sql").write_text("""
+        (migrations_dir / "002_add_name.down.sql").write_text(
+            """
             -- Rollback: 002_add_name
             -- Description: Remove name column
             CREATE TABLE users_temp AS SELECT id FROM users;
             DROP TABLE users;
             ALTER TABLE users_temp RENAME TO users;
-        """)
+        """
+        )
 
         # Load migrations
         migrations = load_migrations_from_sql_files(migrations_dir)
@@ -255,14 +275,18 @@ def test_migration_file_loading():
         # Verify first migration
         migration1 = migrations[0]
         assert migration1.version == 1, f"Expected version 1, got {migration1.version}"
-        assert migration1.name == "initial", f"Expected name 'initial', got {migration1.name}"
+        assert (
+            migration1.name == "initial"
+        ), f"Expected name 'initial', got {migration1.name}"
         assert "CREATE TABLE users" in migration1.up_sql
         assert migration1.down_sql is None
 
         # Verify second migration
         migration2 = migrations[1]
         assert migration2.version == 2, f"Expected version 2, got {migration2.version}"
-        assert migration2.name == "add_name", f"Expected name 'add_name', got {migration2.name}"
+        assert (
+            migration2.name == "add_name"
+        ), f"Expected name 'add_name', got {migration2.name}"
         assert "ALTER TABLE users ADD COLUMN name" in migration2.up_sql
         assert migration2.down_sql is not None
         assert "DROP TABLE users" in migration2.down_sql

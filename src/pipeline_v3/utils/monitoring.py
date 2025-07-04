@@ -120,8 +120,10 @@ class ProgressMonitor:
             "percentage": (processed / total * 100) if total > 0 else 0,
             "elapsed_seconds": elapsed,
             "rate_per_minute": (processed / elapsed * 60) if elapsed > 0 else 0,
-            "eta_seconds": (elapsed / processed * (total - processed)) if processed > 0 else None,
-            "cache_hit_rate": (self.global_stats["cache_hits"] / processed) if processed > 0 else 0,
+            "eta_seconds": ((elapsed / processed * (total - processed)) if processed > 0 else None),
+            "cache_hit_rate": (
+                (self.global_stats["cache_hits"] / processed) if processed > 0 else 0
+            ),
         }
 
     def get_summary(self) -> dict[str, Any]:
@@ -162,7 +164,7 @@ class ProgressMonitor:
                 {
                     "doc_id": stats.doc_id,
                     "source": stats.source,
-                    "duration": stats.end_time - stats.start_time if stats.end_time else None,
+                    "duration": (stats.end_time - stats.start_time if stats.end_time else None),
                     "chunks": stats.chunks,
                     "cached": stats.cached,
                     "error": stats.error,

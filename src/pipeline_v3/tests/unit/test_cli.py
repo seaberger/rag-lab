@@ -47,8 +47,8 @@ class TestCLI:
         ):
             cli = PipelineCLI()
             cli.config = MagicMock()
-            cli.config.get = (
-                lambda key, default=None: self.test_config.get(key.split(".")[0], {}).get(
+            cli.config.get = lambda key, default=None: (
+                self.test_config.get(key.split(".")[0], {}).get(
                     key.split(".")[1], default
                 )
                 if "." in key
@@ -76,8 +76,9 @@ class TestCLI:
 
         # Test that all main commands are present
         subparsers_actions = [
-            action for action in parser._actions
-            if hasattr(action, '_name_parser_map') and action._name_parser_map
+            action
+            for action in parser._actions
+            if hasattr(action, "_name_parser_map") and action._name_parser_map
         ]
         assert len(subparsers_actions) == 1
 
@@ -205,7 +206,11 @@ class TestCLI:
 
         # Verify search was called correctly (update to match actual API)
         cli.pipeline.search.assert_called_once_with(
-            "laser sensors", search_type="hybrid", top_k=5, filters=None, fusion_method="rrf"
+            "laser sensors",
+            search_type="hybrid",
+            top_k=5,
+            filters=None,
+            fusion_method="rrf",
         )
 
     @pytest.mark.asyncio
@@ -233,11 +238,13 @@ class TestCLI:
         args.detailed = False
         args.json = False
         # get_status should be synchronous, not async
-        cli.queue.get_status = MagicMock(return_value={
-            "state": "running",
-            "pending_jobs": 5,
-            "active_jobs": 2,
-        })
+        cli.queue.get_status = MagicMock(
+            return_value={
+                "state": "running",
+                "pending_jobs": 5,
+                "active_jobs": 2,
+            }
+        )
 
         await cli.handle_queue(args)
         cli.queue.get_status.assert_called()

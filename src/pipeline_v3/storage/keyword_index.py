@@ -31,7 +31,8 @@ class BM25Index:
 
     def _init_db(self):
         """Initialize FTS5 table for full-text search."""
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE VIRTUAL TABLE IF NOT EXISTS documents USING fts5(
                 doc_id,
                 chunk_id,
@@ -40,10 +41,12 @@ class BM25Index:
                 metadata,
                 tokenize='porter unicode61'
             )
-        """)
+        """
+        )
 
         # Create metadata table for document info
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS doc_metadata (
                 doc_id TEXT PRIMARY KEY,
                 source TEXT,
@@ -51,7 +54,8 @@ class BM25Index:
                 chunk_count INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         self.conn.commit()
 

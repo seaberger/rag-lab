@@ -42,7 +42,9 @@ class IndexManager:
     """Advanced index lifecycle management for vector and keyword indexes."""
 
     def __init__(
-        self, config: PipelineConfig | None = None, registry: DocumentRegistry | None = None
+        self,
+        config: PipelineConfig | None = None,
+        registry: DocumentRegistry | None = None,
     ):
         """Initialize index manager with configuration."""
         self.config = config or PipelineConfig()
@@ -99,7 +101,8 @@ class IndexManager:
             self.keyword_conn = sqlite3.connect(self.keyword_db_path)
 
             # Create keyword index table with FTS5
-            self.keyword_conn.execute("""
+            self.keyword_conn.execute(
+                """
                 CREATE VIRTUAL TABLE IF NOT EXISTS keyword_index
                 USING fts5(
                     doc_id UNINDEXED,
@@ -109,7 +112,8 @@ class IndexManager:
                     metadata UNINDEXED,
                     content_hash UNINDEXED
                 )
-            """)
+            """
+            )
 
             self.keyword_conn.commit()
             logger.info(f"Keyword index initialized: {self.keyword_db_path}")
@@ -126,7 +130,8 @@ class IndexManager:
 
         try:
             self.embedding_model = OpenAIEmbedding(
-                model=self.config.openai.embedding_model, dimensions=self.config.openai.dimensions
+                model=self.config.openai.embedding_model,
+                dimensions=self.config.openai.dimensions,
             )
 
             # Set the embedding model in global Settings
@@ -217,7 +222,14 @@ class IndexManager:
                             (doc_id, node_id, chunk_index, content, metadata, content_hash)
                             VALUES (?, ?, ?, ?, ?, ?)
                         """,
-                            (doc_id, node.node_id, i, node.text, str(node.metadata), node.hash),
+                            (
+                                doc_id,
+                                node.node_id,
+                                i,
+                                node.text,
+                                str(node.metadata),
+                                node.hash,
+                            ),
                         )
 
                         # Register index entry
@@ -255,7 +267,10 @@ class IndexManager:
             return False
 
     def add_nodes(
-        self, doc_id: str, nodes: list[TextNode], index_types: IndexType = IndexType.BOTH
+        self,
+        doc_id: str,
+        nodes: list[TextNode],
+        index_types: IndexType = IndexType.BOTH,
     ) -> bool:
         """Add pre-processed nodes to specified indexes.
 
@@ -322,7 +337,14 @@ class IndexManager:
                             (doc_id, node_id, chunk_index, content, metadata, content_hash)
                             VALUES (?, ?, ?, ?, ?, ?)
                         """,
-                            (doc_id, node.node_id, i, node.text, str(node.metadata), node.hash),
+                            (
+                                doc_id,
+                                node.node_id,
+                                i,
+                                node.text,
+                                str(node.metadata),
+                                node.hash,
+                            ),
                         )
 
                         # Register index entry
@@ -738,7 +760,11 @@ class IndexManager:
         return results
 
     def _adaptive_fusion(
-        self, vector_results: list[dict], keyword_results: list[dict], top_k: int, query: str
+        self,
+        vector_results: list[dict],
+        keyword_results: list[dict],
+        top_k: int,
+        query: str,
     ) -> list[dict[str, Any]]:
         """
         Adaptive fusion that adjusts weights based on query characteristics and result overlap.
@@ -747,7 +773,14 @@ class IndexManager:
         query_length = len(query.split())
         has_technical_terms = any(
             term in query.lower()
-            for term in ["sensor", "laser", "power", "wavelength", "calibration", "measurement"]
+            for term in [
+                "sensor",
+                "laser",
+                "power",
+                "wavelength",
+                "calibration",
+                "measurement",
+            ]
         )
         has_model_numbers = any(char.isdigit() for char in query)
 
@@ -901,11 +934,13 @@ class IndexManager:
                 "overall_health": {
                     "score": health_score,
                     "total_issues": total_issues,
-                    "status": "healthy"
-                    if health_score >= 90
-                    else "degraded"
-                    if health_score >= 70
-                    else "unhealthy",
+                    "status": (
+                        "healthy"
+                        if health_score >= 90
+                        else "degraded"
+                        if health_score >= 70
+                        else "unhealthy"
+                    ),
                 },
                 "timestamp": time.time(),
             }
@@ -1010,7 +1045,10 @@ class IndexManager:
     def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive index statistics."""
         try:
-            stats = {"registry": self.registry.get_statistics(), "timestamp": time.time()}
+            stats = {
+                "registry": self.registry.get_statistics(),
+                "timestamp": time.time(),
+            }
 
             # Vector index stats
             if self.qdrant_client:
@@ -1070,7 +1108,11 @@ class IndexManager:
         """
         try:
             if not self.qdrant_client:
-                return {"exists": False, "count": 0, "error": "Vector store not available"}
+                return {
+                    "exists": False,
+                    "count": 0,
+                    "error": "Vector store not available",
+                }
 
             # Query Qdrant for points with this doc_id
             from qdrant_client.models import FieldCondition, Filter, MatchValue
@@ -1089,7 +1131,11 @@ class IndexManager:
             points = result[0] if result and len(result) > 0 else []
             node_ids = [str(point.id) for point in points]
 
-            return {"exists": len(points) > 0, "count": len(points), "node_ids": node_ids}
+            return {
+                "exists": len(points) > 0,
+                "count": len(points),
+                "node_ids": node_ids,
+            }
 
         except Exception as e:
             logger.error(f"Failed to verify vector index state for {doc_id}: {e}")
@@ -1109,7 +1155,11 @@ class IndexManager:
         """
         try:
             if not self.keyword_conn:
-                return {"exists": False, "count": 0, "error": "Keyword index not available"}
+                return {
+                    "exists": False,
+                    "count": 0,
+                    "error": "Keyword index not available",
+                }
 
             # Query keyword index for entries with this doc_id
             cursor = self.keyword_conn.execute(

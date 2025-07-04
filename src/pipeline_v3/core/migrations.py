@@ -54,7 +54,8 @@ class MigrationManager:
     def _create_migration_table(self):
         """Create schema_migrations table if it doesn't exist."""
         try:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS schema_migrations (
                     version INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -63,13 +64,16 @@ class MigrationManager:
                     execution_time REAL,
                     rollback_sql TEXT
                 )
-            """)
+            """
+            )
 
             # Create index for faster lookups
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_migrations_applied_at
                 ON schema_migrations(applied_at)
-            """)
+            """
+            )
 
             self.conn.commit()
             logger.info("Migration tracking table ready")
@@ -81,9 +85,11 @@ class MigrationManager:
     def get_current_version(self) -> int:
         """Get current schema version."""
         try:
-            cursor = self.conn.execute("""
+            cursor = self.conn.execute(
+                """
                 SELECT MAX(version) as version FROM schema_migrations
-            """)
+            """
+            )
             result = cursor.fetchone()
             return result["version"] if result["version"] is not None else 0
 
@@ -93,11 +99,13 @@ class MigrationManager:
 
     def get_applied_migrations(self) -> list[dict[str, Any]]:
         """Get list of applied migrations."""
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT version, name, applied_at, checksum, execution_time
             FROM schema_migrations
             ORDER BY version
-        """)
+        """
+        )
         return [dict(row) for row in cursor.fetchall()]
 
     def get_pending_migrations(self, migrations: list[Migration]) -> list[Migration]:

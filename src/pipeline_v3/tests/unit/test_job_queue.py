@@ -29,7 +29,7 @@ class TestQueueJob:
             source="test.pdf",
             job_type="add",
             priority=JobPriority.NORMAL.value,
-            metadata={"doc_id": "123"}
+            metadata={"doc_id": "123"},
         )
 
         assert job.job_id is not None
@@ -46,14 +46,14 @@ class TestQueueJob:
             job_id=str(uuid.uuid4()),
             source="high.pdf",
             job_type="add",
-            priority=JobPriority.HIGH.value
+            priority=JobPriority.HIGH.value,
         )
 
         normal_job = QueueJob(
             job_id=str(uuid.uuid4()),
             source="normal.pdf",
             job_type="add",
-            priority=JobPriority.NORMAL.value
+            priority=JobPriority.NORMAL.value,
         )
 
         # HIGH priority (1) should come before NORMAL priority (2)
@@ -78,7 +78,7 @@ class TestDocumentQueue:
             source="test.pdf",
             job_type="add",
             priority=JobPriority.NORMAL,
-            metadata={"test": "data"}
+            metadata={"test": "data"},
         )
 
         assert job_id is not None
@@ -92,21 +92,21 @@ class TestDocumentQueue:
             source="low.pdf",
             job_type="add",
             priority=JobPriority.LOW,
-            metadata={"priority": "low"}
+            metadata={"priority": "low"},
         )
 
         await queue.add_job(
             source="high.pdf",
             job_type="add",
             priority=JobPriority.HIGH,
-            metadata={"priority": "high"}
+            metadata={"priority": "high"},
         )
 
         await queue.add_job(
             source="normal.pdf",
             job_type="add",
             priority=JobPriority.NORMAL,
-            metadata={"priority": "normal"}
+            metadata={"priority": "normal"},
         )
 
         # Verify jobs were submitted
@@ -118,9 +118,7 @@ class TestDocumentQueue:
         """Test job status tracking."""
         # Submit a job
         job_id = await queue.add_job(
-            source="test.pdf",
-            job_type="add",
-            metadata={"test": "data"}
+            source="test.pdf", job_type="add", metadata={"test": "data"}
         )
 
         # Check job status
@@ -138,9 +136,7 @@ class TestDocumentQueue:
         """Test job cancellation."""
         # Submit a job
         job_id = await queue.add_job(
-            source="test.pdf",
-            job_type="add",
-            metadata={"test": "data"}
+            source="test.pdf", job_type="add", metadata={"test": "data"}
         )
 
         # Cancel the job
@@ -157,9 +153,7 @@ class TestDocumentQueue:
         # Submit various jobs
         for i in range(5):
             await queue.add_job(
-                source=f"doc{i}.pdf",
-                job_type="add",
-                metadata={"index": i}
+                source=f"doc{i}.pdf", job_type="add", metadata={"index": i}
             )
 
         # Cancel one job to simulate failure
@@ -191,10 +185,7 @@ class TestDocumentQueue:
         """Test pause and resume functionality."""
         # Submit jobs
         for i in range(3):
-            await queue.add_job(
-                source=f"doc{i}.pdf",
-                job_type="add"
-            )
+            await queue.add_job(source=f"doc{i}.pdf", job_type="add")
 
         # Pause queue
         queue.pause_processing()
@@ -228,7 +219,7 @@ class TestJobManager:
             source="test.pdf",
             job_type=JobType.ADD,
             priority=2,
-            metadata={"test": "data"}
+            metadata={"test": "data"},
         )
 
         assert job_id is not None
@@ -243,10 +234,7 @@ class TestJobManager:
     def test_get_job(self, job_manager):
         """Test retrieving a job."""
         # Create job
-        job_id = job_manager.create_job(
-            source="test.pdf",
-            job_type=JobType.ADD
-        )
+        job_id = job_manager.create_job(source="test.pdf", job_type=JobType.ADD)
 
         # Retrieve it
         retrieved = job_manager.get_job(job_id)
@@ -257,10 +245,7 @@ class TestJobManager:
     def test_update_job_status(self, job_manager):
         """Test updating job status."""
         # Create job
-        job_id = job_manager.create_job(
-            source="test.pdf",
-            job_type=JobType.ADD
-        )
+        job_id = job_manager.create_job(source="test.pdf", job_type=JobType.ADD)
 
         # Update status
         job_manager.update_job_status(job_id, JobStatusPersistent.PROCESSING)
@@ -283,16 +268,22 @@ class TestJobManager:
         # Verify job3_id status before listing
         job3 = job_manager.get_job(job3_id)
         assert job3 is not None, f"Job {job3_id} not found"
-        assert job3.status == JobStatusPersistent.PENDING.value, f"Job {job3_id} has status {job3.status}, expected {JobStatusPersistent.PENDING.value}"
+        assert (
+            job3.status == JobStatusPersistent.PENDING.value
+        ), f"Job {job3_id} has status {job3.status}, expected {JobStatusPersistent.PENDING.value}"
 
         # List by status - use larger limit to ensure we get our job
-        pending_jobs = job_manager.list_jobs(status=JobStatusPersistent.PENDING, limit=1000)
+        pending_jobs = job_manager.list_jobs(
+            status=JobStatusPersistent.PENDING, limit=1000
+        )
 
         # Find our specific job in the list (there may be others from previous tests)
         pending_job_ids = [job.job_id for job in pending_jobs]
         assert job3_id in pending_job_ids, f"Job {job3_id} not found in pending jobs"
 
-        completed_jobs = job_manager.list_jobs(status=JobStatusPersistent.COMPLETED, limit=1000)
+        completed_jobs = job_manager.list_jobs(
+            status=JobStatusPersistent.COMPLETED, limit=1000
+        )
         completed_job_ids = [job.job_id for job in completed_jobs]
         assert job1_id in completed_job_ids
 
@@ -300,9 +291,7 @@ class TestJobManager:
         """Test that jobs persist across manager instances."""
         # Create job
         job_id = job_manager.create_job(
-            source="test.pdf",
-            job_type=JobType.ADD,
-            metadata={"important": "data"}
+            source="test.pdf", job_type=JobType.ADD, metadata={"important": "data"}
         )
 
         # Create new manager instance

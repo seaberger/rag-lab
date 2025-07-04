@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from search.hybrid import HybridSearch
 from core.index_manager import IndexManager
 from storage.keyword_index import BM25Index as KeywordIndex
+
 # Vector storage is handled by Qdrant directly through IndexManager
 from utils.config import PipelineConfig
 
@@ -47,11 +48,15 @@ class TestSearchIntegration:
         # Cleanup handled by conftest.py centralized cleanup
         try:
             from ..conftest import cleanup_qdrant_resources
+
             cleanup_qdrant_resources(index_manager)
         except ImportError:
             # Manual cleanup if import fails
             try:
-                if hasattr(index_manager, 'qdrant_client') and index_manager.qdrant_client:
+                if (
+                    hasattr(index_manager, "qdrant_client")
+                    and index_manager.qdrant_client
+                ):
                     index_manager.qdrant_client.close()
             except Exception as e:
                 print(f"Warning: Error during cleanup: {e}")
@@ -85,51 +90,69 @@ class TestSearchIntegration:
                 "metadata": {
                     "source": "laser_meter.pdf",
                     "product": "PM100USB",
-                    "category": "power_meters"
+                    "category": "power_meters",
                 },
                 "keywords": ["laser", "power", "meter", "USB", "monitoring"],
-                "expected_tags": ["laser", "power", "USB"]  # Tags for testing search
+                "expected_tags": ["laser", "power", "USB"],  # Tags for testing search
             },
             {
                 "content": "Thermopile sensors for accurate temperature measurement in industrial applications",
                 "metadata": {
                     "source": "thermopile.pdf",
                     "product": "TP-500",
-                    "category": "sensors"
+                    "category": "sensors",
                 },
-                "keywords": ["thermopile", "temperature", "sensor", "industrial", "measurement"],
-                "expected_tags": ["thermopile", "temperature", "sensor"]
+                "keywords": [
+                    "thermopile",
+                    "temperature",
+                    "sensor",
+                    "industrial",
+                    "measurement",
+                ],
+                "expected_tags": ["thermopile", "temperature", "sensor"],
             },
             {
                 "content": "Advanced optical power measurement system with wavelength calibration",
                 "metadata": {
                     "source": "optical_system.pdf",
                     "product": "OPM-2000",
-                    "category": "optical_systems"
+                    "category": "optical_systems",
                 },
-                "keywords": ["optical", "power", "measurement", "wavelength", "calibration"],
-                "expected_tags": ["optical", "power", "measurement"]
+                "keywords": [
+                    "optical",
+                    "power",
+                    "measurement",
+                    "wavelength",
+                    "calibration",
+                ],
+                "expected_tags": ["optical", "power", "measurement"],
             },
             {
                 "content": "USB-powered energy sensor for pulsed laser applications",
                 "metadata": {
                     "source": "energy_sensor.pdf",
                     "product": "ES-USB",
-                    "category": "sensors"
+                    "category": "sensors",
                 },
                 "keywords": ["USB", "energy", "sensor", "pulsed", "laser"],
-                "expected_tags": ["USB", "energy", "laser"]
+                "expected_tags": ["USB", "energy", "laser"],
             },
             {
                 "content": "Portable field measurement device with touchscreen interface",
                 "metadata": {
                     "source": "field_device.pdf",
                     "product": "FM-Touch",
-                    "category": "portable_devices"
+                    "category": "portable_devices",
                 },
-                "keywords": ["portable", "field", "measurement", "touchscreen", "device"],
-                "expected_tags": ["portable", "field", "measurement"]
-            }
+                "keywords": [
+                    "portable",
+                    "field",
+                    "measurement",
+                    "touchscreen",
+                    "device",
+                ],
+                "expected_tags": ["portable", "field", "measurement"],
+            },
         ]
 
         # Store document IDs after registration for later reference
@@ -144,22 +167,23 @@ class TestSearchIntegration:
                 content_hash=f"hash_{i}",
                 size=len(doc["content"]),
                 modified_time=1640995200,  # Fixed timestamp for testing
-                metadata=doc["metadata"]
+                metadata=doc["metadata"],
             )
 
             # Store mapping for tests to use
             self.test_doc_mapping[doc["metadata"]["source"]] = {
                 "doc_id": doc_id,
-                "expected_tags": doc["expected_tags"]
+                "expected_tags": doc["expected_tags"],
             }
 
             # Now add to indexes using IndexManager.add_document
             from core.registry import IndexType
+
             search_components["index_manager"].add_document(
                 doc_id=doc_id,
                 content=doc["content"],
                 metadata=doc["metadata"],
-                index_types=IndexType.BOTH
+                index_types=IndexType.BOTH,
             )
 
     @pytest.mark.asyncio
@@ -170,15 +194,17 @@ class TestSearchIntegration:
         # Test semantic search using actual document content
         test_queries = [
             ("laser measurement", ["laser", "power"]),  # Should find laser-related docs
-            ("temperature sensor", ["thermopile", "temperature"]),  # Should find thermopile
+            (
+                "temperature sensor",
+                ["thermopile", "temperature"],
+            ),  # Should find thermopile
             ("USB interface", ["USB"]),  # Should find USB devices
             ("portable measurement", ["portable", "field"]),  # Should find field device
         ]
 
         for query, expected_tags in test_queries:
             results = search_components["index_manager"].search_vector(
-                query=query,
-                top_k=3
+                query=query, top_k=3
             )
 
             # Verify we get results
@@ -195,7 +221,9 @@ class TestSearchIntegration:
                 if found_relevant:
                     break
 
-            assert found_relevant, f"No relevant results found for query '{query}' with tags {expected_tags}"
+            assert (
+                found_relevant
+            ), f"No relevant results found for query '{query}' with tags {expected_tags}"
 
     @pytest.mark.asyncio
     async def test_keyword_search_precision(self, search_components, mock_embeddings):
@@ -207,13 +235,12 @@ class TestSearchIntegration:
             ("USB", "USB"),
             ("thermopile", "thermopile"),
             ("wavelength", "wavelength"),
-            ("touchscreen", "touchscreen")
+            ("touchscreen", "touchscreen"),
         ]
 
         for query, expected_term in exact_queries:
             results = search_components["index_manager"].search_keyword(
-                query=query,
-                top_k=5
+                query=query, top_k=5
             )
 
             # Verify we get results and they contain the expected term
@@ -221,18 +248,23 @@ class TestSearchIntegration:
 
             # Check that top result contains the expected term
             top_content = results[0].get("content", results[0].get("text", "")).lower()
-            assert expected_term.lower() in top_content, f"Expected term '{expected_term}' not found in top result for '{query}'"
+            assert (
+                expected_term.lower() in top_content
+            ), f"Expected term '{expected_term}' not found in top result for '{query}'"
 
         # Test phrase search
         phrase_results = search_components["index_manager"].search_keyword(
-            query="power meter",
-            top_k=3
+            query="power meter", top_k=3
         )
         assert len(phrase_results) > 0
         # Check that results contain power meter related content
-        found_power_meter = any("power" in r.get("content", r.get("text", "")).lower()
-                               for r in phrase_results)
-        assert found_power_meter, "No power meter related content found in phrase search"
+        found_power_meter = any(
+            "power" in r.get("content", r.get("text", "")).lower()
+            for r in phrase_results
+        )
+        assert (
+            found_power_meter
+        ), "No power meter related content found in phrase search"
 
     @pytest.mark.asyncio
     async def test_hybrid_search_fusion(self, search_components, mock_embeddings):
@@ -245,15 +277,16 @@ class TestSearchIntegration:
 
         # Test hybrid search using IndexManager
         rrf_results = search_components["index_manager"].hybrid_search(
-            query=query,
-            top_k=5
+            query=query, top_k=5
         )
 
         assert len(rrf_results) > 0
         # Check that results contain USB and laser content
-        found_usb_laser = any("usb" in r.get("content", r.get("text", "")).lower() and
-                             "laser" in r.get("content", r.get("text", "")).lower()
-                             for r in rrf_results)
+        found_usb_laser = any(
+            "usb" in r.get("content", r.get("text", "")).lower()
+            and "laser" in r.get("content", r.get("text", "")).lower()
+            for r in rrf_results
+        )
         assert found_usb_laser, "No USB laser content found in hybrid search results"
 
         # Verify hybrid search returns results with scores (may be 0.0 for some implementations)
@@ -272,18 +305,12 @@ class TestSearchIntegration:
         from qdrant_client.models import Filter, FieldCondition, MatchValue
 
         category_filter = Filter(
-            must=[
-                FieldCondition(
-                    key="category",
-                    match=MatchValue(value="sensors")
-                )
-            ]
+            must=[FieldCondition(key="category", match=MatchValue(value="sensors"))]
         )
 
         # Test filtering through IndexManager (simplified for this test)
         filtered_results = search_components["index_manager"].search_vector(
-            query="measurement device",
-            top_k=10
+            query="measurement device", top_k=10
         )
 
         # Verify results are returned (filtering logic would be tested separately)
@@ -302,18 +329,15 @@ class TestSearchIntegration:
 
         # Get results from different search types (will be empty but should not error)
         vector_results = search_components["index_manager"].search_vector(
-            query=query,
-            top_k=5
+            query=query, top_k=5
         )
 
         keyword_results = search_components["index_manager"].search_keyword(
-            query=query,
-            top_k=5
+            query=query, top_k=5
         )
 
         hybrid_results = search_components["index_manager"].hybrid_search(
-            query=query,
-            top_k=5
+            query=query, top_k=5
         )
 
         # Verify scoring - check that results have proper score structure when found
@@ -327,7 +351,9 @@ class TestSearchIntegration:
                     # so we just check that scores exist, not their range
                 # Results should be sorted by score (descending)
                 scores = [r["score"] for r in results]
-                assert scores == sorted(scores, reverse=True), "Results not sorted by score"
+                assert scores == sorted(
+                    scores, reverse=True
+                ), "Results not sorted by score"
 
         # Debug: Print what we found
         print(f"\nSearch results for '{query}':")
@@ -336,7 +362,9 @@ class TestSearchIntegration:
         print(f"  Hybrid results: {len(hybrid_results)}")
 
         # Keyword search at minimum should find exact matches
-        assert len(keyword_results) > 0, f"Keyword search found no results for '{query}' - this suggests indexing failed"
+        assert (
+            len(keyword_results) > 0
+        ), f"Keyword search found no results for '{query}' - this suggests indexing failed"
 
         # Verify the results contain expected content
         found_laser_power = False
@@ -346,11 +374,15 @@ class TestSearchIntegration:
                 found_laser_power = True
                 break
 
-        assert found_laser_power, f"Keyword search results don't contain 'laser power' content"
+        assert (
+            found_laser_power
+        ), f"Keyword search results don't contain 'laser power' content"
 
         # At least one search type should return results
         total_results = sum(len(results) for results in all_results)
-        assert total_results > 0, f"No results found for '{query}' across any search method"
+        assert (
+            total_results > 0
+        ), f"No results found for '{query}' across any search method"
 
     @pytest.mark.asyncio
     async def test_empty_index_handling(self, search_components, mock_embeddings):
@@ -360,13 +392,11 @@ class TestSearchIntegration:
 
         # Search empty indexes
         vector_results = search_components["index_manager"].search_vector(
-            query=query,
-            top_k=5
+            query=query, top_k=5
         )
 
         keyword_results = search_components["index_manager"].search_keyword(
-            query=query,
-            top_k=5
+            query=query, top_k=5
         )
 
         # Should return empty lists, not errors
@@ -384,8 +414,7 @@ class TestSearchIntegration:
         # Test different page sizes
         for top_k in [1, 3, 5, 10]:
             results = search_components["index_manager"].search_vector(
-                query=query,
-                top_k=top_k
+                query=query, top_k=top_k
             )
 
             # Should return at most top_k results
@@ -405,15 +434,14 @@ class TestSearchIntegration:
             "temperature sensor",
             "USB interface",
             "optical measurement",
-            "portable device"
+            "portable device",
         ]
 
         # Execute searches
         results = []
         for query in queries:
             result = search_components["index_manager"].hybrid_search(
-                query=query,
-                top_k=3
+                query=query, top_k=3
             )
             results.append(result)
 
@@ -429,8 +457,7 @@ class TestSearchIntegration:
         # Test with invalid query (simplified)
         try:
             results = search_components["index_manager"].search_vector(
-                query="",  # Empty query
-                top_k=5
+                query="", top_k=5  # Empty query
             )
             # Should handle gracefully
             assert isinstance(results, list)
@@ -441,8 +468,7 @@ class TestSearchIntegration:
         # Test with extremely long query (keyword search)
         very_long_query = " ".join(["word"] * 1000)
         results = search_components["index_manager"].search_keyword(
-            query=very_long_query,
-            top_k=5
+            query=very_long_query, top_k=5
         )
 
         # Should handle gracefully
@@ -459,14 +485,13 @@ class TestSearchIntegration:
             "USB/RS232",
             "measurement & calibration",
             "laser (power)",
-            "temp.*sensor"
+            "temp.*sensor",
         ]
 
         for query in special_queries:
             # Should not crash
             results = search_components["index_manager"].search_keyword(
-                query=query,
-                top_k=3
+                query=query, top_k=3
             )
             assert isinstance(results, list)
 

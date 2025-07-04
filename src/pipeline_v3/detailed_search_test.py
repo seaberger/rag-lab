@@ -87,7 +87,8 @@ async def run_detailed_search_test():
         for doc_path in test_docs:
             print(f"\n  Processing: {doc_path.name}")
             result = await pipeline.process_document(
-                str(doc_path), metadata={"source": "search_test", "document_type": "datasheet"}
+                str(doc_path),
+                metadata={"source": "search_test", "document_type": "datasheet"},
             )
             print(f"    Status: {result.get('status', 'unknown')}")
 

@@ -32,7 +32,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from cli.management import PipelineCLI
 
-from utils.common_utils import CLIArgumentError, ConfigLoadError, DependencyError, init_cli_logging
+from utils.common_utils import (
+    CLIArgumentError,
+    ConfigLoadError,
+    DependencyError,
+    init_cli_logging,
+)
 
 
 class TestCLIBackwardCompatibility:
@@ -50,7 +55,9 @@ class TestCLIBackwardCompatibility:
         # Create file handler for capturing logs
         self.log_handler = logging.FileHandler(self.test_log_file)
         self.log_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         self.log_handler.setFormatter(formatter)
         self.logger.addHandler(self.log_handler)
 
@@ -69,7 +76,9 @@ class TestCLIBackwardCompatibility:
         with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
             yield stdout_capture, stderr_capture
 
-    def run_cli_subprocess(self, args: list[str], timeout: float = 5.0) -> tuple[int, str, str]:
+    def run_cli_subprocess(
+        self, args: list[str], timeout: float = 5.0
+    ) -> tuple[int, str, str]:
         """Run CLI in subprocess to test actual exit codes."""
         cmd = [sys.executable, "-m", "src.pipeline_v3.cli_main", *args]
 
@@ -79,7 +88,9 @@ class TestCLIBackwardCompatibility:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=str(Path(__file__).parent.parent.parent.parent.parent),  # Go up to project root
+                cwd=str(
+                    Path(__file__).parent.parent.parent.parent.parent
+                ),  # Go up to project root
                 check=False,
             )
             return result.returncode, result.stdout, result.stderr
@@ -104,7 +115,9 @@ class TestCLIBackwardCompatibility:
         for cmd in commands:
             exit_code, stdout, stderr = self.run_cli_subprocess([cmd, "--help"])
 
-            assert exit_code == 0, f"Help for {cmd} command failed with exit code {exit_code}"
+            assert (
+                exit_code == 0
+            ), f"Help for {cmd} command failed with exit code {exit_code}"
             assert f"{cmd}" in stdout.lower() or "help" in stdout.lower()
 
     @patch("cli.management.CORE_AVAILABLE", False)
@@ -147,7 +160,9 @@ with unittest.mock.patch.dict(sys.modules, {{'pipeline.enhanced_core': None}}):
 
             # Should exit with code 126 for dependency errors, but may get 128 for CLI arg errors
             assert (
-                result.returncode == 126 or result.returncode == 1 or result.returncode == 128
+                result.returncode == 126
+                or result.returncode == 1
+                or result.returncode == 128
             )  # Allow 128 for CLI argument errors when no command specified
             # Check both stdout and stderr for dependency error messages
             all_output = (result.stdout + result.stderr).lower()
@@ -174,7 +189,12 @@ with unittest.mock.patch.dict(sys.modules, {{'pipeline.enhanced_core': None}}):
         )
 
         # Should exit with config error code, dependency error code, or succeed with fallback config
-        assert exit_code in [0, 1, 126, 127]  # Various error codes are acceptable, including graceful fallback
+        assert exit_code in [
+            0,
+            1,
+            126,
+            127,
+        ]  # Various error codes are acceptable, including graceful fallback
 
         # Check if there's appropriate error messaging
         if exit_code == 127:
@@ -256,9 +276,11 @@ run_cli()
         # Test invalid command
         exit_code, stdout, stderr = self.run_cli_subprocess(["invalid_command"])
         assert exit_code != 0
-        assert ("invalid arguments" in stdout.lower() or
-                "unknown command" in stdout.lower() or
-                "unexpected error" in stdout.lower())
+        assert (
+            "invalid arguments" in stdout.lower()
+            or "unknown command" in stdout.lower()
+            or "unexpected error" in stdout.lower()
+        )
 
         # Test invalid option
         exit_code, stdout, stderr = self.run_cli_subprocess(["--invalid-option"])
@@ -282,14 +304,18 @@ run_cli()
         exit_code, stdout, stderr = self.run_cli_subprocess(["add", "nonexistent.pdf"])
         # CLI now handles missing files gracefully - warns but doesn't fail
         assert exit_code == 0 or exit_code != 0  # Either behavior is acceptable
-        assert "no files found" in stdout.lower() or "no documents found" in stdout.lower()
+        assert (
+            "no files found" in stdout.lower() or "no documents found" in stdout.lower()
+        )
 
     @patch("builtins.open", side_effect=FileNotFoundError("Config file not found"))
     @patch("cli.management.PipelineConfig")
     def test_config_load_error_handling(self, mock_config_class, mock_open):
         """Test configuration loading error handling."""
         # Mock the config loading to fail
-        mock_config_class.from_yaml.side_effect = FileNotFoundError("Config file not found")
+        mock_config_class.from_yaml.side_effect = FileNotFoundError(
+            "Config file not found"
+        )
 
         with pytest.raises((ConfigLoadError, FileNotFoundError)):
             PipelineCLI(config_path="nonexistent.yaml")
@@ -344,7 +370,9 @@ with unittest.mock.patch('builtins.__import__', side_effect=ImportError("Missing
                 # Should exit with code 1 for network errors
                 # Check that exit was called with 1 at least once
                 exit_calls = [call.args[0] for call in mock_exit.call_args_list]
-                assert 1 in exit_calls, f"Expected exit(1) to be called, but got: {exit_calls}"
+                assert (
+                    1 in exit_calls
+                ), f"Expected exit(1) to be called, but got: {exit_calls}"
 
     def test_unexpected_error_handling(self):
         """Test handling of unexpected exceptions."""
@@ -358,7 +386,9 @@ with unittest.mock.patch('builtins.__import__', side_effect=ImportError("Missing
                 # Should exit with code 1 for unexpected errors
                 # Check that exit was called with 1 at least once
                 exit_calls = [call.args[0] for call in mock_exit.call_args_list]
-                assert 1 in exit_calls, f"Expected exit(1) to be called, but got: {exit_calls}"
+                assert (
+                    1 in exit_calls
+                ), f"Expected exit(1) to be called, but got: {exit_calls}"
 
     def test_exit_codes_comprehensive(self):
         """Test that all documented exit codes are used correctly."""
@@ -369,7 +399,9 @@ with unittest.mock.patch('builtins.__import__', side_effect=ImportError("Missing
 
         # Test invalid arguments (exit code 128)
         exit_code, stdout, stderr = self.run_cli_subprocess(["invalid_command"])
-        assert exit_code == 128 or exit_code == 2 or exit_code == 1  # Various error codes possible
+        assert (
+            exit_code == 128 or exit_code == 2 or exit_code == 1
+        )  # Various error codes possible
 
     def test_logging_to_file_only_for_tracebacks(self):
         """Test that tracebacks are logged to file but not displayed to user."""
@@ -420,7 +452,9 @@ print(f"LOG_FILE:{{log_file}}")
 
             # Extract log file path from output
             log_file_line = [
-                line for line in result.stdout.split("\n") if line.startswith("LOG_FILE:")
+                line
+                for line in result.stdout.split("\n")
+                if line.startswith("LOG_FILE:")
             ]
             if log_file_line:
                 log_file = log_file_line[0].replace("LOG_FILE:", "")
@@ -456,7 +490,10 @@ print(f"LOG_FILE:{{log_file}}")
                 # CLI may exit with different codes depending on error handling
                 assert mock_exit.called, "sys.exit should have been called"
                 exit_code = mock_exit.call_args[0][0]
-                assert exit_code in [1, 128], f"Expected exit code 1 or 128, got {exit_code}"
+                assert exit_code in [
+                    1,
+                    128,
+                ], f"Expected exit code 1 or 128, got {exit_code}"
 
     def test_graceful_degradation_with_missing_components(self):
         """Test that CLI gracefully handles missing optional components."""
@@ -538,7 +575,11 @@ class TestCLIRegressionSubprocess:
     def test_cli_main_executable(self):
         """Test that cli_main.py can be executed directly."""
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), "--help"],
+            [
+                sys.executable,
+                str(Path(__file__).parent.parent.parent / "cli_main.py"),
+                "--help",
+            ],
             capture_output=True,
             text=True,
             timeout=10,
@@ -572,16 +613,20 @@ class TestCLIRegressionSubprocess:
 
         for cmd_args in commands_to_test:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), *cmd_args],
+                [
+                    sys.executable,
+                    str(Path(__file__).parent.parent.parent / "cli_main.py"),
+                    *cmd_args,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
                 check=False,
             )
 
-            assert result.returncode == 0, (
-                f"Command {cmd_args} failed with exit code {result.returncode}"
-            )
+            assert (
+                result.returncode == 0
+            ), f"Command {cmd_args} failed with exit code {result.returncode}"
 
     def test_error_scenarios_exit_codes(self):
         """Test that error scenarios return appropriate exit codes."""
@@ -597,16 +642,20 @@ class TestCLIRegressionSubprocess:
 
         for cmd_args, check_func in error_scenarios:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), *cmd_args],
+                [
+                    sys.executable,
+                    str(Path(__file__).parent.parent.parent / "cli_main.py"),
+                    *cmd_args,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
                 check=False,
             )
 
-            assert check_func(result.returncode), (
-                f"Command {cmd_args} returned unexpected exit code {result.returncode}"
-            )
+            assert check_func(
+                result.returncode
+            ), f"Command {cmd_args} returned unexpected exit code {result.returncode}"
 
 
 def run_pytest_tests():
@@ -647,7 +696,11 @@ def run_simple_tests():
     total_count += 1
     try:
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), "--help"],
+            [
+                sys.executable,
+                str(Path(__file__).parent.parent.parent / "cli_main.py"),
+                "--help",
+            ],
             capture_output=True,
             text=True,
             timeout=10,
@@ -722,7 +775,11 @@ def run_simple_tests():
     for cmd in help_commands:
         try:
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), *cmd],
+                [
+                    sys.executable,
+                    str(Path(__file__).parent.parent.parent / "cli_main.py"),
+                    *cmd,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -737,7 +794,9 @@ def run_simple_tests():
         print("✅ Multiple help commands test passed")
         success_count += 1
     else:
-        print(f"❌ Multiple help commands test failed ({help_success}/{len(help_commands)} passed)")
+        print(
+            f"❌ Multiple help commands test failed ({help_success}/{len(help_commands)} passed)"
+        )
 
     print(f"\n📊 Test Results: {success_count}/{total_count} tests passed")
 

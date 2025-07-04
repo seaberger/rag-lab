@@ -131,7 +131,12 @@ class OpenAIClientFactory:
         Returns:
             Dictionary with API key configuration info
         """
-        info = {"api_key_found": False, "source": None, "key_prefix": None, "key_length": None}
+        info = {
+            "api_key_found": False,
+            "source": None,
+            "key_prefix": None,
+            "key_length": None,
+        }
 
         api_key = None
 

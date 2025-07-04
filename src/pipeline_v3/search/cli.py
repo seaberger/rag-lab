@@ -44,7 +44,10 @@ async def search_documents(query: str, mode: str | None = None, limit: int | Non
 
     if mode == "hybrid":
         searcher = HybridSearch(
-            qdrant_client, bm25_index, alpha=hybrid_alpha, collection_name=collection_name
+            qdrant_client,
+            bm25_index,
+            alpha=hybrid_alpha,
+            collection_name=collection_name,
         )
         results = await searcher.search(query, embedding_model, limit)
     elif mode == "vector":

@@ -43,7 +43,8 @@ async def demonstrate_atomic_operations():
 
     nodes = [
         TextNode(
-            text="This is the first chunk of the document.", metadata={"chunk_index": 0, "page": 1}
+            text="This is the first chunk of the document.",
+            metadata={"chunk_index": 0, "page": 1},
         ),
         TextNode(
             text="This is the second chunk with important data.",
@@ -167,7 +168,6 @@ async def demonstrate_failure_scenario():
     # Create a scenario where one system will fail
     # This demonstrates the rollback capability
 
-
     # In a real scenario, you might:
     # 1. Fill up disk space to cause storage write to fail
     # 2. Disconnect from Qdrant to cause vector index fail
@@ -188,7 +188,8 @@ async def demonstrate_failure_scenario():
 
 
 if __name__ == "__main__":
-    print("""
+    print(
+        """
     ╔══════════════════════════════════════════════════════════╗
     ║                                                          ║
     ║    Pipeline v3: Cross-System Consistency Demo            ║
@@ -197,7 +198,8 @@ if __name__ == "__main__":
     ║    ensure data consistency across all storage systems    ║
     ║                                                          ║
     ╚══════════════════════════════════════════════════════════╝
-    """)
+    """
+    )
 
     # Run the main demo
     asyncio.run(demonstrate_atomic_operations())

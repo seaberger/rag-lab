@@ -33,13 +33,13 @@ class TestBM25Index:
             TextNode(
                 id_="node1",
                 text="This is a test document about laser power meters.",
-                metadata={"page": 1}
+                metadata={"page": 1},
             ),
             TextNode(
                 id_="node2",
                 text="PM100 specifications and features.",
-                metadata={"page": 2}
-            )
+                metadata={"page": 2},
+            ),
         ]
 
         # Index the nodes
@@ -47,7 +47,7 @@ class TestBM25Index:
             nodes=nodes,
             doc_id="doc1",
             source="test.pdf",
-            pairs=[("Product", "PM100"), ("Type", "Datasheet")]
+            pairs=[("Product", "PM100"), ("Type", "Datasheet")],
         )
 
         # Verify documents were indexed
@@ -64,28 +64,30 @@ class TestBM25Index:
                 "source": "laser_meter.pdf",
                 "nodes": [
                     TextNode(id_="n1", text="Laser power meter PM100 specifications"),
-                    TextNode(id_="n2", text="High accuracy optical power measurement")
+                    TextNode(id_="n2", text="High accuracy optical power measurement"),
                 ],
-                "pairs": [("Product", "PM100")]
+                "pairs": [("Product", "PM100")],
             },
             {
                 "doc_id": "doc2",
                 "source": "thermal_sensor.pdf",
                 "nodes": [
-                    TextNode(id_="n3", text="Thermal sensors for temperature measurement"),
-                    TextNode(id_="n4", text="Industrial grade sensors")
+                    TextNode(
+                        id_="n3", text="Thermal sensors for temperature measurement"
+                    ),
+                    TextNode(id_="n4", text="Industrial grade sensors"),
                 ],
-                "pairs": [("Product", "TS200")]
+                "pairs": [("Product", "TS200")],
             },
             {
                 "doc_id": "doc3",
                 "source": "pm100_manual.pdf",
                 "nodes": [
                     TextNode(id_="n5", text="PM100 laser measurement device manual"),
-                    TextNode(id_="n6", text="Operating instructions and safety")
+                    TextNode(id_="n6", text="Operating instructions and safety"),
                 ],
-                "pairs": [("Product", "PM100")]
-            }
+                "pairs": [("Product", "PM100")],
+            },
         ]
 
         for doc in docs:
@@ -93,7 +95,7 @@ class TestBM25Index:
                 nodes=doc["nodes"],
                 doc_id=doc["doc_id"],
                 source=doc["source"],
-                pairs=doc["pairs"]
+                pairs=doc["pairs"],
             )
 
         # Search for laser
@@ -112,7 +114,7 @@ class TestBM25Index:
                 TextNode(
                     id_=f"node{i}",
                     text=f"Document {i} about laser power meters and optical measurement",
-                    metadata={"index": i}
+                    metadata={"index": i},
                 )
             )
 
@@ -120,7 +122,7 @@ class TestBM25Index:
             nodes=nodes,
             doc_id="doc_many",
             source="many_chunks.pdf",
-            pairs=[("Type", "Test")]
+            pairs=[("Type", "Test")],
         )
 
         # Search with limit
@@ -134,25 +136,22 @@ class TestBM25Index:
             TextNode(
                 id_="low_relevance",
                 text="This document mentions laser once",
-                metadata={}
+                metadata={},
             ),
             TextNode(
                 id_="high_relevance",
                 text="laser laser laser power meter laser specifications laser",
-                metadata={}
+                metadata={},
             ),
             TextNode(
                 id_="medium_relevance",
                 text="Laser power meter for measuring laser output",
-                metadata={}
-            )
+                metadata={},
+            ),
         ]
 
         keyword_index.index_nodes(
-            nodes=nodes,
-            doc_id="doc_ranking",
-            source="ranking_test.pdf",
-            pairs=[]
+            nodes=nodes, doc_id="doc_ranking", source="ranking_test.pdf", pairs=[]
         )
 
         # Search and check ranking
@@ -166,10 +165,7 @@ class TestBM25Index:
         # Add a test node
         nodes = [TextNode(id_="test1", text="Test document for security testing")]
         keyword_index.index_nodes(
-            nodes=nodes,
-            doc_id="doc_security",
-            source="security.pdf",
-            pairs=[]
+            nodes=nodes, doc_id="doc_security", source="security.pdf", pairs=[]
         )
 
         # Try various SQL injection patterns
@@ -178,7 +174,7 @@ class TestBM25Index:
             '" OR 1=1 --',
             "'; DELETE FROM documents WHERE 1=1; --",
             "UNION SELECT * FROM documents",
-            "laser'; INSERT INTO documents VALUES ('hack', 'hacked'); --"
+            "laser'; INSERT INTO documents VALUES ('hack', 'hacked'); --",
         ]
 
         for query in injection_queries:
@@ -199,14 +195,14 @@ class TestBM25Index:
             TextNode(
                 id_="special1",
                 text="PM100 laser power meter (10W to 100W range) with RS232 interface",
-                metadata={}
+                metadata={},
             )
         ]
         keyword_index.index_nodes(
             nodes=nodes,
             doc_id="doc_special",
             source="special.pdf",
-            pairs=[("Model", "PM100")]
+            pairs=[("Model", "PM100")],
         )
 
         # Search with special characters - these should be handled without errors
@@ -239,14 +235,14 @@ class TestBM25Index:
         # Index nodes with part numbers
         nodes = [
             TextNode(id_="n1", text="Power meter model information"),
-            TextNode(id_="n2", text="Specifications for optical measurement")
+            TextNode(id_="n2", text="Specifications for optical measurement"),
         ]
 
         keyword_index.index_nodes(
             nodes=nodes,
             doc_id="doc_part",
             source="parts.pdf",
-            pairs=[("Part Number", "PM-100A"), ("Model", "PowerMax")]
+            pairs=[("Part Number", "PM-100A"), ("Model", "PowerMax")],
         )
 
         # Search by part number
@@ -270,7 +266,7 @@ class TestBM25Index:
         test_texts = [
             ("# Header with **bold** and *italic*", "Header with bold and italic"),
             ("[Link](url) and `code`", "Link url and code"),
-            ("Text(with)brackets[and]more", "Text with brackets and more")
+            ("Text(with)brackets[and]more", "Text with brackets and more"),
         ]
 
         for input_text, _expected_base in test_texts:
@@ -311,19 +307,19 @@ class TestBM25Index:
                 TextNode(
                     id_=f"node_{i}_1",
                     text=f"Document {i} first chunk about lasers",
-                    metadata={"chunk": 1}
+                    metadata={"chunk": 1},
                 ),
                 TextNode(
                     id_=f"node_{i}_2",
                     text=f"Document {i} second chunk about power meters",
-                    metadata={"chunk": 2}
-                )
+                    metadata={"chunk": 2},
+                ),
             ]
             keyword_index.index_nodes(
                 nodes=nodes,
                 doc_id=f"doc{i}",
                 source=f"doc{i}.pdf",
-                pairs=[("Index", str(i))]
+                pairs=[("Index", str(i))],
             )
 
         # Get statistics
@@ -340,15 +336,12 @@ class TestBM25Index:
             TextNode(
                 id_="ctx1",
                 text="Main content here.\nContext: laser, power meter, optical measurement\nMore content.",
-                metadata={}
+                metadata={},
             )
         ]
 
         keyword_index.index_nodes(
-            nodes=nodes,
-            doc_id="doc_ctx",
-            source="context.pdf",
-            pairs=[]
+            nodes=nodes, doc_id="doc_ctx", source="context.pdf", pairs=[]
         )
 
         # Search for a keyword that's only in the Context line
@@ -358,12 +351,14 @@ class TestBM25Index:
     def test_persistence(self, keyword_index, test_config):
         """Test that index persists across instances."""
         # Index a node
-        nodes = [TextNode(id_="persist1", text="Persistent document content about lasers")]
+        nodes = [
+            TextNode(id_="persist1", text="Persistent document content about lasers")
+        ]
         keyword_index.index_nodes(
             nodes=nodes,
             doc_id="persist_doc",
             source="persist.pdf",
-            pairs=[("Test", "Persistence")]
+            pairs=[("Test", "Persistence")],
         )
 
         # Create new instance with same database

@@ -59,17 +59,19 @@ def test_migration_idempotency():
 
             if i == 0:
                 # First time should apply
-                assert result["applied_count"] == 1, "First application should apply 1 migration"
+                assert (
+                    result["applied_count"] == 1
+                ), "First application should apply 1 migration"
             else:
                 # Subsequent times should be no-op
-                assert result["applied_count"] == 0, (
-                    f"Repeat application {i + 1} should apply 0 migrations"
-                )
+                assert (
+                    result["applied_count"] == 0
+                ), f"Repeat application {i + 1} should apply 0 migrations"
 
             # Version should always be 1
-            assert result["current_version"] == 1, (
-                f"Version should be 1, got {result['current_version']}"
-            )
+            assert (
+                result["current_version"] == 1
+            ), f"Version should be 1, got {result['current_version']}"
 
         manager.close()
         print("   ✅ PASSED - Migration idempotency")
@@ -134,7 +136,9 @@ def test_schema_migrations_table_integrity():
         }
 
         for col_name, _col_type in expected_columns.items():
-            assert col_name in columns, f"Column {col_name} missing from schema_migrations"
+            assert (
+                col_name in columns
+            ), f"Column {col_name} missing from schema_migrations"
 
         # Test rollback doesn't corrupt the table
         manager.rollback_migration(1)
@@ -183,11 +187,13 @@ def test_migration_checksum_verification():
 
         # Verify checksums detect the difference
         verification = manager.verify_migrations([modified_migration])
-        assert not verification["valid"], "Verification should fail for modified migration"
+        assert not verification[
+            "valid"
+        ], "Verification should fail for modified migration"
         assert len(verification["issues"]) == 1, "Should have one checksum issue"
-        assert verification["issues"][0]["issue"] == "checksum_mismatch", (
-            "Should detect checksum mismatch"
-        )
+        assert (
+            verification["issues"][0]["issue"] == "checksum_mismatch"
+        ), "Should detect checksum mismatch"
 
         manager.close()
         print("   ✅ PASSED - Migration checksum verification")
@@ -234,15 +240,19 @@ def test_migration_rollback_consistency():
         manager.rollback_migration(0)
 
         # Verify table is completely gone
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='table' AND name='users'
-        """)
+        """
+        )
         assert cursor.fetchone() is None, "Users table should not exist after rollback"
 
         # Verify index is also gone
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='index' AND name='idx_users_name'
-        """)
+        """
+        )
         assert cursor.fetchone() is None, "Users index should not exist after rollback"
 
         # Verify migration record is gone
@@ -290,18 +300,26 @@ def test_migration_transaction_atomicity():
             pass
 
         # Verify no partial changes were committed
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'
-        """)
-        assert cursor.fetchone() is None, "Partial table should not exist after failed migration"
+        """
+        )
+        assert (
+            cursor.fetchone() is None
+        ), "Partial table should not exist after failed migration"
 
         # Verify version wasn't updated
         version = manager.get_current_version()
-        assert version == 0, f"Version should be 0 after failed migration, got {version}"
+        assert (
+            version == 0
+        ), f"Version should be 0 after failed migration, got {version}"
 
         # Verify no migration record was created
         applied = manager.get_applied_migrations()
-        assert len(applied) == 0, f"Should have 0 applied migrations, got {len(applied)}"
+        assert (
+            len(applied) == 0
+        ), f"Should have 0 applied migrations, got {len(applied)}"
 
         manager.close()
         print("   ✅ PASSED - Migration transaction atomicity")
@@ -344,7 +362,9 @@ def test_migration_version_sequence():
         # (this might be by design for flexibility)
         # So let's test that it applies correctly
         result = manager.run_migrations([migration3])
-        assert result["applied_count"] == 1, "Should apply migration with higher version"
+        assert (
+            result["applied_count"] == 1
+        ), "Should apply migration with higher version"
         assert result["current_version"] == 3, "Version should jump to 3"
 
         # Now apply version 2 (lower than current)

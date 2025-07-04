@@ -58,7 +58,8 @@ class FingerprintManager:
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.conn = sqlite3.connect(str(self.storage_path))
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS fingerprints (
                 source TEXT PRIMARY KEY,
                 content_hash TEXT NOT NULL,
@@ -70,18 +71,23 @@ class FingerprintManager:
                 doc_id TEXT,
                 processing_status TEXT DEFAULT 'unknown'
             )
-        """)
+        """
+        )
 
         # Create index for performance
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_fingerprints_content_hash
             ON fingerprints(content_hash)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_fingerprints_last_seen
             ON fingerprints(last_seen)
-        """)
+        """
+        )
 
         self.conn.commit()
         logger.info("Fingerprint database initialized")
@@ -110,7 +116,12 @@ class FingerprintManager:
 
         # Compute metadata hash if requested
         if include_metadata:
-            metadata_parts = [str(source_path.name), str(size), str(modified_time), content_hash]
+            metadata_parts = [
+                str(source_path.name),
+                str(size),
+                str(modified_time),
+                content_hash,
+            ]
             metadata_hash = hashlib.sha256("|".join(metadata_parts).encode()).hexdigest()
         else:
             metadata_hash = content_hash
@@ -352,7 +363,8 @@ class FingerprintManager:
 
     def get_stats(self) -> dict[str, Any]:
         """Get fingerprint database statistics."""
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT
                 COUNT(*) as total_documents,
                 COUNT(CASE WHEN processing_status = 'processed' THEN 1 END) as processed,
@@ -362,7 +374,8 @@ class FingerprintManager:
                 MIN(created_at) as oldest_fingerprint,
                 MAX(last_seen) as newest_fingerprint
             FROM fingerprints
-        """)
+        """
+        )
 
         row = cursor.fetchone()
 

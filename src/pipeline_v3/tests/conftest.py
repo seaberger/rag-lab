@@ -224,7 +224,14 @@ def expected_content():
     return {
         "fieldmax": {
             "part_numbers": ["1098580", "1098579", "1098581"],
-            "keywords": ["FieldMaxII", "laser", "power", "meter", "thermopile", "optical"],
+            "keywords": [
+                "FieldMaxII",
+                "laser",
+                "power",
+                "meter",
+                "thermopile",
+                "optical",
+            ],
             "model_names": ["FieldMaxII-TOP", "FieldMaxII-TO", "FieldMaxII-P"],
         },
         "labmax": {

@@ -126,7 +126,9 @@ class IntegrationTester:
 
         # Main directory PDFs
         main_pdfs = [
-            f for f in self.test_docs_path.glob("*.pdf") if not f.name.endswith("Zone.Identifier")
+            f
+            for f in self.test_docs_path.glob("*.pdf")
+            if not f.name.endswith("Zone.Identifier")
         ]
         pdf_files.extend(main_pdfs)
 
@@ -134,7 +136,9 @@ class IntegrationTester:
         datasheets_dir = self.test_docs_path / "datasheets"
         if datasheets_dir.exists():
             datasheet_pdfs = [
-                f for f in datasheets_dir.glob("*.pdf") if not f.name.endswith("Zone.Identifier")
+                f
+                for f in datasheets_dir.glob("*.pdf")
+                if not f.name.endswith("Zone.Identifier")
             ]
             pdf_files.extend(datasheet_pdfs)
 
@@ -238,7 +242,9 @@ class IntegrationTester:
                 try:
                     start_time = time.time()
 
-                    results = self.pipeline.search(query, search_type=search_type, top_k=5)
+                    results = self.pipeline.search(
+                        query, search_type=search_type, top_k=5
+                    )
 
                     search_time = time.time() - start_time
 
@@ -266,7 +272,9 @@ class IntegrationTester:
         for search_type, results in search_results.items():
             success_count = sum(1 for r in results if r["success"])
             total_count = len(results)
-            print(f"📊 {search_type.title()} Search: {success_count}/{total_count} successful")
+            print(
+                f"📊 {search_type.title()} Search: {success_count}/{total_count} successful"
+            )
 
         return True
 
@@ -404,7 +412,9 @@ class IntegrationTester:
             ingestion_success = sum(1 for r in ingestion_results if r["success"])
             total_tests += len(ingestion_results)
             passed_tests += ingestion_success
-            print(f"📥 Document Ingestion: {ingestion_success}/{len(ingestion_results)} passed")
+            print(
+                f"📥 Document Ingestion: {ingestion_success}/{len(ingestion_results)} passed"
+            )
 
             if ingestion_results:
                 avg_time = sum(r["processing_time"] for r in ingestion_results) / len(
@@ -419,7 +429,9 @@ class IntegrationTester:
                 search_success = sum(1 for r in results if r["success"])
                 total_tests += len(results)
                 passed_tests += search_success
-                print(f"🔍 {search_type.title()} Search: {search_success}/{len(results)} passed")
+                print(
+                    f"🔍 {search_type.title()} Search: {search_success}/{len(results)} passed"
+                )
 
         # Queue results
         if "queue" in self.test_results:

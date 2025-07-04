@@ -308,7 +308,10 @@ class TransactionCoordinator:
         return {"checkpoints": checkpoints, "errors": errors}
 
     async def _prepare_system(
-        self, system: StorageSystem, operation: TransactionOperation, transaction_id: UUID
+        self,
+        system: StorageSystem,
+        operation: TransactionOperation,
+        transaction_id: UUID,
     ) -> Checkpoint:
         """Prepare a single system"""
         return await system.prepare(operation, transaction_id)

@@ -39,17 +39,44 @@ def main():
 
     # Test 2: Include only specific file types
     print("\n📋 Test 2: Include only PDF and DOCX files")
-    cmd = [*base_cmd, "data/sample_docs", "--recursive", "--include-pattern", "*.pdf", "--include-pattern", "*.docx", "--dry-run"]
+    cmd = [
+        *base_cmd,
+        "data/sample_docs",
+        "--recursive",
+        "--include-pattern",
+        "*.pdf",
+        "--include-pattern",
+        "*.docx",
+        "--dry-run",
+    ]
     run_command(cmd)
 
     # Test 3: Exclude patterns
     print("\n📋 Test 3: Exclude test directories and temp files")
-    cmd = [*base_cmd, "data", "--recursive", "--exclude-pattern", "**/test/**", "--exclude-pattern", "*.tmp", "--dry-run"]
+    cmd = [
+        *base_cmd,
+        "data",
+        "--recursive",
+        "--exclude-pattern",
+        "**/test/**",
+        "--exclude-pattern",
+        "*.tmp",
+        "--dry-run",
+    ]
     run_command(cmd)
 
     # Test 4: Complex filtering - include PDFs but exclude certain directories
     print("\n📋 Test 4: Include PDFs but exclude lmc_docs directory")
-    cmd = [*base_cmd, "data", "--recursive", "--include-pattern", "*.pdf", "--exclude-pattern", "**/lmc_docs/**", "--dry-run"]
+    cmd = [
+        *base_cmd,
+        "data",
+        "--recursive",
+        "--include-pattern",
+        "*.pdf",
+        "--exclude-pattern",
+        "**/lmc_docs/**",
+        "--dry-run",
+    ]
     run_command(cmd)
 
     # Test 5: Non-recursive directory scan (immediate children only)
@@ -59,7 +86,16 @@ def main():
 
     # Test 6: Office document support
     print("\n📋 Test 6: Find all Office documents")
-    cmd = [*base_cmd, "data", "--recursive", "--include-pattern", "*.docx", "--include-pattern", "*.pptx", "--dry-run"]
+    cmd = [
+        *base_cmd,
+        "data",
+        "--recursive",
+        "--include-pattern",
+        "*.docx",
+        "--include-pattern",
+        "*.pptx",
+        "--dry-run",
+    ]
     run_command(cmd)
 
     # Test 7: Multiple directories

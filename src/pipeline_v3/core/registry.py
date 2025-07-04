@@ -106,7 +106,8 @@ class DocumentRegistry:
         self.conn = sqlite3.connect(str(self.storage_path))
 
         # Documents table
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS documents (
                 doc_id TEXT PRIMARY KEY,
                 source TEXT UNIQUE NOT NULL,
@@ -123,10 +124,12 @@ class DocumentRegistry:
                 last_error TEXT,
                 metadata TEXT  -- JSON
             )
-        """)
+        """
+        )
 
         # Index entries table
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS index_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 doc_id TEXT NOT NULL,
@@ -140,28 +143,39 @@ class DocumentRegistry:
                 FOREIGN KEY (doc_id) REFERENCES documents (doc_id),
                 UNIQUE(doc_id, index_type, chunk_index)
             )
-        """)
+        """
+        )
 
         # Create indexes for performance
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_documents_state ON documents(state)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_documents_content_hash ON documents(content_hash)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_index_entries_doc_id ON index_entries(doc_id)
-        """)
+        """
+        )
 
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_index_entries_type ON index_entries(index_type)
-        """)
+        """
+        )
 
         self.conn.commit()
         logger.info("Document registry database initialized")
@@ -505,7 +519,8 @@ class DocumentRegistry:
     def get_inconsistent_documents(self) -> list[DocumentRecord]:
         """Find documents with inconsistent index states."""
         # Documents that claim to be indexed but have no index entries
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT d.doc_id, d.source, d.content_hash, d.size, d.modified_time, d.created_at, d.updated_at,
                    d.state, d.vector_indexed, d.keyword_indexed, d.chunk_count, d.error_count, d.last_error, d.metadata
             FROM documents d
@@ -514,7 +529,8 @@ class DocumentRegistry:
             )) OR (d.keyword_indexed = 1 AND NOT EXISTS (
                 SELECT 1 FROM index_entries ie WHERE ie.doc_id = d.doc_id AND ie.index_type = 'keyword'
             ))
-        """)
+        """
+        )
 
         inconsistent = []
         for row in cursor.fetchall():
@@ -524,13 +540,15 @@ class DocumentRegistry:
 
     def get_orphaned_index_entries(self) -> list[IndexRecord]:
         """Find index entries without corresponding documents."""
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT ie.doc_id, ie.index_type, ie.node_id, ie.chunk_index, ie.content_hash,
                    ie.created_at, ie.updated_at, ie.metadata
             FROM index_entries ie
             LEFT JOIN documents d ON ie.doc_id = d.doc_id
             WHERE d.doc_id IS NULL
-        """)
+        """
+        )
 
         orphaned = []
         for row in cursor.fetchall():
@@ -553,11 +571,13 @@ class DocumentRegistry:
     def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive registry statistics."""
         # Document statistics by state
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT state, COUNT(*) as count, AVG(chunk_count) as avg_chunks
             FROM documents
             GROUP BY state
-        """)
+        """
+        )
 
         stats_by_state = {}
         total_docs = 0
@@ -571,11 +591,13 @@ class DocumentRegistry:
             total_docs += count
 
         # Index statistics
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT index_type, COUNT(*) as entry_count, COUNT(DISTINCT doc_id) as doc_count
             FROM index_entries
             GROUP BY index_type
-        """)
+        """
+        )
 
         index_stats = {}
         for row in cursor.fetchall():
@@ -583,7 +605,10 @@ class DocumentRegistry:
             entry_count = row[1]
             doc_count = row[2]
 
-            index_stats[index_type] = {"total_entries": entry_count, "documents_indexed": doc_count}
+            index_stats[index_type] = {
+                "total_entries": entry_count,
+                "documents_indexed": doc_count,
+            }
 
         # Consistency check
         inconsistent_count = len(self.get_inconsistent_documents())

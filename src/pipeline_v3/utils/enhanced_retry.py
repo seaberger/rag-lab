@@ -64,7 +64,10 @@ class RetryableError(Exception):
     """Exception that indicates an operation should be retried."""
 
     def __init__(
-        self, message: str, error_type: ErrorType, original_error: Exception | None = None
+        self,
+        message: str,
+        error_type: ErrorType,
+        original_error: Exception | None = None,
     ):
         super().__init__(message)
         self.error_type = error_type

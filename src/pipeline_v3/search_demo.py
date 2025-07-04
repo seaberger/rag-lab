@@ -165,7 +165,11 @@ async def demonstrate_search_functionality():
             result = await pipeline.process_document(
                 str(file_path),
                 content=content,  # Provide content directly
-                metadata={"source": "demo", "document_type": "manual", "filename": filename},
+                metadata={
+                    "source": "demo",
+                    "document_type": "manual",
+                    "filename": filename,
+                },
             )
             print(f"     Status: {result.get('status', 'unknown')}")
 

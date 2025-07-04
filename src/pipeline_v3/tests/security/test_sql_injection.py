@@ -57,7 +57,7 @@ class TestSQLInjectionProtection:
                 content_hash=f"test_hash_{malicious_input}",
                 size=1000,
                 modified_time=0,
-                metadata={"test": "data"}
+                metadata={"test": "data"},
             )
 
             # Should handle malicious metadata safely
@@ -66,7 +66,7 @@ class TestSQLInjectionProtection:
                 content_hash=f"test_hash2_{malicious_input}",
                 size=1000,
                 modified_time=0,
-                metadata={"key": malicious_input}
+                metadata={"key": malicious_input},
             )
 
             # Verify the database is still intact
@@ -75,7 +75,9 @@ class TestSQLInjectionProtection:
 
             # Verify no tables were dropped
             # Access connection directly for testing
-            cursor = registry.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            cursor = registry.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
             tables = [row[0] for row in cursor.fetchall()]
             assert "documents" in tables
 
@@ -87,9 +89,11 @@ class TestSQLInjectionProtection:
 
         test_node = TextNode(
             text="This is a test document with some content.",
-            metadata={"type": "test", "title": "Test Document"}
+            metadata={"type": "test", "title": "Test Document"},
         )
-        keyword_index.index_nodes([test_node], doc_id="doc1", source="test.pdf", pairs=[])
+        keyword_index.index_nodes(
+            [test_node], doc_id="doc1", source="test.pdf", pairs=[]
+        )
 
         # SQL injection attempts in search queries
         malicious_queries = [
@@ -121,7 +125,6 @@ class TestSQLInjectionProtection:
             count = cursor.fetchone()[0]
             assert count > 0  # Our test document should still be there
 
-
     @pytest.mark.security
     def test_parameterized_queries_used(self):
         """Verify that parameterized queries are used throughout the codebase."""
@@ -146,9 +149,11 @@ class TestSQLInjectionProtection:
 
                 for pattern in execute_patterns:
                     # Check if it's using placeholders (? or :name)
-                    if ("SELECT" in pattern or "INSERT" in pattern or "UPDATE" in pattern) and any(
-                        op in pattern for op in [" + ", " % ", ".format("]
-                    ):
+                    if (
+                        "SELECT" in pattern
+                        or "INSERT" in pattern
+                        or "UPDATE" in pattern
+                    ) and any(op in pattern for op in [" + ", " % ", ".format("]):
                         pytest.fail(
                             f"Potential SQL injection vulnerability in {file_path}: "
                             f"Direct string manipulation in SQL query"
@@ -194,9 +199,14 @@ class TestSQLInjectionProtection:
 
             test_node = TextNode(
                 text=f"Content with {special_input}",
-                metadata={"test": special_input, "title": special_input}
+                metadata={"test": special_input, "title": special_input},
             )
-            keyword_index.index_nodes([test_node], doc_id=f"doc_{special_input}", source=f"{special_input}.pdf", pairs=[])
+            keyword_index.index_nodes(
+                [test_node],
+                doc_id=f"doc_{special_input}",
+                source=f"{special_input}.pdf",
+                pairs=[],
+            )
 
             # Search for it
             results = keyword_index.search(special_input.replace("'", "''"), limit=10)

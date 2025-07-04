@@ -118,7 +118,9 @@ class QuickIntegrationTester:
 
         # Get PDF files from main directory only for speed
         main_pdfs = [
-            f for f in self.test_docs_path.glob("*.pdf") if not f.name.endswith("Zone.Identifier")
+            f
+            for f in self.test_docs_path.glob("*.pdf")
+            if not f.name.endswith("Zone.Identifier")
         ]
 
         # Limit to first 2 files for quick testing
@@ -148,7 +150,10 @@ class QuickIntegrationTester:
                 # Test document addition (focus on keyword indexing only for speed)
                 result = await self.pipeline.process_document(
                     str(doc_path),
-                    metadata={"source": "quick_integration_test", "document_type": "datasheet"},
+                    metadata={
+                        "source": "quick_integration_test",
+                        "document_type": "datasheet",
+                    },
                 )
 
                 processing_time = time.time() - start_time
@@ -213,7 +218,9 @@ class QuickIntegrationTester:
                 print(f"    '{query}': {len(results)} results ({search_time:.2f}s)")
 
             except Exception as e:
-                search_results.append({"query": query, "success": False, "error": str(e)})
+                search_results.append(
+                    {"query": query, "success": False, "error": str(e)}
+                )
                 print(f"    '{query}': ❌ Failed - {e}")
 
         self.test_results["search"] = search_results
@@ -272,7 +279,9 @@ class QuickIntegrationTester:
             ingestion_success = sum(1 for r in ingestion_results if r["success"])
             total_tests += len(ingestion_results)
             passed_tests += ingestion_success
-            print(f"📥 Document Ingestion: {ingestion_success}/{len(ingestion_results)} passed")
+            print(
+                f"📥 Document Ingestion: {ingestion_success}/{len(ingestion_results)} passed"
+            )
 
             if ingestion_results:
                 avg_time = sum(r["processing_time"] for r in ingestion_results) / len(

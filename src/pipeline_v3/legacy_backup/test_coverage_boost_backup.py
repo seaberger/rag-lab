@@ -47,6 +47,7 @@ class TestCoverageBoost:
 
         # Test config dict conversion using dataclasses.asdict
         from dataclasses import asdict
+
         config_dict = asdict(config)
         assert isinstance(config_dict, dict)
         assert "openai" in config_dict
@@ -56,11 +57,12 @@ class TestCoverageBoost:
         custom_dict = {
             "openai": {"vision_model": "gpt-4.1"},
             "storage": {"base_dir": temp_dir},
-            "job_queue": {"max_concurrent": 8}
+            "job_queue": {"max_concurrent": 8},
         }
 
         # Create YAML file
         import yaml
+
         config_file = os.path.join(temp_dir, "test_config.yaml")
         with open(config_file, "w") as f:
             yaml.dump(custom_dict, f)
@@ -91,7 +93,9 @@ class TestCoverageBoost:
     def test_env_utils_coverage(self):
         """Test environment utilities."""
         # Test environment setup
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):  # pragma: allowlist secret
+        with patch.dict(
+            os.environ, {"OPENAI_API_KEY": "test-key"}  # pragma: allowlist secret
+        ):
             setup_environment()
 
         # Test without env file
@@ -140,6 +144,7 @@ class TestCoverageBoost:
 
         # Valid file
         from pathlib import Path
+
         assert validator.validate_file(Path(test_file)) is True
 
         # Invalid file - should raise ValidationError
@@ -170,6 +175,7 @@ class TestCoverageBoost:
 
         # Test with config
         from utils.config import PipelineConfig
+
         config = PipelineConfig()
         generator_with_config = KeywordGenerator(config=config)
         assert generator_with_config.client is not None
@@ -199,10 +205,7 @@ class TestCoverageBoost:
 
         # Test retry config
         config = RetryConfig(
-            max_attempts=3,
-            base_delay=1.0,
-            max_delay=10.0,
-            exponential_base=2.0
+            max_attempts=3, base_delay=1.0, max_delay=10.0, exponential_base=2.0
         )
 
         assert config.max_attempts == 3
@@ -247,18 +250,12 @@ class TestCoverageBoost:
         from utils.url_utils import (
             extract_urls_from_file,
             validate_url_list,
-            create_url_batch_file
+            create_url_batch_file,
         )
 
         # Test URL validation
-        valid_urls = [
-            "https://example.com/doc.pdf",
-            "http://test.com/file.pdf"
-        ]
-        invalid_urls = [
-            "not-a-url",
-            "ftp://invalid.com/file"
-        ]
+        valid_urls = ["https://example.com/doc.pdf", "http://test.com/file.pdf"]
+        invalid_urls = ["not-a-url", "ftp://invalid.com/file"]
 
         validated = validate_url_list(valid_urls + invalid_urls)
         assert len(validated["valid"]) == 2
@@ -278,7 +275,7 @@ class TestCoverageBoost:
         batch_file = create_url_batch_file(
             urls=valid_urls,
             output_path=os.path.join(temp_dir, "batch.json"),
-            metadata={"batch": "test"}
+            metadata={"batch": "test"},
         )
         assert os.path.exists(batch_file)
 
@@ -307,14 +304,20 @@ class TestCoverageBoost:
         assert parsed is not None
 
         # Parse complex filter
-        complex_filter = "status:completed AND (type:datasheet OR type:manual) AND pages>10"
+        complex_filter = (
+            "status:completed AND (type:datasheet OR type:manual) AND pages>10"
+        )
         parsed_complex = parser.parse(complex_filter)
         assert parsed_complex is not None
 
     @pytest.mark.asyncio
     async def test_openai_client_coverage(self):
         """Test OpenAI client utilities."""
-        from utils.openai_client import OpenAIClientFactory, create_vision_client, create_text_client
+        from utils.openai_client import (
+            OpenAIClientFactory,
+            create_vision_client,
+            create_text_client,
+        )
 
         # Test factory with mocked OpenAI
         with patch("openai.OpenAI") as mock_openai_class:
@@ -322,7 +325,9 @@ class TestCoverageBoost:
             mock_openai_class.return_value = mock_instance
 
             # Test client creation via factory
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):  # pragma: allowlist secret
+            with patch.dict(
+                os.environ, {"OPENAI_API_KEY": "test-key"}  # pragma: allowlist secret
+            ):
                 client = OpenAIClientFactory.create_client()
                 assert client is not None
 

@@ -35,7 +35,9 @@ class SimpleCLITester:
         self.passed_tests = 0
         self.total_tests = 0
 
-    def run_cli_subprocess(self, args: list[str], timeout: float = 10.0) -> tuple[int, str, str]:
+    def run_cli_subprocess(
+        self, args: list[str], timeout: float = 10.0
+    ) -> tuple[int, str, str]:
         """Run CLI in subprocess to test actual exit codes."""
         cmd = ["uv", "run", "python", "cli_main.py", *args]
 
@@ -104,7 +106,10 @@ class SimpleCLITester:
 
         if exit_code != 0:
             print(f"     Exit code: {exit_code} ✓ (non-zero as expected)")
-            if "invalid arguments" in stdout.lower() or "unknown command" in stdout.lower():
+            if (
+                "invalid arguments" in stdout.lower()
+                or "unknown command" in stdout.lower()
+            ):
                 print("     Error message appropriate ✓")
                 return True
             print("     Error message not found in output")
@@ -157,7 +162,10 @@ class SimpleCLITester:
 
         if exit_code == 0:
             # Check if warning about config is present
-            if "Using default settings" in stdout or "Configuration load error" in stdout:
+            if (
+                "Using default settings" in stdout
+                or "Configuration load error" in stdout
+            ):
                 print(f"     Exit code: {exit_code} ✓ (graceful degradation working)")
                 print("     Config warning message present ✓")
                 return True
@@ -166,7 +174,9 @@ class SimpleCLITester:
         if exit_code in [126, 127, 1]:  # Other failure modes also acceptable
             print(f"     Exit code: {exit_code} ✓ (alternative error handling)")
             return True
-        print(f"     Exit code: {exit_code} (unexpected - should be 0 with warning or error code)")
+        print(
+            f"     Exit code: {exit_code} (unexpected - should be 0 with warning or error code)"
+        )
         return False
 
     def test_ctrl_c_simulation(self):
@@ -207,7 +217,9 @@ with patch('cli.management.main', side_effect=KeyboardInterrupt()):
 
             # Should exit with code 130 for KeyboardInterrupt
             if result.returncode == 130:
-                print(f"     Exit code: {result.returncode} ✓ (correct for KeyboardInterrupt)")
+                print(
+                    f"     Exit code: {result.returncode} ✓ (correct for KeyboardInterrupt)"
+                )
                 return True
             print(f"     Exit code: {result.returncode} (expected 130)")
             return False
@@ -403,7 +415,9 @@ else:
                 print(f"     {' '.join(cmd_args)}: ❌ (exit code {exit_code})")
 
         success_rate = success_count / len(commands_to_test)
-        print(f"     Success rate: {success_count}/{len(commands_to_test)} ({success_rate:.1%})")
+        print(
+            f"     Success rate: {success_count}/{len(commands_to_test)} ({success_rate:.1%})"
+        )
 
         # Consider success if most commands work (allow for some dependency issues)
         return success_rate >= 0.8
@@ -420,20 +434,30 @@ else:
         self.test_case("Missing required argument", self.test_missing_required_argument)
         self.test_case("Invalid option handling", self.test_invalid_option)
         self.test_case("Bad config path with help", self.test_bad_config_path_with_help)
-        self.test_case("Bad config path with command", self.test_bad_config_path_with_command)
+        self.test_case(
+            "Bad config path with command", self.test_bad_config_path_with_command
+        )
         self.test_case("Ctrl-C simulation", self.test_ctrl_c_simulation)
-        self.test_case("Dependency error simulation", self.test_dependency_error_simulation)
+        self.test_case(
+            "Dependency error simulation", self.test_dependency_error_simulation
+        )
         self.test_case("Value error handling", self.test_value_error_handling)
         self.test_case("Traceback logging", self.test_traceback_logging)
-        self.test_case("Comprehensive help commands", self.test_comprehensive_help_commands)
+        self.test_case(
+            "Comprehensive help commands", self.test_comprehensive_help_commands
+        )
 
         # Summary
         print("\n" + "=" * 60)
         print("📊 TEST RESULTS SUMMARY")
         print("=" * 60)
 
-        success_rate = self.passed_tests / self.total_tests if self.total_tests > 0 else 0
-        print(f"Tests passed: {self.passed_tests}/{self.total_tests} ({success_rate:.1%})")
+        success_rate = (
+            self.passed_tests / self.total_tests if self.total_tests > 0 else 0
+        )
+        print(
+            f"Tests passed: {self.passed_tests}/{self.total_tests} ({success_rate:.1%})"
+        )
 
         if success_rate >= 0.8:  # 80% pass rate is acceptable
             print("\n🎉 CLI Backward-Compatibility Tests PASSED!")
@@ -451,7 +475,9 @@ else:
             print("\nThe CLI is ready for production use with proper error handling!")
             return True
         print("\n❌ CLI Backward-Compatibility Tests FAILED")
-        print(f"   Success rate ({success_rate:.1%}) is below acceptable threshold (80%)")
+        print(
+            f"   Success rate ({success_rate:.1%}) is below acceptable threshold (80%)"
+        )
         return False
 
 
@@ -463,7 +489,11 @@ def run_quick_verification():
     try:
         # Test basic help
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).parent.parent.parent / "cli_main.py"), "--help"],
+            [
+                sys.executable,
+                str(Path(__file__).parent.parent.parent / "cli_main.py"),
+                "--help",
+            ],
             capture_output=True,
             text=True,
             timeout=10,

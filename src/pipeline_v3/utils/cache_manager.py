@@ -258,11 +258,15 @@ Available components for selective clearing:
     )
 
     parser.add_argument(
-        "--config", default="config.yaml", help="Configuration file path (default: config.yaml)"
+        "--config",
+        default="config.yaml",
+        help="Configuration file path (default: config.yaml)",
     )
     parser.add_argument("--status", action="store_true", help="Show cache status and sizes")
     parser.add_argument(
-        "--clear-all", action="store_true", help="Clear all cache and storage components"
+        "--clear-all",
+        action="store_true",
+        help="Clear all cache and storage components",
     )
     parser.add_argument("--clear", nargs="+", help="Clear specific components (see examples below)")
     parser.add_argument("--force", action="store_true", help="Skip confirmation prompts")

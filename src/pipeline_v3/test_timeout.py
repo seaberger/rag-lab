@@ -26,10 +26,17 @@ async def test_timeout_calculation():
     print(f"Default base timeout: {config.openai.timeout_base}s")
 
     # Test with different page counts
-    test_cases = [("5 pages", 5), ("20 pages", 20), ("100 pages", 100), ("200 pages", 200)]
+    test_cases = [
+        ("5 pages", 5),
+        ("20 pages", 20),
+        ("100 pages", 100),
+        ("200 pages", 200),
+    ]
 
     for description, page_count in test_cases:
-        timeout = config.openai.timeout_base + (page_count * config.openai.timeout_per_page)
+        timeout = config.openai.timeout_base + (
+            page_count * config.openai.timeout_per_page
+        )
         print(f"{description}: {timeout}s timeout ({timeout / 60:.1f} minutes)")
 
     print("\n✅ Timeout calculation test complete")
@@ -59,7 +66,9 @@ async def test_timeout_handling():
     config.openai.timeout_per_page = 1  # 1 second per page (too short)
     config.openai.timeout_base = 2  # 2 seconds base
 
-    print(f"Using artificially short timeout: {config.openai.timeout_per_page}s per page")
+    print(
+        f"Using artificially short timeout: {config.openai.timeout_per_page}s per page"
+    )
 
     # Try to parse document with short timeout
     doc_type = DocumentClassifier.classify(test_pdf, is_datasheet_mode=True)
@@ -67,7 +76,9 @@ async def test_timeout_handling():
 
     try:
         start = time.time()
-        markdown, pairs, metadata = await parse_document(test_pdf, doc_type, prompt, None, config)
+        markdown, pairs, metadata = await parse_document(
+            test_pdf, doc_type, prompt, None, config
+        )
         elapsed = time.time() - start
         print(f"❌ Document parsed successfully in {elapsed:.1f}s (expected timeout)")
     except TimeoutError as e:

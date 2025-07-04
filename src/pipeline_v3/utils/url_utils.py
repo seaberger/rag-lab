@@ -180,7 +180,12 @@ def create_url_batch_file(urls: list[str], output_path: Path, format_type: str =
             output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
         elif format_type == "markdown":
-            content = ["# URL Batch Processing File", "", f"Total URLs: {len(urls)}", ""]
+            content = [
+                "# URL Batch Processing File",
+                "",
+                f"Total URLs: {len(urls)}",
+                "",
+            ]
 
             for i, url in enumerate(urls, 1):
                 content.append(f"{i}. [{url}]({url})")

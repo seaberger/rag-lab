@@ -69,15 +69,19 @@ def test_real_migration_files():
             assert result["current_version"] > 0, f"Version not updated for {db_type}"
 
             # Verify tables were created
-            cursor = manager.conn.execute("""
+            cursor = manager.conn.execute(
+                """
                 SELECT name FROM sqlite_master WHERE type='table'
-            """)
+            """
+            )
             tables = [row[0] for row in cursor.fetchall()]
 
             # Check for expected tables based on database type
             if db_type == "registry":
                 assert "documents" in tables, "documents table not created"
-                assert "index_consistency" in tables, "index_consistency table not created"
+                assert (
+                    "index_consistency" in tables
+                ), "index_consistency table not created"
             elif db_type == "fingerprints":
                 assert "fingerprints" in tables, "fingerprints table not created"
             elif db_type == "keyword_index":
@@ -178,9 +182,9 @@ def test_migration_sequence():
         for target_version in [2, 1, 0]:
             manager.rollback_migration(target_version)
             current_version = manager.get_current_version()
-            assert current_version == target_version, (
-                f"Rollback to {target_version} failed, got {current_version}"
-            )
+            assert (
+                current_version == target_version
+            ), f"Rollback to {target_version} failed, got {current_version}"
 
         manager.close()
         print("   ✅ PASSED - Migration sequence application")
@@ -235,15 +239,19 @@ def test_migration_error_recovery():
         assert version == 1, f"Expected version 1 after failed migration, got {version}"
 
         # Verify valid table still exists
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'
-        """)
+        """
+        )
         assert cursor.fetchone() is not None, "Valid table should still exist"
 
         # Verify invalid table doesn't exist
-        cursor = manager.conn.execute("""
+        cursor = manager.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='table' AND name='invalid_table'
-        """)
+        """
+        )
         assert cursor.fetchone() is None, "Invalid table should not exist"
 
         manager.close()
@@ -283,12 +291,16 @@ def test_concurrent_migration_safety():
         assert version1 == version2 == 1, f"Version mismatch: {version1} vs {version2}"
 
         # Both should see the table
-        cursor1 = manager1.conn.execute("""
+        cursor1 = manager1.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'
-        """)
-        cursor2 = manager2.conn.execute("""
+        """
+        )
+        cursor2 = manager2.conn.execute(
+            """
             SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'
-        """)
+        """
+        )
 
         assert cursor1.fetchone() is not None, "Table not visible to manager1"
         assert cursor2.fetchone() is not None, "Table not visible to manager2"

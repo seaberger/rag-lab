@@ -78,7 +78,9 @@ class ChangeDetector:
     """Intelligent document change detection and update optimization."""
 
     def __init__(
-        self, config: PipelineConfig | None = None, registry: DocumentRegistry | None = None
+        self,
+        config: PipelineConfig | None = None,
+        registry: DocumentRegistry | None = None,
     ):
         """Initialize change detector with configuration."""
         self.config = config or PipelineConfig()
@@ -416,7 +418,10 @@ class ChangeDetector:
 
     def _calculate_priority(self, change_type: ChangeType, change_summary: dict[str, Any]) -> int:
         """Calculate processing priority (1=urgent, 2=normal, 3=low)."""
-        if change_type in [ChangeType.NEW_DOCUMENT, ChangeType.DELETED] or change_type in [
+        if change_type in [
+            ChangeType.NEW_DOCUMENT,
+            ChangeType.DELETED,
+        ] or change_type in [
             ChangeType.COMPLETE_REWRITE,
             ChangeType.STRUCTURE_CHANGE,
         ]:

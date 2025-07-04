@@ -21,7 +21,12 @@ from qdrant_client.models import PointStruct
 from ..core.fingerprint import FingerprintManager
 from ..core.registry import DocumentRegistry, DocumentState
 from ..storage.keyword_index import BM25Index
-from .transaction_coordinator import Checkpoint, OperationType, StorageSystem, TransactionOperation
+from .transaction_coordinator import (
+    Checkpoint,
+    OperationType,
+    StorageSystem,
+    TransactionOperation,
+)
 
 
 class RegistryAdapter(StorageSystem):
@@ -175,7 +180,11 @@ class QdrantAdapter(StorageSystem):
 
             checkpoint.state_before = {
                 "points": [
-                    {"id": str(point.id), "vector": point.vector, "payload": point.payload}
+                    {
+                        "id": str(point.id),
+                        "vector": point.vector,
+                        "payload": point.payload,
+                    }
                     for point in current_points
                 ]
             }
@@ -183,7 +192,10 @@ class QdrantAdapter(StorageSystem):
             checkpoint.state_before = {"points": []}
 
         # Prepare operation data
-        if operation.operation_type in [OperationType.ADD_DOCUMENT, OperationType.UPDATE_DOCUMENT]:
+        if operation.operation_type in [
+            OperationType.ADD_DOCUMENT,
+            OperationType.UPDATE_DOCUMENT,
+        ]:
             if "nodes" not in operation.data:
                 raise ValueError("Nodes required for vector indexing")
 
@@ -237,7 +249,12 @@ class QdrantAdapter(StorageSystem):
                         collection_name=self.collection_name,
                         points_selector={
                             "filter": {
-                                "must": [{"key": "doc_id", "match": {"value": checkpoint.doc_id}}]
+                                "must": [
+                                    {
+                                        "key": "doc_id",
+                                        "match": {"value": checkpoint.doc_id},
+                                    }
+                                ]
                             }
                         },
                     )
@@ -339,7 +356,8 @@ class KeywordIndexAdapter(StorageSystem):
         try:
             with self.index.get_connection() as conn:
                 cursor = conn.execute(
-                    "SELECT content, metadata FROM documents WHERE doc_id = ?", (operation.doc_id,)
+                    "SELECT content, metadata FROM documents WHERE doc_id = ?",
+                    (operation.doc_id,),
                 )
                 row = cursor.fetchone()
                 if row:
@@ -355,7 +373,10 @@ class KeywordIndexAdapter(StorageSystem):
             checkpoint.state_before = {"exists": False}
 
         # Prepare operation data
-        if operation.operation_type in [OperationType.ADD_DOCUMENT, OperationType.UPDATE_DOCUMENT]:
+        if operation.operation_type in [
+            OperationType.ADD_DOCUMENT,
+            OperationType.UPDATE_DOCUMENT,
+        ]:
             if "content" not in operation.data:
                 raise ValueError("Content required for keyword indexing")
 
@@ -386,7 +407,9 @@ class KeywordIndexAdapter(StorageSystem):
 
                 # Add new version
                 success = self.index.add_document(
-                    doc_id=checkpoint.doc_id, content=data["content"], metadata=data["metadata"]
+                    doc_id=checkpoint.doc_id,
+                    content=data["content"],
+                    metadata=data["metadata"],
                 )
 
                 # Clean up prepared data
@@ -471,7 +494,10 @@ class StorageArtifactsAdapter(StorageSystem):
             self.backup_files[operation_id] = None
 
         # Prepare new artifact
-        if operation.operation_type in [OperationType.ADD_DOCUMENT, OperationType.UPDATE_DOCUMENT]:
+        if operation.operation_type in [
+            OperationType.ADD_DOCUMENT,
+            OperationType.UPDATE_DOCUMENT,
+        ]:
             if "artifact_data" not in operation.data:
                 raise ValueError("Artifact data required for storage")
 
@@ -596,7 +622,10 @@ class FingerprintAdapter(StorageSystem):
             checkpoint.state_before = {"exists": False}
 
         # Prepare new fingerprint
-        if operation.operation_type in [OperationType.ADD_DOCUMENT, OperationType.UPDATE_DOCUMENT]:
+        if operation.operation_type in [
+            OperationType.ADD_DOCUMENT,
+            OperationType.UPDATE_DOCUMENT,
+        ]:
             if "fingerprint" not in operation.data:
                 raise ValueError("Fingerprint required")
 

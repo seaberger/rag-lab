@@ -374,7 +374,10 @@ class ConsistencyChecker:
         return results
 
     async def _repair_document(
-        self, inconsistency: DocumentInconsistency, strategy: RepairStrategy, dry_run: bool
+        self,
+        inconsistency: DocumentInconsistency,
+        strategy: RepairStrategy,
+        dry_run: bool,
     ) -> RepairResult:
         """Repair a single document inconsistency"""
         result = RepairResult(doc_id=inconsistency.doc_id, success=False, strategy=strategy)

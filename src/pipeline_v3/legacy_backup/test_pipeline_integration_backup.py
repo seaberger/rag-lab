@@ -27,6 +27,7 @@ from job_queue.manager import DocumentQueue
 from job_queue.job import JobManager
 from utils.config import PipelineConfig
 from storage.cache import CacheManager
+
 # Vector storage is handled by Qdrant directly through IndexManager
 
 
@@ -74,19 +75,22 @@ class TestPipelineIntegration:
                     "applications": ["App 1"],
                     "technical_details": "Test details",
                     "datasheet_content": "Full test content",
-                    "datasheet_type": "datasheet"
+                    "datasheet_type": "datasheet",
                 }
+
             instance.process_document_pages = AsyncMock(side_effect=mock_process_pages)
 
             # Mock get_embeddings
             async def mock_embeddings(text):
                 # Return a 1536-dimensional vector (matching OpenAI embeddings)
                 return [0.1] * 1536
+
             instance.get_embeddings = AsyncMock(side_effect=mock_embeddings)
 
             # Mock extract_keywords
             async def mock_keywords(text):
                 return ["keyword1", "keyword2", "test", "product"]
+
             instance.extract_keywords = AsyncMock(side_effect=mock_keywords)
 
             yield instance
@@ -101,12 +105,15 @@ class TestPipelineIntegration:
             # Mock extract_pages
             async def mock_extract(path):
                 return [b"Page 1 content", b"Page 2 content"]
+
             instance.extract_pages = AsyncMock(side_effect=mock_extract)
 
             yield instance
 
     @pytest.mark.asyncio
-    async def test_full_pipeline_document_processing(self, test_config, mock_openai, mock_document_processor, temp_dir):
+    async def test_full_pipeline_document_processing(
+        self, test_config, mock_openai, mock_document_processor, temp_dir
+    ):
         """Test complete document processing through the pipeline."""
         # Initialize pipeline with test config
         pipeline = EnhancedPipeline(config=test_config)
@@ -121,7 +128,7 @@ class TestPipelineIntegration:
             file_path=test_pdf,
             metadata={"source": "test"},
             force_reprocess=False,
-            with_keywords=True
+            with_keywords=True,
         )
 
         # Verify result structure
@@ -139,16 +146,16 @@ class TestPipelineIntegration:
 
         # Search for the document
         search_results = await pipeline.search(
-            query="test product",
-            search_type="hybrid",
-            top_k=5
+            query="test product", search_type="hybrid", top_k=5
         )
 
         assert len(search_results) > 0
         assert search_results[0]["source"] == test_pdf
 
     @pytest.mark.asyncio
-    async def test_pipeline_with_queue_processing(self, test_config, mock_openai, mock_document_processor, temp_dir):
+    async def test_pipeline_with_queue_processing(
+        self, test_config, mock_openai, mock_document_processor, temp_dir
+    ):
         """Test pipeline with queue-based processing."""
         # Initialize components
         pipeline = EnhancedPipeline(config=test_config)
@@ -166,9 +173,7 @@ class TestPipelineIntegration:
         job_ids = []
         for doc in test_docs:
             job_id = await queue.add_job(
-                source=doc,
-                job_type="add",
-                metadata={"batch": "test"}
+                source=doc, job_type="add", metadata={"batch": "test"}
             )
             job_ids.append(job_id)
 
@@ -193,35 +198,24 @@ class TestPipelineIntegration:
         # Create test document data
         doc_id = "test-doc-123"
         content = "This is test content for index manager testing"
-        metadata = {
-            "source": "test.pdf",
-            "title": "Test Document",
-            "page_count": 2
-        }
+        metadata = {"source": "test.pdf", "title": "Test Document", "page_count": 2}
 
         # Add to vector index
         embedding = await mock_openai.get_embeddings(content)
         await index_manager.add_to_vector_index(
-            doc_id=doc_id,
-            content=content,
-            embedding=embedding,
-            metadata=metadata
+            doc_id=doc_id, content=content, embedding=embedding, metadata=metadata
         )
 
         # Add to keyword index
         keywords = await mock_openai.extract_keywords(content)
         await index_manager.add_to_keyword_index(
-            doc_id=doc_id,
-            content=content,
-            metadata=metadata,
-            keywords=keywords
+            doc_id=doc_id, content=content, metadata=metadata, keywords=keywords
         )
 
         # Test vector search
         query_embedding = await mock_openai.get_embeddings("test query")
         vector_results = await index_manager.vector_search(
-            query_embedding=query_embedding,
-            top_k=5
+            query_embedding=query_embedding, top_k=5
         )
 
         assert len(vector_results) > 0
@@ -229,8 +223,7 @@ class TestPipelineIntegration:
 
         # Test keyword search
         keyword_results = await index_manager.keyword_search(
-            query="test content",
-            top_k=5
+            query="test content", top_k=5
         )
 
         assert len(keyword_results) > 0
@@ -238,9 +231,7 @@ class TestPipelineIntegration:
 
         # Test hybrid search
         hybrid_results = await index_manager.hybrid_search(
-            query="test",
-            query_embedding=query_embedding,
-            top_k=5
+            query="test", query_embedding=query_embedding, top_k=5
         )
 
         assert len(hybrid_results) > 0
@@ -250,8 +241,7 @@ class TestPipelineIntegration:
 
         # Verify deletion
         vector_results = await index_manager.vector_search(
-            query_embedding=query_embedding,
-            top_k=5
+            query_embedding=query_embedding, top_k=5
         )
         assert len(vector_results) == 0
 
@@ -265,7 +255,7 @@ class TestPipelineIntegration:
         test_data = {
             "content": "Test content",
             "metadata": {"type": "test"},
-            "embedding": [0.1] * 1536
+            "embedding": [0.1] * 1536,
         }
 
         # Save to cache - CacheManager uses doc_hash and prompt_hash
@@ -291,7 +281,7 @@ class TestPipelineIntegration:
         # Test compression
         large_data = {
             "content": "x" * 10000,
-            "chunks": ["chunk" * 100 for _ in range(10)]
+            "chunks": ["chunk" * 100 for _ in range(10)],
         }
         success = cache.put("large_doc_hash", "large_prompt_hash", large_data)
         assert success
@@ -308,12 +298,13 @@ class TestPipelineIntegration:
 
         # Register new document
         import time
+
         doc_id = registry.register_document(
             source="test.pdf",
             content_hash="test_hash_123",
             size=1024,
             modified_time=time.time(),
-            metadata={"version": "1.0", "doc_type": "datasheet"}
+            metadata={"version": "1.0", "doc_type": "datasheet"},
         )
 
         assert doc_id is not None
@@ -340,7 +331,7 @@ class TestPipelineIntegration:
             status="completed",
             page_count=10,
             file_size=1024000,
-            processing_time=45.5
+            processing_time=45.5,
         )
 
         doc = registry.get_document(doc_id)
@@ -355,9 +346,7 @@ class TestPipelineIntegration:
 
         # Test change detection
         is_changed = registry.has_changed(
-            source="test.pdf",
-            size=1024000,
-            modified_time="2024-01-01T00:00:00"
+            source="test.pdf", size=1024000, modified_time="2024-01-01T00:00:00"
         )
         assert not is_changed  # Same size, so no change
 
@@ -368,8 +357,7 @@ class TestPipelineIntegration:
 
         # Test with non-existent file
         result = await pipeline.process_document(
-            file_path="/non/existent/file.pdf",
-            metadata={}
+            file_path="/non/existent/file.pdf", metadata={}
         )
 
         assert result["status"] == "error"
@@ -389,16 +377,15 @@ class TestPipelineIntegration:
             with open(test_file, "wb") as f:
                 f.write(b"Mock content")
 
-            result = await pipeline.process_document(
-                file_path=test_file,
-                metadata={}
-            )
+            result = await pipeline.process_document(file_path=test_file, metadata={})
 
             assert result["status"] == "error"
             assert "API Error" in str(result["error"])
 
     @pytest.mark.asyncio
-    async def test_concurrent_processing(self, test_config, mock_openai, mock_document_processor, temp_dir):
+    async def test_concurrent_processing(
+        self, test_config, mock_openai, mock_document_processor, temp_dir
+    ):
         """Test concurrent document processing."""
         pipeline = EnhancedPipeline(config=test_config)
 
@@ -414,9 +401,7 @@ class TestPipelineIntegration:
         tasks = []
         for doc in test_docs:
             task = pipeline.process_document(
-                file_path=doc,
-                metadata={"batch": "concurrent"},
-                with_keywords=True
+                file_path=doc, metadata={"batch": "concurrent"}, with_keywords=True
             )
             tasks.append(task)
 
@@ -444,11 +429,12 @@ class TestPipelineIntegration:
         config_dict = {
             "openai": {"vision_model": "gpt-4.1"},
             "storage": {"base_dir": temp_dir},
-            "job_queue": {"max_concurrent": 10}
+            "job_queue": {"max_concurrent": 10},
         }
 
         config_file = os.path.join(temp_dir, "test_config.yaml")
         import yaml
+
         with open(config_file, "w") as f:
             yaml.dump(config_dict, f)
 

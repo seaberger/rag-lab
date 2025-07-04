@@ -32,7 +32,7 @@ class TestDocumentRegistry:
             content_hash="hash123",
             size=1000,
             modified_time=1234567890,
-            metadata={"type": "datasheet"}
+            metadata={"type": "datasheet"},
         )
 
         # Verify document was registered
@@ -52,7 +52,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Update to updating state
@@ -69,17 +69,11 @@ class TestDocumentRegistry:
         """Test listing documents with filters."""
         # Register multiple documents
         doc1 = registry.register_document(
-            source="doc1.pdf",
-            content_hash="hash1",
-            size=1000,
-            modified_time=1234567890
+            source="doc1.pdf", content_hash="hash1", size=1000, modified_time=1234567890
         )
 
         doc2 = registry.register_document(
-            source="doc2.pdf",
-            content_hash="hash2",
-            size=2000,
-            modified_time=1234567891
+            source="doc2.pdf", content_hash="hash2", size=2000, modified_time=1234567891
         )
 
         # Update states
@@ -106,7 +100,7 @@ class TestDocumentRegistry:
             source="unique/path/test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Get by source (need to use absolute path)
@@ -127,7 +121,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Initially not indexed
@@ -151,24 +145,15 @@ class TestDocumentRegistry:
         """Test registry statistics."""
         # Register multiple documents in different states
         doc1 = registry.register_document(
-            source="doc1.pdf",
-            content_hash="hash1",
-            size=1000,
-            modified_time=1234567890
+            source="doc1.pdf", content_hash="hash1", size=1000, modified_time=1234567890
         )
 
         doc2 = registry.register_document(
-            source="doc2.pdf",
-            content_hash="hash2",
-            size=2000,
-            modified_time=1234567891
+            source="doc2.pdf", content_hash="hash2", size=2000, modified_time=1234567891
         )
 
         doc3 = registry.register_document(
-            source="doc3.pdf",
-            content_hash="hash3",
-            size=3000,
-            modified_time=1234567892
+            source="doc3.pdf", content_hash="hash3", size=3000, modified_time=1234567892
         )
 
         # Update states
@@ -195,7 +180,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Try to register same document again
@@ -203,7 +188,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Should return the same document ID (or a new one if duplicates allowed)
@@ -217,7 +202,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Register same source with different hash
@@ -225,7 +210,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash456",  # Different hash
             size=1500,
-            modified_time=1234567895
+            modified_time=1234567895,
         )
 
         # Should be treated as an update (same ID)
@@ -243,10 +228,7 @@ class TestDocumentRegistry:
             "type": "datasheet",
             "manufacturer": "Coherent",
             "products": ["PM10", "PM30"],
-            "specifications": {
-                "power_range": "10W-100W",
-                "wavelength": "1064nm"
-            }
+            "specifications": {"power_range": "10W-100W", "wavelength": "1064nm"},
         }
 
         doc_id = registry.register_document(
@@ -254,7 +236,7 @@ class TestDocumentRegistry:
             content_hash="hash123",
             size=1000,
             modified_time=1234567890,
-            metadata=metadata
+            metadata=metadata,
         )
 
         # Retrieve and verify metadata
@@ -271,7 +253,7 @@ class TestDocumentRegistry:
                 source=f"doc{i}.pdf",
                 content_hash=f"hash{i}",
                 size=1000 * (i + 1),
-                modified_time=1234567890 + i
+                modified_time=1234567890 + i,
             )
             docs.append(doc_id)
 
@@ -293,7 +275,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Remove it
@@ -310,7 +292,7 @@ class TestDocumentRegistry:
             source="test.pdf",
             content_hash="hash123",
             size=1000,
-            modified_time=1234567890
+            modified_time=1234567890,
         )
 
         # Verify initial state

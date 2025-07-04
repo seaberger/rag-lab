@@ -13,7 +13,11 @@ try:
     from utils.config import PipelineConfig
     from utils.enhanced_retry import enhanced_retry_api_call
     from utils.openai_client import create_vision_client
-    from utils.page_range import PageProgressMonitor, PageRangeParser, get_page_count_from_pdf
+    from utils.page_range import (
+        PageProgressMonitor,
+        PageRangeParser,
+        get_page_count_from_pdf,
+    )
 except ImportError:
     # Fallback for when running from different directory
     import sys
@@ -25,7 +29,11 @@ except ImportError:
     from utils.config import PipelineConfig
     from utils.enhanced_retry import enhanced_retry_api_call
     from utils.openai_client import create_vision_client
-    from utils.page_range import PageProgressMonitor, PageRangeParser, get_page_count_from_pdf
+    from utils.page_range import (
+        PageProgressMonitor,
+        PageRangeParser,
+        get_page_count_from_pdf,
+    )
 
 
 def _find_poppler() -> str | None:
@@ -37,7 +45,10 @@ def _find_poppler() -> str | None:
 
 
 def _pdf_to_data_uris(
-    pdf_path: Path, dpi: int = 150, poppler_path: str | None = None, page_range: str | None = None
+    pdf_path: Path,
+    dpi: int = 150,
+    poppler_path: str | None = None,
+    page_range: str | None = None,
 ) -> tuple[list[str], int]:
     """Convert PDF pages to base64 data URIs for OpenAI Vision API.
 
@@ -264,7 +275,13 @@ class DocumentClassifier:
             return min(0.9, 0.5 + (matches * 0.2))  # 0.5-0.9 based on matches
 
         if doc_type == DocumentType.GENERIC_PDF:
-            generic_indicators = ["report", "paper", "article", "research", "white_paper"]
+            generic_indicators = [
+                "report",
+                "paper",
+                "article",
+                "research",
+                "white_paper",
+            ]
             matches = sum(1 for indicator in generic_indicators if indicator in filename_lower)
             return min(0.9, 0.5 + (matches * 0.2))  # 0.5-0.9 based on matches
 
@@ -566,11 +583,19 @@ async def parse_word_document(
                 if style_name.startswith("Heading"):
                     level = _get_heading_level(style_name)
                     sections.append(
-                        {"type": "heading", "level": level, "text": paragraph.text.strip()}
+                        {
+                            "type": "heading",
+                            "level": level,
+                            "text": paragraph.text.strip(),
+                        }
                     )
                 else:
                     sections.append(
-                        {"type": "paragraph", "text": paragraph.text.strip(), "style": style_name}
+                        {
+                            "type": "paragraph",
+                            "text": paragraph.text.strip(),
+                            "style": style_name,
+                        }
                     )
 
         # Process tables
@@ -770,7 +795,13 @@ def _extract_word_pairs(sections: list[dict]) -> list[tuple[str, str]]:
 
 def _parse_slide_content(slide, slide_number: int) -> dict[str, Any]:
     """Parse content from a single PowerPoint slide."""
-    content = {"slide_number": slide_number, "title": "", "content": [], "tables": [], "notes": ""}
+    content = {
+        "slide_number": slide_number,
+        "title": "",
+        "content": [],
+        "tables": [],
+        "notes": "",
+    }
 
     # Extract text from shapes
     for shape in slide.shapes:

@@ -93,7 +93,9 @@ def test_basic_functionality():
         # Test document classifier
         classifier = DocumentClassifier()
         doc_type = classifier.classify("test.pdf", True)
-        print(f"✅ DocumentClassifier working - classified test.pdf as {doc_type.value}")
+        print(
+            f"✅ DocumentClassifier working - classified test.pdf as {doc_type.value}"
+        )
 
         return True
     except Exception as e:

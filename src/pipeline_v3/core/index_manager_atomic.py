@@ -23,7 +23,11 @@ from .storage_adapters import (
     RegistryAdapter,
     StorageArtifactsAdapter,
 )
-from .transaction_coordinator import OperationType, TransactionCoordinator, TransactionOperation
+from .transaction_coordinator import (
+    OperationType,
+    TransactionCoordinator,
+    TransactionOperation,
+)
 
 
 class AtomicIndexManager(IndexManager):
@@ -150,9 +154,11 @@ class AtomicIndexManager(IndexManager):
                         "node_id": node.node_id,
                         "text": node.text,
                         "metadata": node.metadata,
-                        "embedding": node.embedding.tolist()
-                        if hasattr(node, "embedding") and node.embedding is not None
-                        else None,
+                        "embedding": (
+                            node.embedding.tolist()
+                            if hasattr(node, "embedding") and node.embedding is not None
+                            else None
+                        ),
                     }
                     for node in nodes
                 ],
@@ -224,9 +230,11 @@ class AtomicIndexManager(IndexManager):
                         "node_id": node.node_id,
                         "text": node.text,
                         "metadata": node.metadata,
-                        "embedding": node.embedding.tolist()
-                        if hasattr(node, "embedding") and node.embedding is not None
-                        else None,
+                        "embedding": (
+                            node.embedding.tolist()
+                            if hasattr(node, "embedding") and node.embedding is not None
+                            else None
+                        ),
                     }
                     for node in nodes
                 ],
@@ -313,7 +321,9 @@ class AtomicIndexManager(IndexManager):
         return report.to_dict()
 
     async def repair_inconsistencies(
-        self, strategy: RepairStrategy = RepairStrategy.TRUST_REGISTRY, dry_run: bool = True
+        self,
+        strategy: RepairStrategy = RepairStrategy.TRUST_REGISTRY,
+        dry_run: bool = True,
     ) -> dict[str, Any]:
         """
         Repair detected inconsistencies.
