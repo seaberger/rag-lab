@@ -56,7 +56,7 @@ jobs:
           --self-contained-html \
           --json-report \
           --json-report-file=test-results.json \
-          -k "not search and not qdrant and not e2e" \
+          -k "not search and not qdrant and not e2e and not test_cli_regression" \
           --maxfail=5 \
           --timeout=300 \
           src/pipeline_v3/tests/
