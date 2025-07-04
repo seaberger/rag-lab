@@ -2,9 +2,9 @@
 
 A production-ready document processing pipeline with advanced features including **database migration framework** for safe system evolution and enterprise deployment.
 
-[![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-brightgreen)](./test_cli_simple.py)
-[![Integration](https://img.shields.io/badge/integration-verified-brightgreen)](./quick_integration_test.py)
-[![Phase 3](https://img.shields.io/badge/phase%203-complete-success)](./DEVELOPMENT_STATUS.md)
+[![Pipeline v3 CI](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml)
+[![Tests](https://img.shields.io/badge/tests-169%2F176%20passing-yellow)](./tests/)
+[![Coverage](https://img.shields.io/badge/coverage-12%25-red)](./tests/)
 [![Documentation](https://img.shields.io/badge/docs-complete-blue)](./USER_MANUAL.md)
 
 ## 🎯 Overview
@@ -417,6 +417,7 @@ Pipeline v3 maintains full backward compatibility:
 - **Advanced Setup?** → [User Manual](./USER_MANUAL.md) Configuration section
 - **Troubleshooting?** → [User Manual](./USER_MANUAL.md) Troubleshooting section
 - **Development?** → [Development Status](./DEVELOPMENT_STATUS.md) and [Architecture](./docs/architecture.md)
+- **CI/CD Setup?** → [CI/CD Guide](./docs/CI_CD_GUIDE.md) for testing and deployment
 
 ---
 
