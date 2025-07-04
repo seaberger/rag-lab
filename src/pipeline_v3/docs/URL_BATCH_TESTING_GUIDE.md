@@ -25,7 +25,7 @@ This file contains a collection of URLs that have been tested with Pipeline v3's
 # Process single URL with datasheet mode
 uv run python -m src.pipeline_v3.cli_main add "https://www.coherent.com/content/dam/coherent/site/en/resources/datasheet/power-and-energy-measurement/powermax-usb-uv-vis-power-sensors-ds.pdf" --mode datasheet --with-keywords
 
-# Process single URL with generic mode  
+# Process single URL with generic mode
 uv run python -m src.pipeline_v3.cli_main add "https://www.coherent.com/content/dam/coherent/site/en/resources/laser-measurement-and-control-help-center/application-notes-and-white-papers/application-notes/understanding-a-certificate-of-calibration.pdf" --mode generic --with-keywords
 ```
 
@@ -61,7 +61,7 @@ uv run python -m src.pipeline_v3.cli_main search "UV/VIS" --type keyword --top-k
 
 When processed through `batch validate-urls`, these URLs show:
 - **Total URLs**: 2
-- **Valid URLs**: 2  
+- **Valid URLs**: 2
 - **Invalid URLs**: 0
 - **Duplicates**: 0
 - **Domain**: www.coherent.com (2 documents)
@@ -74,7 +74,7 @@ When processed through `batch validate-urls`, these URLs show:
 - **Success rate**: 100%
 - **Chunks generated**: 15 total (14 + 1)
 
-### Queue Processing  
+### Queue Processing
 - **Jobs created**: 2
 - **Queue processing time**: ~2.1 seconds
 - **Success rate**: 100%
@@ -100,5 +100,5 @@ When adding new URLs to this collection:
 
 ---
 
-*Last updated: July 2, 2025*  
+*Last updated: July 2, 2025*
 *Pipeline v3 URL Batch Processing Feature*

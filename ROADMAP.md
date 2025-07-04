@@ -2,8 +2,8 @@
 
 This document provides the current development priorities and active issues for the RAG Lab project. It serves as the single source of truth for development planning.
 
-**Last Updated:** January 2, 2025  
-**Active GitHub Issues:** 20 (14 existing + 6 new)  
+**Last Updated:** January 3, 2025
+**Active GitHub Issues:** 21 (14 existing + 7 new)
 **Critical Architecture Gaps:** 12 (see [ISSUES.md](ISSUES.md))
 
 ## 🚨 Immediate Priorities (Security & Stability)
@@ -16,6 +16,13 @@ Must be addressed before any production deployment:
 ### Quality Assurance (HIGH)
 Enable automated quality control:
 - **[Issue #63](https://github.com/seaberger/rag-lab/issues/63)**: Implement CI/CD Pipeline with GitHub Actions and Security Testing
+
+### Infrastructure & Scalability (HIGH)
+Critical for production deployment and concurrent usage:
+- **[Issue #71](https://github.com/seaberger/rag-lab/issues/71)**: Implement Qdrant Server Mode for Production Scalability (Phase 2)
+  - Resolves test isolation issues and enables concurrent access
+  - Required for multi-tenant/business group support
+  - Docker-based deployment for production environments
 
 ## 🔍 Core Feature Improvements
 
@@ -60,7 +67,7 @@ Improve how documents are parsed and chunked:
 - **[Issue #66](https://github.com/seaberger/rag-lab/issues/66)**: Implement Structured JSON Logging with Operation Tracking
 
 ### Performance (LOW)
-- **[Issue #5](https://github.com/seaberger/rag-lab/issues/5)**: Upgrade to Qdrant server (when scale requires it)
+- **[Issue #5](https://github.com/seaberger/rag-lab/issues/5)**: ~~Upgrade to Qdrant server~~ (Superseded by Issue #71)
 
 ## ✅ Recently Completed (Last 60 Days)
 
@@ -91,7 +98,8 @@ Improve how documents are parsed and chunked:
 
 ### What Needs Work 🔧
 - **Security vulnerabilities** (SQL injection, path traversal, SSRF)
-- **No automated testing** or CI/CD
+- **No automated testing** or CI/CD (in progress)
+- **Qdrant local mode limitations** preventing concurrent access
 - **Search filtering** could be more powerful
 - **Chunking strategies** are basic
 

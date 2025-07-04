@@ -92,13 +92,13 @@ while true; do
     echo "Batch processing completed"
     break
   fi
-  
+
   ELAPSED=$(($(date +%s) - START_TIME))
   if [ $ELAPSED -gt $TIMEOUT ]; then
     echo "Timeout reached, check queue status"
     exit 1
   fi
-  
+
   sleep 60
 done
 
@@ -134,11 +134,11 @@ def process_new_documents():
                 with_keywords=True,
                 metadata={"source": "auto_import"}
             )
-            
+
             # Move to processed
             pdf_file.rename(PROCESSED_DIR / pdf_file.name)
             print(f"Processed: {pdf_file.name}")
-            
+
         except Exception as e:
             # Move to error directory
             pdf_file.rename(ERROR_DIR / pdf_file.name)
@@ -163,7 +163,7 @@ uv run python -m src.pipeline_v3.cli_main add "urgent/*.pdf" \
   --metadata priority=high \
   --workers 8
 
-# Normal priority documents  
+# Normal priority documents
 uv run python -m src.pipeline_v3.cli_main add "standard/*.pdf" \
   --metadata priority=normal \
   --workers 4
@@ -281,10 +281,10 @@ while true; do
   echo "=== Pipeline v3 Queue Monitor ==="
   echo "Time: $(date)"
   echo ""
-  
+
   # Get queue status
   STATUS=$(uv run python -m src.pipeline_v3.cli_main queue status --json)
-  
+
   # Parse and display
   echo "Active Workers: $(echo $STATUS | jq '.active_workers')"
   echo "Pending Jobs: $(echo $STATUS | jq '.pending')"
@@ -294,7 +294,7 @@ while true; do
   echo ""
   echo "Processing Rate: $(echo $STATUS | jq '.rate_per_minute') jobs/min"
   echo "Average Time: $(echo $STATUS | jq '.average_job_time') seconds"
-  
+
   sleep 5
 done
 ```
@@ -312,28 +312,28 @@ from email.mime.text import MIMEText
 
 def check_queue_health():
     """Check queue status and send alerts if needed."""
-    
+
     # Get queue status
     result = subprocess.run(
-        ["uv", "run", "python", "-m", "src.pipeline_v3.cli_main", 
+        ["uv", "run", "python", "-m", "src.pipeline_v3.cli_main",
          "queue", "status", "--json"],
         capture_output=True, text=True
     )
-    
+
     status = json.loads(result.stdout)
-    
+
     alerts = []
-    
+
     # Check for issues
     if status['pending'] > 1000:
         alerts.append(f"High queue depth: {status['pending']} pending jobs")
-    
+
     if status['failed'] > status['completed'] * 0.05:
         alerts.append(f"High failure rate: {status['failed']} failed jobs")
-    
+
     if status['active_workers'] == 0 and status['pending'] > 0:
         alerts.append("No active workers but jobs are pending!")
-    
+
     # Send alerts
     if alerts:
         send_alert("\n".join(alerts))
@@ -344,12 +344,12 @@ def send_alert(message):
     msg['Subject'] = 'Pipeline v3 Queue Alert'
     msg['From'] = 'pipeline@example.com'
     msg['To'] = 'admin@example.com'
-    
+
     # Send email (configure SMTP settings)
     # s = smtplib.SMTP('localhost')
     # s.send_message(msg)
     # s.quit()
-    
+
     print(f"ALERT: {message}")
 
 if __name__ == "__main__":
@@ -362,8 +362,8 @@ if __name__ == "__main__":
 
 ```
 Cost per PDF = (
-  Number of Pages × 
-  Cost per Page × 
+  Number of Pages ×
+  Cost per Page ×
   (1 + Retry Rate)
 )
 

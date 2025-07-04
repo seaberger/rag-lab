@@ -8,7 +8,7 @@
 
 *To be implemented in Phase 1*
 
-### IndexManager API  
+### IndexManager API
 
 *To be implemented in Phase 2*
 
@@ -20,7 +20,7 @@
 
 This API reference will be updated as each component is developed with:
 - Method signatures
-- Parameter descriptions  
+- Parameter descriptions
 - Return value specifications
 - Usage examples
 - Error handling details

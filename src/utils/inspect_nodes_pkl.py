@@ -1,5 +1,4 @@
 import pickle
-from llama_index.core.schema import TextNode  # Or relevant node type
 
 nodes_file = "./matrix_chatbot/matrix_nodes.pkl"  # Adjust path
 try:

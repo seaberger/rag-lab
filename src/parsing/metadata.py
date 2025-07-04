@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # metadata.py
 """
 Processes a list of LlamaIndex Document objects (typically output from parse.py)
@@ -40,25 +41,17 @@ Command Line Arguments:
            (default: ./enhanced_laser_nodes.pkl).
 """
 
-import os
-import re
-import time
-import json
-import pickle
 import asyncio
 import logging
+import os
+import pickle
+import time
 from pathlib import Path
-from tqdm import tqdm
-import openai
 
-from llama_index.llms.openai import OpenAI
-from llama_index.core import Settings
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.core.schema import TextNode
-from llama_index.core.node_parser import SentenceSplitter
+import openai
 from llama_index.core.ingestion import IngestionPipeline
-from pydantic import BaseModel, Field
-from typing import List
+from llama_index.core.node_parser import SentenceSplitter
+from tqdm import tqdm
 
 # Set up OpenAI API key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -100,7 +93,7 @@ async def generate_context(node_text, max_retries=3):
     Generate keywords and brief phrases describing the main topics, entities, and actions in this text.
     Replace any pronouns with their specific referents.
     Format as comma-separated phrases.
-    
+
     TEXT:
     {node_text[:1000]}  # Limit text length to avoid token issues
     """
@@ -121,11 +114,10 @@ async def generate_context(node_text, max_retries=3):
             )
 
             # Extract the content from the response
-            context = response.choices[0].message.content.strip()
-            return context
+            return response.choices[0].message.content.strip()
 
         except Exception as e:
-            logging.error(f"Error on attempt {attempt + 1}/{max_retries}: {str(e)}")
+            logging.exception(f"Error on attempt {attempt + 1}/{max_retries}: {e!s}")
             if attempt < max_retries - 1:
                 time.sleep(2)  # Wait before retrying
 
@@ -167,9 +159,9 @@ async def enhance_all_nodes(nodes, batch_size=5, sleep_time=1):
                 time.sleep(sleep_time)
 
         except Exception as e:
-            logging.error(f"Error processing node {i}: {str(e)}")
+            logging.exception(f"Error processing node {i}: {e!s}")
             # Add a placeholder context
-            node.text = f"{node.text}\n\nContext: Error generating context: {str(e)}"
+            node.text = f"{node.text}\n\nContext: Error generating context: {e!s}"
             # Make sure we don't have context in metadata
             if "context" in node.metadata:
                 del node.metadata["context"]
@@ -179,7 +171,7 @@ async def enhance_all_nodes(nodes, batch_size=5, sleep_time=1):
     successful = sum(
         1
         for node in nodes
-        if "\n\nContext: " in node.text and not "Error generating context" in node.text
+        if "\n\nContext: " in node.text and "Error generating context" not in node.text
     )
     logging.info(f"Successfully enhanced {successful}/{len(nodes)} nodes")
 
@@ -220,7 +212,7 @@ async def create_origin_nodes(input_file_path):
                 logging.info("-" * 40)
                 logging.info(f"Text length: {len(doc.text)}")
                 logging.info("Sample content:")
-                logging.info(doc.text[:500] + "...")
+                logging.info("%s...", doc.text[:500])
                 logging.info("-" * 40)
 
         logging.info("\nStarting pipeline run...")
@@ -230,9 +222,7 @@ async def create_origin_nodes(input_file_path):
         # --- TEMPORARY DEBUGGING ---
         # Save the direct output of the parser BEFORE enhancement
         temp_output_path = "./raw_parser_output.pkl"
-        logging.info(
-            f"Saving raw parser output to {temp_output_path} for inspection..."
-        )
+        logging.info(f"Saving raw parser output to {temp_output_path} for inspection...")
         save_nodes_to_pickle(origin_nodes, temp_output_path)
         # --- END TEMPORARY DEBUGGING ---
 
@@ -245,16 +235,13 @@ async def create_origin_nodes(input_file_path):
                 logging.info(f"Text length: {len(node.text)}")
                 logging.info(f"Metadata: {node.metadata}")
                 logging.info("Sample content:")
-                logging.info(node.text[:500] + "...")
+                logging.info("%s...", node.text[:500])
                 logging.info("-" * 40)
             return origin_nodes
-        else:
-            logging.info(
-                "No valid nodes were created. Check the extraction rules and validation."
-            )
-            return []
+        logging.info("No valid nodes were created. Check the extraction rules and validation.")
+        return []
     except Exception as e:
-        logging.error(f"Error during node creation: {str(e)}")
+        logging.exception(f"Error during node creation: {e!s}")
         logging.info("Stack trace:")
         import traceback
 
@@ -274,7 +261,7 @@ async def main(
         input_file: Path to the input pickle file
         output_file: Path to the output pickle file
     """
-    logging.info(f"Starting metadata processing pipeline...")
+    logging.info("Starting metadata processing pipeline...")
     logging.info(f"Input file: {input_file}")
     logging.info(f"Output file: {output_file}")
 
@@ -287,7 +274,7 @@ async def main(
     # Step 4: Save the enhanced nodes
     save_nodes_to_pickle(enhanced_nodes, output_file)
 
-    logging.info(f"Metadata processing pipeline completed successfully!")
+    logging.info("Metadata processing pipeline completed successfully!")
     return enhanced_nodes
 
 

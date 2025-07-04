@@ -1,9 +1,8 @@
-import pickle
 import argparse
+import pickle
 import sys
-from pathlib import Path
 from collections import defaultdict
-from typing import List, Dict
+from pathlib import Path
 
 # Attempt to import Document, handle if llama_index is not installed
 try:
@@ -25,7 +24,7 @@ except ImportError:
 
 
 def display_documents(
-    parsed_docs: List[BaseNodeType],
+    parsed_docs: list[BaseNodeType],
     num_files_limit: int | None,
     num_sections_limit: int | None,
     show_full_view: bool,
@@ -38,10 +37,10 @@ def display_documents(
         )
         return
 
-    docs_by_file: Dict[str, List[BaseNodeType]] = defaultdict(list)
+    docs_by_file: dict[str, list[BaseNodeType]] = defaultdict(list)
     for doc in parsed_docs:
         if not hasattr(doc, "metadata") or not isinstance(doc.metadata, dict):
-            print(f"Warning: Skipping document without valid 'metadata' dictionary.")
+            print("Warning: Skipping document without valid 'metadata' dictionary.")
             continue
         file_name = doc.metadata.get("file_name", "Unknown_File")
         docs_by_file[file_name].append(doc)
@@ -50,9 +49,7 @@ def display_documents(
     file_names_to_process = list(docs_by_file.keys())
 
     if num_files_limit is not None and num_files_limit < total_files:
-        print(
-            f"Limiting display to first {num_files_limit} out of {total_files} source files.\n"
-        )
+        print(f"Limiting display to first {num_files_limit} out of {total_files} source files.\n")
         file_names_to_process = file_names_to_process[:num_files_limit]
     else:
         print(f"Displaying details for all {total_files} source files found.\n")
@@ -65,10 +62,7 @@ def display_documents(
 
         sections_to_display = sections_in_file
         limit_msg = ""
-        if (
-            num_sections_limit is not None
-            and num_sections_limit < total_sections_in_file
-        ):
+        if num_sections_limit is not None and num_sections_limit < total_sections_in_file:
             sections_to_display = sections_in_file[:num_sections_limit]
             limit_msg = f" (showing first {num_sections_limit})"
 
@@ -76,7 +70,7 @@ def display_documents(
             f"--- File {file_idx}/{num_files_limit}: {file_name} ({total_sections_in_file} sections total{limit_msg}) ---"
         )
 
-        for section_idx, doc in enumerate(sections_to_display, start=1):
+        for _section_idx, doc in enumerate(sections_to_display, start=1):
             global_doc_index += 1
 
             # Get metadata safely
@@ -178,9 +172,7 @@ def main():
         # Check if the list is not empty and items seem like documents (have metadata)
         if loaded_data and hasattr(loaded_data[0], "metadata"):
             print(f"Successfully loaded {len(loaded_data)} document objects.")
-            display_documents(
-                loaded_data, args.num_files, args.num_sections, args.full_view
-            )
+            display_documents(loaded_data, args.num_files, args.num_sections, args.full_view)
         elif not loaded_data:
             print("Pickle file loaded successfully, but the list is empty.")
         else:
@@ -193,9 +185,7 @@ def main():
         print(
             f"Error: Expected a list of documents in the pickle file, but found type '{type(loaded_data).__name__}'."
         )
-        print(
-            "Please ensure the pickle file was created correctly by the updated parse.py script."
-        )
+        print("Please ensure the pickle file was created correctly by the updated parse.py script.")
         sys.exit(1)
 
 

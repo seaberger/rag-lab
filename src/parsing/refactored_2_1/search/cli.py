@@ -2,18 +2,19 @@
 CLI for searching the indexed documents.
 """
 
-import asyncio
 import argparse
-from rich.console import Console
-from rich.table import Table
+import asyncio
 
 # LlamaIndex and Qdrant
 from llama_index.embeddings.openai import OpenAIEmbedding
 from qdrant_client import QdrantClient
+from rich.console import Console
+from rich.table import Table
+from search.hybrid import HybridSearch
 
 # Project-specific
 from storage.keyword_index import BM25Index
-from search.hybrid import HybridSearch
+
 # FIXME: Consider using PipelineConfig for paths, model names, collection names, etc.
 # from ..utils.config import PipelineConfig
 
@@ -29,12 +30,11 @@ async def search_documents(query: str, mode: str = "hybrid", limit: int = 5):
     # collection_name = config.qdrant.collection_name
     # hybrid_alpha = config.search.hybrid_alpha # Assuming you add this
 
-    embedding_model_name = "text-embedding-3-small" # Placeholder
-    qdrant_path = "./qdrant_data" # Placeholder
-    keyword_index_path = "./keyword_index.db" # Placeholder
-    collection_name = "datasheets" # Placeholder
-    hybrid_alpha = 0.7 # Placeholder
-
+    embedding_model_name = "text-embedding-3-small"  # Placeholder
+    qdrant_path = "./qdrant_data"  # Placeholder
+    keyword_index_path = "./keyword_index.db"  # Placeholder
+    collection_name = "datasheets"  # Placeholder
+    hybrid_alpha = 0.7  # Placeholder
 
     # Initialize components
     embedding_model = OpenAIEmbedding(model=embedding_model_name)
@@ -71,9 +71,7 @@ async def search_documents(query: str, mode: str = "hybrid", limit: int = 5):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("query", help="Search query")
-    parser.add_argument(
-        "--mode", choices=["hybrid", "vector", "keyword"], default="hybrid"
-    )
+    parser.add_argument("--mode", choices=["hybrid", "vector", "keyword"], default="hybrid")
     parser.add_argument("--limit", type=int, default=5)
 
     args = parser.parse_args()

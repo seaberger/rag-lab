@@ -2,33 +2,34 @@
 CLI for searching the indexed documents.
 """
 
-import asyncio
 import argparse
-from rich.console import Console
-from rich.table import Table
+import asyncio
 
 # LlamaIndex and Qdrant
 from llama_index.embeddings.openai import OpenAIEmbedding
 from qdrant_client import QdrantClient
+from rich.console import Console
+from rich.table import Table
+from search.hybrid import HybridSearch
 
 # Project-specific
 from storage.keyword_index import BM25Index
-from search.hybrid import HybridSearch
+
 from utils.config import PipelineConfig
 
 
-async def search_documents(query: str, mode: str = None, limit: int = None):
+async def search_documents(query: str, mode: str | None = None, limit: int | None = None):
     """Search indexed documents."""
 
     # Initialize configuration
     config = PipelineConfig.from_yaml()
-    
+
     # Use config values with fallbacks for mode and limit
     if mode is None:
         mode = config.search.default_mode
     if limit is None:
         limit = config.search.default_limit
-    
+
     # Get values from config
     embedding_model_name = config.openai.embedding_model
     qdrant_path = config.qdrant.path
@@ -36,14 +37,18 @@ async def search_documents(query: str, mode: str = None, limit: int = None):
     collection_name = config.qdrant.collection_name
     hybrid_alpha = config.search.hybrid_alpha
 
-
     # Initialize components
     embedding_model = OpenAIEmbedding(model=embedding_model_name)
     qdrant_client = QdrantClient(path=qdrant_path)
     bm25_index = BM25Index(db_path=keyword_index_path)
 
     if mode == "hybrid":
-        searcher = HybridSearch(qdrant_client, bm25_index, alpha=hybrid_alpha, collection_name=collection_name)
+        searcher = HybridSearch(
+            qdrant_client,
+            bm25_index,
+            alpha=hybrid_alpha,
+            collection_name=collection_name,
+        )
         results = await searcher.search(query, embedding_model, limit)
     elif mode == "vector":
         query_embedding = await embedding_model.aget_query_embedding(query)
@@ -72,9 +77,7 @@ async def search_documents(query: str, mode: str = None, limit: int = None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("query", help="Search query")
-    parser.add_argument(
-        "--mode", choices=["hybrid", "vector", "keyword"], default="hybrid"
-    )
+    parser.add_argument("--mode", choices=["hybrid", "vector", "keyword"], default="hybrid")
     parser.add_argument("--limit", type=int, default=5)
 
     args = parser.parse_args()

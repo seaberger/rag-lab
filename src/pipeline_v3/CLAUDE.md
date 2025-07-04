@@ -31,7 +31,7 @@ uv run python -m src.pipeline_v3.cli_main [command]
 ```
 data/sample_docs/
 ├── COHR_Air-CooledThermopileSensors_DB25_DS_1119_3.pdf
-├── COHR_Air-CooledThermopileSensors_USB_RS232_DS_1119_3.pdf  
+├── COHR_Air-CooledThermopileSensors_USB_RS232_DS_1119_3.pdf
 ├── COHR_OP-2_LM-2_OpticalSensors_DS_1119_2.pdf
 ├── COHR_PowerMax-USB_UV-VIS_DS_0920_2.pdf
 ├── FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
@@ -65,7 +65,7 @@ data/lmc_docs/datasheets/
 
 ### Storage Isolation (v3-specific paths)
 - **Cache:** `./cache_v3/` - LZ4 compressed API responses ✅
-- **Vector Store:** `./qdrant_data_v3/` - Qdrant embeddings ✅  
+- **Vector Store:** `./qdrant_data_v3/` - Qdrant embeddings ✅
 - **Keyword Index:** `./keyword_index_v3.db` - SQLite FTS5 search ✅
 - **Registry:** `./document_registry_v3.db` - Document state tracking ✅
 - **Jobs:** `./jobs_v3.db` - Queue management ✅
@@ -74,8 +74,8 @@ data/lmc_docs/datasheets/
 
 ## Current Status 🎉
 
-**Phase:** Production-Ready  
-**Core Functionality:** Complete and tested  
+**Phase:** Production-Ready
+**Core Functionality:** Complete and tested
 **Enterprise Features:** Queue management, batch processing, Office documents, URL processing
 
 ### 🎯 Development Planning
@@ -130,7 +130,7 @@ uv run python -m src.pipeline_v3.cli_main queue status --detailed
 # Check system status
 uv run python -m src.pipeline_v3.cli_main status --detailed --json
 
-# Run maintenance  
+# Run maintenance
 uv run python -m src.pipeline_v3.cli_main maintenance --repair --consistency-check
 
 # Configuration
@@ -209,14 +209,14 @@ Configuration via `config.yaml`:
 
 Three search modes via CLI:
 - **`hybrid`**: Vector + BM25 keyword (recommended)
-- **`vector`**: Pure semantic search  
+- **`vector`**: Pure semantic search
 - **`keyword`**: BM25 full-text search
 
 ```bash
 # Hybrid search (best results)
 uv run python -m src.pipeline_v3.cli_main search "PM10K power measurement" --type hybrid --top-k 5
 
-# Vector search (conceptual)  
+# Vector search (conceptual)
 uv run python -m src.pipeline_v3.cli_main search "laser sensor specs" --type vector --top-k 3
 
 # Keyword search (exact terms)
@@ -227,7 +227,7 @@ uv run python -m src.pipeline_v3.cli_main search "USB interface" --type keyword 
 
 ### Enterprise Capabilities:
 - **Queue-Based Processing:** Configurable concurrency with job persistence
-- **Intelligent Change Detection:** 6 change types with smart update strategies  
+- **Intelligent Change Detection:** 6 change types with smart update strategies
 - **Index Consistency:** Automatic verification and repair
 - **Hybrid Search:** Vector + keyword with score normalization
 - **Production Scalability:** Enterprise-grade error handling and recovery
@@ -297,19 +297,20 @@ uv run python -m src.pipeline_v3.cli_main add "docs/*.pdf"  # Always use queue
 
 ## Important Notes ⚠️
 
+- **CRITICAL - OpenAI Models:** ALWAYS use exactly `gpt-4.1` for vision and `gpt-4.1-mini` for keywords. NO variations!
 - **Use uv from project root:** Critical for proper environment and imports
 - **Primary CLI:** Use `cli_main.py` for production with full v2.1 feature parity
 - **Enterprise CLI:** New parameters `--document-type`, `--processing-options`, `--profile` (Issue #36)
 - **Keyword Enhancement:** Use `--processing-options keywords` for better search quality
 - **CLI Workaround:** For update with keywords, use `add --force` until Issue #18 resolved
-- **37 PDFs available:** Mix of simple and complex datasheets for comprehensive testing  
+- **37 PDFs available:** Mix of simple and complex datasheets for comprehensive testing
 - **Storage isolation:** All v3 components use v3-specific paths to avoid conflicts
 - **Production status:** Full functionality restored with enhanced search capabilities
 
 ## Documentation References
 
 - **📖 Complete User Guide:** [USER_MANUAL.md](./USER_MANUAL.md)
-- **🚀 Daily Commands:** [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)  
+- **🚀 Daily Commands:** [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)
 - **🏗️ Technical Details:** [README.md](./README.md)
 - **🆕 Page Range Feature:** [docs/PAGE_RANGE_FEATURE.md](./docs/PAGE_RANGE_FEATURE.md)
 - **🆕 API Hardening:** [docs/API_HARDENING.md](./docs/API_HARDENING.md)

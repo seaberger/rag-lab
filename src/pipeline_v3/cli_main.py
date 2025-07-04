@@ -6,25 +6,43 @@ Simple entry point for the pipeline CLI that can be called directly.
 
 Usage:
     python cli_main.py [command] [options]
-    
+
 This is a convenience script that imports and runs the main CLI.
 """
 
-from .utils.common_utils import init_cli_logging, CLIArgumentError, DependencyError, ConfigLoadError
+import asyncio
+import logging
+import sys
+from pathlib import Path
+
+# Add the current directory to Python path for both relative and absolute imports
+sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# Import with fallback for both direct execution and module execution
+try:
+    from .cli.management import main
+    from .utils.cleanup import cleanup_temp_resources, get_resource_manager
+    from .utils.common_utils import (
+        CLIArgumentError,
+        ConfigLoadError,
+        DependencyError,
+        init_cli_logging,
+    )
+except ImportError:
+    # Fallback for direct execution
+    from cli.management import main
+
+    from utils.cleanup import cleanup_temp_resources, get_resource_manager
+    from utils.common_utils import (
+        CLIArgumentError,
+        ConfigLoadError,
+        DependencyError,
+        init_cli_logging,
+    )
 
 # Initialize logging first
 init_cli_logging()
-
-import sys
-import asyncio
-import logging
-from pathlib import Path
-
-# Add the current directory to Python path
-sys.path.insert(0, str(Path(__file__).parent))
-
-from .cli.management import main
-from .utils.cleanup import cleanup_temp_resources, get_resource_manager
 
 logger = logging.getLogger(__name__)
 
@@ -38,43 +56,43 @@ def run_cli():
         logger.warning("Operation cancelled by user")
         sys.exit(130)
     except CLIArgumentError as e:
-        if hasattr(e, 'command_string') and e.command_string:
-            logger.error("CLI argument error: %s | Command: %s", e, e.command_string, exc_info=True)
+        if hasattr(e, "command_string") and e.command_string:
+            logger.exception("CLI argument error | Command: %s", e.command_string)
         else:
-            logger.error("CLI argument error: %s", e, exc_info=True)
+            logger.exception("CLI argument error")
         print("❌ Invalid arguments:", e)
         sys.exit(128)
     except DependencyError as e:
-        if hasattr(e, 'command_string') and e.command_string:
-            logger.critical("Dependency error: %s | Command: %s", e, e.command_string, exc_info=True)
+        if hasattr(e, "command_string") and e.command_string:
+            logger.critical("Dependency error: %s | Command: %s", e, e.command_string)
         else:
-            logger.critical("Dependency error: %s", e, exc_info=True)
+            logger.critical("Dependency error: %s", e)
         print("❌ Dependency error:", e)
         sys.exit(126)
     except ConfigLoadError as e:
-        if hasattr(e, 'command_string') and e.command_string:
-            logger.error("Configuration error: %s | Command: %s", e, e.command_string, exc_info=True)
+        if hasattr(e, "command_string") and e.command_string:
+            logger.exception("Configuration error: %s | Command: %s", e, e.command_string)
         else:
-            logger.error("Configuration error: %s", e, exc_info=True)
+            logger.exception("Configuration error")
         print("❌ Configuration error:", e)
         sys.exit(127)
     except FileNotFoundError as e:
-        logger.error("File not found: %s", e, exc_info=True)
+        logger.exception("File not found")
         print("❌ File not found:", e)
         sys.exit(127)
     except ImportError as e:
-        logger.critical("Missing dependency: %s", e, exc_info=True)
+        logger.critical("Missing dependency: %s", e)
         print("❌ Required dependency not installed. See log for details.")
         sys.exit(126)
     except ConnectionError as e:
-        logger.error("Network error: %s", e, exc_info=True)
+        logger.exception("Network error")
         print("❌ Network error:", e)
         sys.exit(1)
     except ValueError as e:
-        logger.error("Invalid argument: %s", e, exc_info=True)
+        logger.exception("Invalid argument")
         print("❌ Invalid argument:", e)
         sys.exit(128)
-    except Exception as e:
+    except Exception:
         logger.exception("Unhandled exception")
         print("❌ Unexpected error. Run with -v for details.")
         sys.exit(1)

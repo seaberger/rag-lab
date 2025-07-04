@@ -6,7 +6,7 @@ A production-ready document processing pipeline that converts technical datashee
 
 This pipeline follows a modular architecture with three main processing paths:
 - **Datasheet PDFs**: Extract model/part number pairs + convert to markdown
-- **Generic PDFs**: Simple PDF → markdown conversion  
+- **Generic PDFs**: Simple PDF → markdown conversion
 - **Markdown files**: Direct ingestion with optional keyword enhancement
 
 ## Quick Start
@@ -88,7 +88,7 @@ Input → Classification → Parsing → Caching → Document → Chunking → K
 ### 1. Classification (`pipeline/parsers.py`)
 ```python
 DocumentType.DATASHEET_PDF   # → Model/part extraction + markdown
-DocumentType.GENERIC_PDF     # → Simple markdown conversion  
+DocumentType.GENERIC_PDF     # → Simple markdown conversion
 DocumentType.MARKDOWN        # → Direct processing
 ```
 
@@ -168,7 +168,7 @@ python utils/cache_manager.py --clear logs reports --force
 
 #### Available Components for Selective Clearing
 - `api`, `cache` - API response cache (LZ4 files)
-- `storage`, `artifacts` - Document artifacts (JSONL files)  
+- `storage`, `artifacts` - Document artifacts (JSONL files)
 - `vector`, `qdrant` - Vector database
 - `keyword`, `bm25` - Keyword search index
 - `logs`, `reports` - Processing logs and reports
@@ -333,7 +333,7 @@ source .venv/bin/activate
 # macOS
 brew install poppler
 
-# Ubuntu/Debian  
+# Ubuntu/Debian
 sudo apt-get install poppler-utils
 ```
 

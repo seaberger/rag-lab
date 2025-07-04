@@ -15,10 +15,10 @@ CREATE TABLE IF NOT EXISTS fingerprints (
 );
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_fingerprints_content_hash 
+CREATE INDEX IF NOT EXISTS idx_fingerprints_content_hash
 ON fingerprints(content_hash);
 
-CREATE INDEX IF NOT EXISTS idx_fingerprints_last_seen 
+CREATE INDEX IF NOT EXISTS idx_fingerprints_last_seen
 ON fingerprints(last_seen);
 
 CREATE INDEX IF NOT EXISTS idx_fingerprints_doc_id

@@ -3,11 +3,11 @@ Simple cache manager for parsed documents.
 """
 
 import json
+
 # import hashlib # Not directly used in this file, but hashes are passed in
-import shutil # Not used in the current snippet, consider removing if not needed elsewhere in this file
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import lz4.frame
 
@@ -18,22 +18,24 @@ try:
 except ImportError:
     # Fallback for when running from different directory
     import sys
+
     sys.path.append(str(Path(__file__).parent.parent))
     from utils.common_utils import logger
     from utils.config import PipelineConfig
+
 
 class CacheManager:
     """Simple disk-based cache with optional compression."""
 
     def __init__(
-        self, 
-        cache_dir: str = None, 
-        ttl_days: int = None, 
-        compress: bool = None,
-        config: Optional[PipelineConfig] = None
+        self,
+        cache_dir: str | None = None,
+        ttl_days: int | None = None,
+        compress: bool | None = None,
+        config: PipelineConfig | None = None,
     ):
         # Use config if provided, otherwise use parameters or defaults
-        if config and hasattr(config, 'cache'):
+        if config and hasattr(config, "cache"):
             self.cache_dir = Path(config.cache.directory)
             self.ttl = timedelta(days=config.cache.ttl_days)
             self.compress = config.cache.compress
@@ -41,7 +43,7 @@ class CacheManager:
             self.cache_dir = Path(cache_dir or "./cache")
             self.ttl = timedelta(days=ttl_days or 7)
             self.compress = compress if compress is not None else True
-            
+
         self.cache_dir.mkdir(exist_ok=True)
         self.stats = {"hits": 0, "misses": 0, "errors": 0}
 
@@ -54,7 +56,7 @@ class CacheManager:
         ext = ".json.lz4" if self.compress else ".json"
         return self.cache_dir / f"{cache_key}{ext}"
 
-    def get(self, doc_hash: str, prompt_hash: str) -> Optional[Dict[str, Any]]:
+    def get(self, doc_hash: str, prompt_hash: str) -> dict[str, Any] | None:
         """Retrieve from cache if exists and not expired."""
         cache_key = self._get_cache_key(doc_hash, prompt_hash)
         cache_path = self._get_cache_path(cache_key)
@@ -75,7 +77,7 @@ class CacheManager:
                 with lz4.frame.open(cache_path, "rb") as f:
                     data = json.loads(f.read())
             else:
-                with open(cache_path, "r") as f:
+                with open(cache_path) as f:
                     data = json.load(f)
 
             self.stats["hits"] += 1
@@ -86,7 +88,7 @@ class CacheManager:
             logger.error(f"Cache read error: {e}")
             return None
 
-    def put(self, doc_hash: str, prompt_hash: str, data: Dict[str, Any]) -> bool:
+    def put(self, doc_hash: str, prompt_hash: str, data: dict[str, Any]) -> bool:
         """Store in cache."""
         cache_key = self._get_cache_key(doc_hash, prompt_hash)
         cache_path = self._get_cache_path(cache_key)
@@ -105,7 +107,7 @@ class CacheManager:
             logger.error(f"Cache write error: {e}")
             return False
 
-    def clear(self, older_than_days: Optional[int] = None):
+    def clear(self, older_than_days: int | None = None):
         """Clear cache, optionally only items older than N days."""
         count = 0
         for cache_file in self.cache_dir.glob("*.json*"):
@@ -117,13 +119,12 @@ class CacheManager:
             count += 1
         return count
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total_size = sum(f.stat().st_size for f in self.cache_dir.glob("*.json*"))
         return {
             **self.stats,
-            "hit_rate": self.stats["hits"]
-            / max(1, self.stats["hits"] + self.stats["misses"]),
+            "hit_rate": self.stats["hits"] / max(1, self.stats["hits"] + self.stats["misses"]),
             "cache_size_mb": total_size / 1024 / 1024,
             "cache_files": len(list(self.cache_dir.glob("*.json*"))),
         }

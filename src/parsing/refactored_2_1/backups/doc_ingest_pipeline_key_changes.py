@@ -1,12 +1,9 @@
 # Add at the top of the file
+from cache_manager import CacheManager
 from pipeline_utils import (
     DocumentValidator,
-    ValidationError,
-    ParseError,
-    retry_api_call,
     logger,
 )
-from cache_manager import CacheManager
 from progress_monitor import ProgressMonitor
 
 
@@ -27,9 +24,7 @@ async def ingest_sources(
     # Initialize components
     cache = CacheManager() if config.enable_cache else None
     validator = DocumentValidator(config)
-    progress = ProgressMonitor(
-        callback=_progress_callback if config.progress_callback else None
-    )
+    progress = ProgressMonitor(callback=_progress_callback if config.progress_callback else None)
 
     # Process documents
     for src in sources:
@@ -52,9 +47,7 @@ async def ingest_sources(
             if cache:
                 cached = cache.get(doc_id, prompt_hash)
                 if cached:
-                    progress.complete_document(
-                        doc_id, cached.get("chunks", 0), cached=True
-                    )
+                    progress.complete_document(doc_id, cached.get("chunks", 0), cached=True)
                     continue
 
             # Parse document
@@ -90,6 +83,4 @@ async def ingest_sources(
 
     # Log summary
     summary = progress.get_summary()
-    logger.info(
-        f"Pipeline complete: {summary['processed_docs']}/{summary['total_docs']} processed"
-    )
+    logger.info(f"Pipeline complete: {summary['processed_docs']}/{summary['total_docs']} processed")

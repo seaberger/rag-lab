@@ -5,14 +5,13 @@ BM25 keyword index for hybrid search.
 import json
 import math
 import pickle
-import re # Moved re import higher for consistency
+import re  # Moved re import higher for consistency
 import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, List, Set, Tuple # Set was unused, but kept for now
 
 # import numpy as np # numpy seems unused in this file, commenting out.
-from llama_index.core.schema import TextNode # Added TextNode
+from llama_index.core.schema import TextNode  # Added TextNode
 
 from utils.config import PipelineConfig
 
@@ -20,9 +19,9 @@ from utils.config import PipelineConfig
 class BM25Index:
     """BM25 keyword index with SQLite FTS5 backend."""
 
-    def __init__(self, db_path: str = None, config: PipelineConfig = None):
+    def __init__(self, db_path: str | None = None, config: PipelineConfig = None):
         # Use config if provided, otherwise use parameter or default
-        if config and hasattr(config, 'storage'):
+        if config and hasattr(config, "storage"):
             self.db_path = config.storage.keyword_db_path
         else:
             self.db_path = db_path or "./keyword_index.db"
@@ -57,10 +56,10 @@ class BM25Index:
 
     def index_nodes(
         self,
-        nodes: List[TextNode],
+        nodes: list[TextNode],
         doc_id: str,
         source: str,
-        pairs: List[Tuple[str, str]],
+        pairs: list[tuple[str, str]],
     ):
         """Index nodes for BM25 search."""
         # Extract document metadata
@@ -103,7 +102,7 @@ class BM25Index:
         text = " ".join(text.split())
         return text
 
-    def search(self, query: str, limit: int = 10) -> List[Dict]:
+    def search(self, query: str, limit: int = 10) -> list[dict]:
         """BM25 search using SQLite FTS5."""
         # Clean query
         clean_query = self._clean_text(query)
@@ -111,7 +110,7 @@ class BM25Index:
         # Search with BM25 ranking
         results = self.conn.execute(
             """
-            SELECT 
+            SELECT
                 doc_id,
                 chunk_id,
                 text,
@@ -138,7 +137,7 @@ class BM25Index:
             for r in results
         ]
 
-    def search_by_part_number(self, part_number: str) -> List[Dict]:
+    def search_by_part_number(self, part_number: str) -> list[dict]:
         """Search specifically by part number."""
         results = self.conn.execute(
             """
@@ -152,19 +151,15 @@ class BM25Index:
             (f"%{part_number}%",),
         ).fetchall()
 
-        return [
-            {"doc_id": r[0], "source": r[1], "pairs": json.loads(r[2])} for r in results
-        ]
+        return [{"doc_id": r[0], "source": r[1], "pairs": json.loads(r[2])} for r in results]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get index statistics."""
         stats = {
             "total_documents": self.conn.execute(
                 "SELECT COUNT(DISTINCT doc_id) FROM documents"
             ).fetchone()[0],
-            "total_chunks": self.conn.execute(
-                "SELECT COUNT(*) FROM documents"
-            ).fetchone()[0],
+            "total_chunks": self.conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0],
             "documents_with_keywords": self.conn.execute(
                 "SELECT COUNT(*) FROM documents WHERE keywords != ''"
             ).fetchone()[0],
@@ -190,7 +185,7 @@ class SimpleBM25Index:
         self.N = 0  # total documents
         self.avgdl = 0  # average document length
 
-    def index_nodes(self, nodes: List[TextNode], doc_id: str):
+    def index_nodes(self, nodes: list[TextNode], doc_id: str):
         """Index nodes for BM25."""
         for node in nodes:
             chunk_id = f"{doc_id}_{node.metadata.get('chunk_index', 0)}"
@@ -214,11 +209,9 @@ class SimpleBM25Index:
             self.N += 1
 
         # Update average document length
-        self.avgdl = (
-            sum(self.doc_len.values()) / len(self.doc_len) if self.doc_len else 0
-        )
+        self.avgdl = sum(self.doc_len.values()) / len(self.doc_len) if self.doc_len else 0
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """Simple tokenization."""
         # Convert to lowercase and split on non-alphanumeric
         tokens = re.findall(r"\b\w+\b", text.lower())
@@ -238,7 +231,7 @@ class SimpleBM25Index:
         }
         return [t for t in tokens if t not in stopwords and len(t) > 2]
 
-    def search(self, query: str, limit: int = 10) -> List[Tuple[str, float, Dict]]:
+    def search(self, query: str, limit: int = 10) -> list[tuple[str, float, dict]]:
         """BM25 search."""
         query_tokens = self._tokenize(query)
         scores = {}
@@ -255,9 +248,7 @@ class SimpleBM25Index:
                     idf = math.log((self.N - df + 0.5) / (df + 0.5) + 1)
 
                     numerator = idf * tf * (self.k1 + 1)
-                    denominator = tf + self.k1 * (
-                        1 - self.b + self.b * doc_len / self.avgdl
-                    )
+                    denominator = tf + self.k1 * (1 - self.b + self.b * doc_len / self.avgdl)
 
                     score += numerator / denominator
 
@@ -276,9 +267,7 @@ class SimpleBM25Index:
                 {
                     "doc_freq": dict(self.doc_freq),
                     "doc_len": self.doc_len,
-                    "doc_term_freqs": {
-                        k: dict(v) for k, v in self.doc_term_freqs.items()
-                    },
+                    "doc_term_freqs": {k: dict(v) for k, v in self.doc_term_freqs.items()},
                     "documents": self.documents,
                     "N": self.N,
                     "avgdl": self.avgdl,
@@ -294,9 +283,7 @@ class SimpleBM25Index:
             data = pickle.load(f)
             self.doc_freq = defaultdict(int, data["doc_freq"])
             self.doc_len = data["doc_len"]
-            self.doc_term_freqs = {
-                k: Counter(v) for k, v in data["doc_term_freqs"].items()
-            }
+            self.doc_term_freqs = {k: Counter(v) for k, v in data["doc_term_freqs"].items()}
             self.documents = data["documents"]
             self.N = data["N"]
             self.avgdl = data["avgdl"]

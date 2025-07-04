@@ -17,16 +17,15 @@ Usage:
     python parse.py --help for more options
 """
 
-import os
-import time
 import argparse
-import asyncio
-import pickle
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-import logging
 import ast
+import asyncio
+import logging
+import os
+import pickle
 import re
+import time
+from pathlib import Path
 
 # Make sure llama-cloud is installed and import LlamaParse
 try:
@@ -126,8 +125,7 @@ def create_parser() -> LlamaParse:
             raise ValueError(
                 "LLAMA_CLOUD_API_KEY or OPENAI_API_KEY environment variable must be set"
             )
-        else:
-            logging.info("Using OPENAI_API_KEY as fallback.")
+        logging.info("Using OPENAI_API_KEY as fallback.")
 
     logging.info("Initializing LlamaParse with user_prompt...")
     # Use settings that worked in the baseline `parse_backup2.py`
@@ -258,9 +256,7 @@ def postprocess_extract_pairs(doc: Document) -> Document:
         if match:
             pairs_string = match.group(1)  # The list part '[...]'
             matched_block = match.group(0)  # The entire matched block "Metadata: {...}"
-            logging.debug(
-                f"Found potential pairs string snippet: {pairs_string[:100]}..."
-            )
+            logging.debug(f"Found potential pairs string snippet: {pairs_string[:100]}...")
 
             try:
                 # Parse the string representation of the list of tuples
@@ -287,9 +283,7 @@ def postprocess_extract_pairs(doc: Document) -> Document:
                                 and isinstance(p[1], str)
                             ):
                                 # Create dictionary for this pair
-                                structured_pairs.append(
-                                    {"model_name": p[0], "part_number": p[1]}
-                                )
+                                structured_pairs.append({"model_name": p[0], "part_number": p[1]})
                             else:
                                 # Encountered an invalid item in the list
                                 all_tuples_valid = False
@@ -320,9 +314,7 @@ def postprocess_extract_pairs(doc: Document) -> Document:
                                 f"Removing metadata block from text for doc {doc.metadata.get('file_name', '?')} sec {doc.metadata.get('doc_num', '?')}"
                             )
                             # Use re.sub on the original text, then strip the result
-                            new_text = metadata_pairs_regex.sub(
-                                "", original_text
-                            ).strip()
+                            new_text = metadata_pairs_regex.sub("", original_text).strip()
                             # Ensure set_content exists before calling
                             if hasattr(doc, "set_content"):
                                 doc.set_content(new_text)
@@ -352,12 +344,12 @@ def postprocess_extract_pairs(doc: Document) -> Document:
 
 # --- Parallel Processing Core (Re-enable post-processing call) ---
 async def process_documents_parallel(
-    file_list: List[Path],
+    file_list: list[Path],
     parser_template: LlamaParse,  # Pass the initialized template
     max_workers: int = 4,  # Using updated defaults
     max_retries: int = 3,
     timeout_seconds: int = 180,
-) -> List[Document]:  # Return flat list
+) -> list[Document]:  # Return flat list
     """
     Process multiple documents in parallel using async.
     Returns a flat list of all processed Document objects.
@@ -381,7 +373,7 @@ async def process_documents_parallel(
                 # Add other relevant params if needed (like auto_mode if reintroduced)
             )
         except Exception as init_e:
-            logging.error(f"Failed to re-initialize parser for {fname.name}: {init_e}")
+            logging.exception(f"Failed to re-initialize parser for {fname.name}: {init_e}")
             return None
 
         for attempt in range(max_retries):
@@ -404,19 +396,13 @@ async def process_documents_parallel(
                         f"Successfully parsed {fname.name} into {len(parsed_doc_list)} sections in {elapsed:.2f} seconds."
                     )
                     return parsed_doc_list
-                else:
-                    logging.warning(
-                        f"No content returned for {fname.name} on attempt {attempt + 1}"
-                    )
-            except asyncio.TimeoutError:
-                logging.error(
+                logging.warning(f"No content returned for {fname.name} on attempt {attempt + 1}")
+            except TimeoutError:
+                logging.exception(
                     f"Timeout error ({timeout_seconds}s) on attempt {attempt + 1} for {fname.name}"
                 )
-            except Exception as e:
-                logging.error(
-                    f"Error on attempt {attempt + 1} for {fname.name}: {str(e)}",
-                    exc_info=True,
-                )
+            except Exception:
+                logging.exception(f"Error on attempt {attempt + 1} for {fname.name}")
             if attempt < max_retries - 1:
                 backoff_time = 2**attempt
                 logging.info(f"Retrying {fname.name} in {backoff_time} seconds...")
@@ -438,9 +424,7 @@ async def process_documents_parallel(
         if doc_list_result:
             file_name = fname.name
             total_docs_in_file = len(doc_list_result)
-            logging.info(
-                f"Post-processing {total_docs_in_file} sections from {file_name}"
-            )
+            logging.info(f"Post-processing {total_docs_in_file} sections from {file_name}")
             for i, doc in enumerate(doc_list_result, 1):
                 # 1. Ensure metadata exists
                 if not hasattr(doc, "metadata") or doc.metadata is None:
@@ -458,14 +442,12 @@ async def process_documents_parallel(
                 all_processed_docs.append(processed_doc)
             logging.info(f"✅ Finished post-processing {file_name}")
         else:
-            logging.warning(
-                f"❌ {fname.name}: Failed to parse or returned empty result."
-            )
+            logging.warning(f"❌ {fname.name}: Failed to parse or returned empty result.")
     return all_processed_docs
 
 
 # --- Saving Function (Unchanged) ---
-def save_docs_to_pickle(docs: List[Document], file_path: str):
+def save_docs_to_pickle(docs: list[Document], file_path: str):
     """Save parsed documents to a pickle file."""
     output_path = Path(file_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -479,8 +461,8 @@ def save_docs_to_pickle(docs: List[Document], file_path: str):
 
 # --- Main Execution Logic (Using refined structure) ---
 async def main(
-    input_dir: Optional[str],
-    input_file: Optional[str],
+    input_dir: str | None,
+    input_file: str | None,
     output_file: str,
     max_workers: int,
     timeout: int,
@@ -490,7 +472,7 @@ async def main(
     Main async function to orchestrate the parsing process.
     """
     # Determine file list based on input args
-    file_list: List[Path] = []
+    file_list: list[Path] = []
     if input_file:
         path = Path(input_file)
         if not path.is_file():
@@ -503,7 +485,7 @@ async def main(
         input_path = Path(input_dir)
         if not input_path.is_dir():
             raise FileNotFoundError(f"Input directory {input_dir} not found.")
-        pdf_files = sorted(list(input_path.rglob("*.pdf")))
+        pdf_files = sorted(input_path.rglob("*.pdf"))
         if not pdf_files:
             print(f"No PDF files found in {input_dir} (recursive search).")
             return
@@ -517,8 +499,8 @@ async def main(
     # Create the parser template
     try:
         parser_template = create_parser()
-    except Exception as e:
-        logging.error(f"Failed to create LlamaParse instance: {e}", exc_info=True)
+    except Exception:
+        logging.exception("Failed to create LlamaParse instance")
         return
 
     # Process documents in parallel
@@ -540,15 +522,13 @@ async def main(
     total_docs_generated = len(processed_docs)
     successful_files_sources = set()
     if processed_docs:
-        successful_files_sources = set(
-            doc.metadata.get("source")
-            for doc in processed_docs
-            if doc.metadata.get("source")
-        )
+        successful_files_sources = {
+            doc.metadata.get("source") for doc in processed_docs if doc.metadata.get("source")
+        }
     successful_files = len(successful_files_sources)
     failed_files = total_files_attempted - successful_files
 
-    print(f"\n--- Run Summary ---")
+    print("\n--- Run Summary ---")
     print(f"Output File: {output_file}")
     print(f"Attempted to process {total_files_attempted} input file(s).")
     print(f"Successfully parsed {successful_files} file(s).")
@@ -566,9 +546,7 @@ async def main(
 
 if __name__ == "__main__":
     # Set up basic logging
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     # Load .env file if present (optional, for API keys)
     try:
@@ -593,9 +571,7 @@ if __name__ == "__main__":
         type=str,
         help="Directory containing PDF files to parse (recursive).",
     )
-    input_group.add_argument(
-        "--input_file", type=str, help="Path to a single PDF file to parse."
-    )
+    input_group.add_argument("--input_file", type=str, help="Path to a single PDF file to parse.")
     parser.add_argument(
         "--output_file",
         "-o",
@@ -633,10 +609,8 @@ if __name__ == "__main__":
             )
         )
     except (FileNotFoundError, ValueError) as e:
-        logging.error(f"Execution failed due to file or value error: {e}")
+        logging.exception(f"Execution failed due to file or value error: {e}")
         print(f"Error: {e}")
     except Exception as e:
-        logging.error(
-            f"An unexpected error occurred during execution: {e}", exc_info=True
-        )
+        logging.exception("An unexpected error occurred during execution")
         print(f"An unexpected error occurred: {e}")

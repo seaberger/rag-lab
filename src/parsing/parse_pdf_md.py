@@ -1,4 +1,4 @@
-# #!/usr/bin/env python3
+#!/usr/bin/env python3
 # """
 # Processes PDF and Markdown documents for ingestion into a RAG system.
 
@@ -652,7 +652,6 @@
 #             f"An unexpected error occurred during execution: {e}", exc_info=True
 #         )
 #         print(f"An unexpected error occurred: {e}")
-#!/usr/bin/env python3
 """
 Processes PDF and Markdown documents for ingestion into a RAG system.
 
@@ -682,16 +681,15 @@ Usage:
     python parse_pdf_md.py --help for more options
 """
 
-import os
-import time
 import argparse
-import asyncio
-import pickle
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-import logging
 import ast
+import asyncio
+import logging
+import os
+import pickle
 import re
+import time
+from pathlib import Path
 
 # Optional LlamaParse import
 try:
@@ -791,7 +789,7 @@ Metadata: {
 
 
 # --- Parser Creation (Now conditional based on flag) ---
-def create_parser(disable_pair_extraction: bool) -> Optional[LlamaParse]:
+def create_parser(disable_pair_extraction: bool) -> LlamaParse | None:
     """
     Create and configure the LlamaParse instance.
     Optionally skips the custom user_prompt if disable_pair_extraction is True.
@@ -808,8 +806,7 @@ def create_parser(disable_pair_extraction: bool) -> Optional[LlamaParse]:
                 "API key (LLAMA_CLOUD_API_KEY or OPENAI_API_KEY) not found. PDF parsing disabled."
             )
             return None
-        else:
-            logging.info("Using OPENAI_API_KEY as fallback for LlamaParse.")
+        logging.info("Using OPENAI_API_KEY as fallback for LlamaParse.")
 
     # --- Core LlamaParse arguments ---
     init_args = {
@@ -840,7 +837,7 @@ def create_parser(disable_pair_extraction: bool) -> Optional[LlamaParse]:
         parser._internal_disable_pair_extraction = disable_pair_extraction
         return parser
     except Exception as e:
-        logging.error(f"Failed to initialize LlamaParse instance: {e}")
+        logging.exception(f"Failed to initialize LlamaParse instance: {e}")
         return None
 
 
@@ -865,9 +862,7 @@ def postprocess_extract_pairs(doc: Document) -> Document:
         if match:
             pairs_string = match.group(1)
             matched_block = match.group(0)
-            logging.debug(
-                f"Found potential pairs string snippet: {pairs_string[:100]}..."
-            )
+            logging.debug(f"Found potential pairs string snippet: {pairs_string[:100]}...")
             try:
                 raw_extracted_pairs = ast.literal_eval(pairs_string)
                 if isinstance(raw_extracted_pairs, list):
@@ -883,9 +878,7 @@ def postprocess_extract_pairs(doc: Document) -> Document:
                                 and isinstance(p[0], str)
                                 and isinstance(p[1], str)
                             ):
-                                structured_pairs.append(
-                                    {"model_name": p[0], "part_number": p[1]}
-                                )
+                                structured_pairs.append({"model_name": p[0], "part_number": p[1]})
                             else:
                                 all_tuples_valid = False
                                 logging.warning(
@@ -905,15 +898,11 @@ def postprocess_extract_pairs(doc: Document) -> Document:
                             logging.debug(
                                 f"Removing metadata block from text for doc {doc.metadata.get('file_name', '?')} sec {doc.metadata.get('doc_num', '?')}"
                             )
-                            new_text = metadata_pairs_regex.sub(
-                                "", original_text
-                            ).strip()
+                            new_text = metadata_pairs_regex.sub("", original_text).strip()
                             if hasattr(doc, "set_content"):
                                 doc.set_content(new_text)
                             else:
-                                logging.error(
-                                    "Document object missing 'set_content' method."
-                                )
+                                logging.error("Document object missing 'set_content' method.")
                 else:
                     logging.warning(
                         f"Extracted pairs structure not a list for doc {doc.metadata.get('file_name', '?')} sec {doc.metadata.get('doc_num', '?')}. Keeping block in text."
@@ -927,12 +916,12 @@ def postprocess_extract_pairs(doc: Document) -> Document:
 
 # --- Parallel Processing Core (Conditional prompt in worker, conditional post-processing) ---
 async def process_pdf_documents_parallel(
-    pdf_file_list: List[Path],
+    pdf_file_list: list[Path],
     parser_template: LlamaParse,  # Template created by create_parser
     max_workers: int = 4,
     max_retries: int = 3,
     timeout_seconds: int = 180,
-) -> List[Document]:
+) -> list[Document]:
     """
     Process PDF documents in parallel using LlamaParse.
     Applies post-processing ONLY if the parser template was created with the custom prompt.
@@ -974,7 +963,7 @@ async def process_pdf_documents_parallel(
         try:
             parser = LlamaParse(**worker_init_args)
         except Exception as init_e:
-            logging.error(
+            logging.exception(
                 f"Failed to re-initialize worker parser for PDF {fname.name}: {init_e}"
             )
             return None
@@ -983,9 +972,7 @@ async def process_pdf_documents_parallel(
         for attempt in range(max_retries):
             try:
                 log_prefix = (
-                    "(Custom Prompt)"
-                    if not disable_pair_extraction
-                    else "(Default Prompt)"
+                    "(Custom Prompt)" if not disable_pair_extraction else "(Default Prompt)"
                 )
                 logging.info(
                     f"Attempt {attempt + 1}/{max_retries} parsing PDF {log_prefix} {fname.name} (Timeout: {timeout_seconds}s)..."
@@ -1004,19 +991,15 @@ async def process_pdf_documents_parallel(
                         f"Successfully parsed PDF {fname.name} into {len(parsed_doc_list)} sections in {elapsed:.2f} seconds."
                     )
                     return parsed_doc_list
-                else:
-                    logging.warning(
-                        f"No content returned for PDF {fname.name} on attempt {attempt + 1}"
-                    )
-            except asyncio.TimeoutError:
-                logging.error(
+                logging.warning(
+                    f"No content returned for PDF {fname.name} on attempt {attempt + 1}"
+                )
+            except TimeoutError:
+                logging.exception(
                     f"Timeout error ({timeout_seconds}s) on attempt {attempt + 1} for PDF {fname.name}"
                 )
-            except Exception as e:
-                logging.error(
-                    f"Error on attempt {attempt + 1} for PDF {fname.name}: {str(e)}",
-                    exc_info=True,
-                )
+            except Exception:
+                logging.exception(f"Error on attempt {attempt + 1} for PDF {fname.name}")
             if attempt < max_retries - 1:
                 backoff_time = 2**attempt
                 logging.info(f"Retrying {fname.name} in {backoff_time} seconds...")
@@ -1039,9 +1022,7 @@ async def process_pdf_documents_parallel(
         if doc_list_result:
             file_name = fname.name
             total_docs_in_file = len(doc_list_result)
-            post_processing_status = (
-                "Applying" if not disable_pair_extraction else "Skipping"
-            )
+            post_processing_status = "Applying" if not disable_pair_extraction else "Skipping"
             logging.info(
                 f"{post_processing_status} pairs post-processing for {total_docs_in_file} sections from PDF {file_name}"
             )
@@ -1064,15 +1045,13 @@ async def process_pdf_documents_parallel(
 
                 all_processed_pdf_docs.append(processed_doc)
         else:
-            logging.warning(
-                f"❌ PDF {fname.name}: Failed to parse or returned empty result."
-            )
+            logging.warning(f"❌ PDF {fname.name}: Failed to parse or returned empty result.")
 
     return all_processed_pdf_docs
 
 
 # --- process_markdown_file remains the same ---
-def process_markdown_file(file_path: Path) -> List[Document]:
+def process_markdown_file(file_path: Path) -> list[Document]:
     """Reads a Markdown file and returns it as a single Document object."""
     logging.info(f"Processing Markdown file: {file_path.name}")
     try:
@@ -1080,7 +1059,7 @@ def process_markdown_file(file_path: Path) -> List[Document]:
         content = None
         for enc in encodings_to_try:
             try:
-                with open(file_path, "r", encoding=enc) as f:
+                with open(file_path, encoding=enc) as f:
                     content = f.read()
                 logging.debug(f"Successfully read {file_path.name} with encoding {enc}")
                 break
@@ -1088,16 +1067,14 @@ def process_markdown_file(file_path: Path) -> List[Document]:
                 logging.debug(f"Failed to read {file_path.name} with encoding {enc}")
                 continue
             except Exception as e_read:
-                logging.error(f"Error reading {file_path.name}: {e_read}")
+                logging.exception(f"Error reading {file_path.name}: {e_read}")
                 return []
 
         if content is None:
             logging.error(f"Could not decode Markdown file {file_path.name}")
             return []
         if not content.strip():
-            logging.warning(
-                f"Markdown file {file_path.name} is empty or contains only whitespace."
-            )
+            logging.warning(f"Markdown file {file_path.name} is empty or contains only whitespace.")
 
         doc = Document(text=content if content else "")
         doc.metadata = {
@@ -1110,15 +1087,13 @@ def process_markdown_file(file_path: Path) -> List[Document]:
         }
         logging.info(f"✅ Successfully processed Markdown file {file_path.name}")
         return [doc]
-    except Exception as e:
-        logging.error(
-            f"❌ Error processing Markdown file {file_path.name}: {e}", exc_info=True
-        )
+    except Exception:
+        logging.exception(f"❌ Error processing Markdown file {file_path.name}")
         return []
 
 
 # --- Saving Function remains the same ---
-def save_docs_to_pickle(docs: List[Document], file_path: str):
+def save_docs_to_pickle(docs: list[Document], file_path: str):
     """Save parsed documents to a pickle file."""
     output_path = Path(file_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1132,8 +1107,8 @@ def save_docs_to_pickle(docs: List[Document], file_path: str):
 
 # --- Main Execution Logic (Passes flag down) ---
 async def main(
-    input_dir: Optional[str],
-    input_file: Optional[str],
+    input_dir: str | None,
+    input_file: str | None,
     output_file: str,
     max_workers: int,
     timeout: int,
@@ -1166,9 +1141,9 @@ async def main(
         input_path = Path(input_dir)
         if not input_path.is_dir():
             raise FileNotFoundError(f"Input directory {input_dir} not found.")
-        pdf_files_to_process = sorted(list(input_path.rglob("*.pdf")))
-        md_files_to_process = sorted(list(input_path.rglob("*.md")))
-        md_files_to_process.extend(sorted(list(input_path.rglob("*.markdown"))))
+        pdf_files_to_process = sorted(input_path.rglob("*.pdf"))
+        md_files_to_process = sorted(input_path.rglob("*.md"))
+        md_files_to_process.extend(sorted(input_path.rglob("*.markdown")))
         if not pdf_files_to_process and not md_files_to_process:
             print(f"No PDF or Markdown files found in {input_dir} (recursive search).")
             return
@@ -1204,9 +1179,7 @@ async def main(
                 max_retries=max_retries,
             )
             end_pdf_time = time.time()
-            logging.info(
-                f"Finished PDF processing in {end_pdf_time - start_pdf_time:.2f} seconds."
-            )
+            logging.info(f"Finished PDF processing in {end_pdf_time - start_pdf_time:.2f} seconds.")
             all_docs.extend(processed_pdf_docs)  # Add PDF results
         else:
             logging.warning(
@@ -1220,22 +1193,16 @@ async def main(
         if doc.metadata.get("file_name", "").lower().endswith((".md", ".markdown"))
     )
     successful_pdf_files = sum(
-        1
-        for doc in all_docs
-        if doc.metadata.get("file_name", "").lower().endswith(".pdf")
+        1 for doc in all_docs if doc.metadata.get("file_name", "").lower().endswith(".pdf")
     )
     failed_pdf_files = len(pdf_files_to_process) - successful_pdf_files
 
-    print(f"\n--- Run Summary ---")
+    print("\n--- Run Summary ---")
     print(f"Output File: {output_file}")
     print(f"Processed {successful_md_files}/{len(md_files_to_process)} Markdown files.")
     print(f"Attempted {len(pdf_files_to_process)} PDF files.")
     if LLAMA_PARSE_INSTALLED and pdf_files_to_process:
-        pdf_mode = (
-            "Default Parsing"
-            if disable_pair_extraction
-            else "Custom Prompt/Pair Extraction"
-        )
+        pdf_mode = "Default Parsing" if disable_pair_extraction else "Custom Prompt/Pair Extraction"
         print(f"PDF Processing Mode: {pdf_mode}")
         print(f"Successfully parsed and processed {successful_pdf_files} PDF file(s).")
         if failed_pdf_files > 0:
@@ -1252,9 +1219,7 @@ async def main(
 
 # --- __main__ block (Adds the new flag) ---
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     try:
         from dotenv import load_dotenv
@@ -1330,13 +1295,11 @@ if __name__ == "__main__":
             )
         )
     except (FileNotFoundError, ValueError) as e:
-        logging.error(f"Execution failed due to file or value error: {e}")
+        logging.exception(f"Execution failed due to file or value error: {e}")
         print(f"Error: {e}")
     except ImportError as e:
-        logging.error(f"Execution failed due to missing library: {e}")
+        logging.exception(f"Execution failed due to missing library: {e}")
         print(f"Error: Missing required library - {e}")
     except Exception as e:
-        logging.error(
-            f"An unexpected error occurred during execution: {e}", exc_info=True
-        )
+        logging.exception("An unexpected error occurred during execution")
         print(f"An unexpected error occurred: {e}")

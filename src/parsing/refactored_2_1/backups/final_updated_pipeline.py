@@ -13,9 +13,7 @@ async def ingest_sources(
 
     # Initialize components
     config = PipelineConfig(config_file)
-    embedding_manager = EmbeddingManager(
-        model=config.embedding_model, chunk_size=config.chunk_size
-    )
+    embedding_manager = EmbeddingManager(model=config.embedding_model, chunk_size=config.chunk_size)
     bm25_index = BM25Index(db_path="./keyword_index.db")
 
     # ... existing code ...
@@ -36,5 +34,5 @@ async def ingest_sources(
             progress.complete_document(doc_id, len(nodes))
 
         except Exception as e:
-            logger.error(f"Failed to process {src}: {e}")
+            logger.exception(f"Failed to process {src}: {e}")
             progress.fail_document(doc_id, str(e))

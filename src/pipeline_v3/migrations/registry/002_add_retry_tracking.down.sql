@@ -9,8 +9,8 @@ DROP INDEX IF EXISTS idx_documents_last_retry_at;
 -- This is a complex operation that requires careful handling
 
 -- Create temporary table without the new columns
-CREATE TABLE documents_temp AS 
-SELECT 
+CREATE TABLE documents_temp AS
+SELECT
     doc_id,
     source,
     content_hash,

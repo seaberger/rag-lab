@@ -107,7 +107,7 @@ Tests passed: 12/12 (100.0%)
 Tests verify proper exit codes for different scenarios:
 - `0`: Success
 - `1`: General error
-- `126`: Dependency error  
+- `126`: Dependency error
 - `128`: Invalid argument error
 - `130`: Keyboard interrupt (Ctrl-C)
 
@@ -168,7 +168,7 @@ uv run python run_tests.py
 - Use descriptive names: `test_cli_authentication.py`
 - Include test type in path: `unit/test_auth.py`
 
-### Test Function Naming  
+### Test Function Naming
 ```python
 def test_normal_help_command():        # ✅ Descriptive
 def test_invalid_command_handling():   # ✅ Clear purpose

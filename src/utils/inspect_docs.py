@@ -1,7 +1,7 @@
 import pickle
 
 # Load the enhanced nodes from the pickle file
-with open('enhanced_laser_nodes.pkl', 'rb') as f:
+with open("enhanced_laser_nodes.pkl", "rb") as f:
     nodes = pickle.load(f)
 
 # Display all contents of the first node of the first document

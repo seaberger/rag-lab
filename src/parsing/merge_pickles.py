@@ -38,18 +38,17 @@ Command Line Arguments:
                              (Required)
 """
 
-import os
-import pickle
 import argparse
+import pickle
 from pathlib import Path
-from typing import List, Any, Optional, Tuple, Type
+from typing import Any
 
 # Import Document and Node types for verification
 # Make it optional
 try:
-    from llama_index.core.schema import Document, TextNode, BaseNode
+    from llama_index.core.schema import BaseNode, Document
 
-    VALID_OBJECT_TYPES: Tuple[Type, ...] = (
+    VALID_OBJECT_TYPES: tuple[type, ...] = (
         Document,
         BaseNode,
     )  # Types we expect lists OF
@@ -57,9 +56,7 @@ try:
     NODE_TYPE = BaseNode  # Base class for TextNode etc.
     LLAMAINDEX_INSTALLED = True
 except ImportError:
-    print(
-        "WARNING: llama-index-core not installed. Cannot perform strict type verification."
-    )
+    print("WARNING: llama-index-core not installed. Cannot perform strict type verification.")
     print("         Will only check if loaded data is a list.")
     VALID_OBJECT_TYPES = None
     DOCUMENT_TYPE = None
@@ -67,14 +64,14 @@ except ImportError:
     LLAMAINDEX_INSTALLED = False
 
 
-def find_pickle_files(input_dir: str) -> List[Path]:
+def find_pickle_files(input_dir: str) -> list[Path]:
     """Finds all .pkl files recursively within the input directory."""
     input_path = Path(input_dir)
     if not input_path.is_dir():
         raise FileNotFoundError(f"Input directory not found: {input_path}")
 
     print(f"Searching for .pkl files recursively in: {input_path.resolve()}")
-    pickle_files = sorted(list(input_path.rglob("*.pkl")))
+    pickle_files = sorted(input_path.rglob("*.pkl"))
 
     if not pickle_files:
         print("No .pkl files found in the specified directory.")
@@ -90,7 +87,7 @@ def find_pickle_files(input_dir: str) -> List[Path]:
     return pickle_files
 
 
-def load_and_verify_pickle(file_path: Path) -> Optional[Tuple[List[Any], Type]]:
+def load_and_verify_pickle(file_path: Path) -> tuple[list[Any], type] | None:
     """
     Loads a pickle file, verifies it contains a list of a consistent
     LlamaIndex object type (Document or Node), and returns the list
@@ -143,14 +140,14 @@ def load_and_verify_pickle(file_path: Path) -> Optional[Tuple[List[Any], Type]]:
             return loaded_data, primary_type
 
         # If only list check is possible (llama-index not installed)
-        elif not LLAMAINDEX_INSTALLED:
+        if not LLAMAINDEX_INSTALLED:
             print("OK (Verified as list, type check skipped)")
             # Return list, but signal type couldn't be verified
             return loaded_data, Any  # Or another placeholder type
 
-        else:  # Should not be reached
-            print("FAILED (Internal verification logic error)")
-            return None
+        # Should not be reached
+        print("FAILED (Internal verification logic error)")
+        return None
 
     except FileNotFoundError:
         print("FAILED (File not found - was it moved/deleted?)")
@@ -163,7 +160,7 @@ def load_and_verify_pickle(file_path: Path) -> Optional[Tuple[List[Any], Type]]:
         return None
 
 
-def save_merged_list(data_list: List[Any], output_base_path: Path, suffix: str):
+def save_merged_list(data_list: list[Any], output_base_path: Path, suffix: str):
     """Saves a list to a pickle file with a specific suffix."""
     if not data_list:
         print(f"Skipping save for '{suffix}' (no data).")
@@ -195,8 +192,8 @@ def main(input_dir: str, output_base_filename: str):
         return
 
     # Separate lists for different types
-    combined_documents: List[Document] = []
-    combined_nodes: List[BaseNode] = []
+    combined_documents: list[Document] = []
+    combined_nodes: list[BaseNode] = []
     # Store files we couldn't determine type for (e.g., empty lists, or if LlamaIndex not installed)
     other_data_sources = []
 
@@ -237,16 +234,12 @@ def main(input_dir: str, output_base_filename: str):
                 print(
                     f"  -> WARNING: Cannot determine type for {file_path.name} (llama-index not installed)."
                 )
-                other_data_sources.append(
-                    file_path.name + " (type unknown - lib missing)"
-                )
+                other_data_sources.append(file_path.name + " (type unknown - lib missing)")
 
         else:
             # Loading or verification failed
             skipped_count += 1
-            print(
-                f"  -> Skipping file due to load/verification failure: {file_path.name}"
-            )
+            print(f"  -> Skipping file due to load/verification failure: {file_path.name}")
 
     print("\n--- Merge Summary ---")
     print(f"Attempted to process {len(pickle_files)} files.")
@@ -254,9 +247,7 @@ def main(input_dir: str, output_base_filename: str):
     if skipped_count > 0:
         print(f"Skipped {skipped_count} files due to errors.")
     if other_data_sources:
-        print(
-            "Sources for files with undetermined/unchecked types (not merged by type):"
-        )
+        print("Sources for files with undetermined/unchecked types (not merged by type):")
         for src in other_data_sources:
             print(f"  - {src}")
 

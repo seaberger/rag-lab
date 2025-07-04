@@ -76,7 +76,7 @@ python cli_main.py add quick_scan.pdf --profile quick-scan
 # Advanced Directory Processing with Patterns
 python cli_main.py add /company_docs --recursive --dry-run                      # Preview files
 python cli_main.py add /docs --include-pattern "*.pdf" --exclude-pattern "**/test/**"
-python cli_main.py add /reports --include-pattern "*.docx" --include-pattern "*.pptx" 
+python cli_main.py add /reports --include-pattern "*.docx" --include-pattern "*.pptx"
 python cli_main.py add /data --recursive --exclude-pattern "*.tmp" --exclude-pattern ".git/**"
 
 # URL Batch Processing (Modern)
@@ -201,7 +201,7 @@ python cli_main.py batch test-queue batch.json --workers 2 --processing-options 
 # JSON format batch file
 python cli_main.py add dummy --url-file batch.json --workers 3
 
-# Markdown format batch file  
+# Markdown format batch file
 python cli_main.py add dummy --url-file batch.md --processing-options keywords
 
 # Mix local files with URL batch
@@ -230,7 +230,7 @@ python cli_main.py add local.pdf --url-file web_docs.json --document-type auto
 # Smart fusion that adapts to your query
 python cli_main.py search "PM10K calibration" --fusion-method adaptive
 
-# Most robust for general use  
+# Most robust for general use
 python cli_main.py search "thermopile sensor" --fusion-method rrf
 
 # Advanced score control
@@ -272,7 +272,7 @@ python cli_main.py search "calibration" --filter '{"doc_ids": ["abc123", "def456
 # Technical documents
 --metadata type=manual category=technical version=1.0
 
-# Research papers  
+# Research papers
 --metadata type=research author=smith year=2024
 
 # Policy documents

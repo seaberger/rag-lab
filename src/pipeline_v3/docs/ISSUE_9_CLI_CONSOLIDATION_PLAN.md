@@ -4,10 +4,10 @@
 
 **Issue**: Pipeline v3 has two CLI interfaces (`cli_main.py` and `cli_v3.py`) with different capabilities, creating confusion and missing critical features in the production CLI.
 
-**Branch**: `feature/issue-9-cli-consolidation`  
-**Status**: Planning Phase  
-**Complexity**: High - Major refactoring of core pipeline  
-**Risk**: High - Touches core document processing logic  
+**Branch**: `feature/issue-9-cli-consolidation`
+**Status**: Planning Phase
+**Complexity**: High - Major refactoring of core pipeline
+**Risk**: High - Touches core document processing logic
 
 ## Problem Statement
 
@@ -90,7 +90,7 @@ Every document, whether processed individually or in batch, must:
    ```python
    # Current
    python cli_main.py add document.pdf
-   
+
    # Enhanced
    python cli_main.py add document.pdf --mode datasheet --prompt custom.md
    python cli_main.py add "data/*.pdf" --mode auto  # Glob support
@@ -194,7 +194,7 @@ Every document, whether processed individually or in batch, must:
 For future sessions, key information:
 - **Branch**: `feature/issue-9-cli-consolidation`
 - **Main Goal**: Make cli_main.py support all v2.1 features
-- **Key Files**: 
+- **Key Files**:
   - `pipeline/enhanced_core.py` (needs features)
   - `core/pipeline.py` (has features to port)
   - `cli/management.py` (needs new commands/options)

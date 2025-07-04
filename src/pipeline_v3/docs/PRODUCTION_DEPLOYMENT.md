@@ -232,7 +232,7 @@ server {
     proxy_connect_timeout 3600;
     proxy_send_timeout 3600;
     send_timeout 3600;
-    
+
     # Increase body size for file uploads
     client_max_body_size 500M;
     client_body_timeout 3600;
@@ -326,7 +326,7 @@ case "$1" in
     echo "Entering maintenance mode..."
     # Stop accepting new jobs
     touch /home/pipeline/rag-lab/MAINTENANCE_MODE
-    
+
     # Wait for current jobs to complete
     while true; do
       PROCESSING=$(uv run python -m src.pipeline_v3.cli_main queue status --json | jq '.processing')
@@ -336,19 +336,19 @@ case "$1" in
       echo "Waiting for $PROCESSING jobs to complete..."
       sleep 30
     done
-    
+
     # Stop queue
     systemctl stop pipeline-queue
     echo "Maintenance mode active"
     ;;
-    
+
   exit)
     echo "Exiting maintenance mode..."
     rm -f /home/pipeline/rag-lab/MAINTENANCE_MODE
     systemctl start pipeline-queue
     echo "Normal operation resumed"
     ;;
-    
+
   status)
     if [ -f /home/pipeline/rag-lab/MAINTENANCE_MODE ]; then
       echo "Status: Maintenance mode ACTIVE"
@@ -394,25 +394,25 @@ sudo sysctl -p
 pipeline:
   max_concurrent: 16
   timeout_seconds: 3600
-  
+
 queue:
   max_workers: 8
   batch_size: 20
   job_timeout: 3600
   retry_attempts: 3
   retry_delay: 60
-  
+
 storage:
   cache_enabled: true
   cache_size_gb: 50
   compression: true
-  
+
 openai:
   timeout_base: 60
   timeout_per_page: 45
   max_retries: 5
   client_timeout: 120
-  
+
 performance:
   connection_pool_size: 20
   thread_pool_size: 32
@@ -514,7 +514,7 @@ echo "Backup completed: $BACKUP_DIR/$DATE"
    ```bash
    # Restore PostgreSQL
    gunzip < backup/database.sql.gz | psql -U pipeline pipeline_v3
-   
+
    # Restore SQLite databases
    cp backup/*.db /home/pipeline/rag-lab/
    ```
@@ -529,7 +529,7 @@ echo "Backup completed: $BACKUP_DIR/$DATE"
    ```bash
    # Reset stuck jobs
    uv run python -m src.pipeline_v3.cli_main queue reset-stuck
-   
+
    # Retry failed jobs
    uv run python -m src.pipeline_v3.cli_main queue retry-failed
    ```

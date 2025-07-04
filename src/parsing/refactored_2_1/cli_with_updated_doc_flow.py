@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # Use try/except for more robust imports
 try:
     from pipeline.core import ingest_sources
+
     from utils.common_utils import logger
     from utils.env_utils import setup_environment
 except ImportError as e:
@@ -21,30 +22,26 @@ except ImportError as e:
     print("Make sure you're running from the correct directory")
     sys.exit(1)
 
+
 async def main():
     """Main CLI function."""
     parser = argparse.ArgumentParser(
         description="Datasheet Ingestion Pipeline - Process PDFs and Markdown into searchable database"
     )
     parser.add_argument(
-        "--src", 
-        nargs="+", 
+        "--src",
+        nargs="+",
         required=True,
-        help="Source files or URLs to process (PDFs, Markdown files)"
+        help="Source files or URLs to process (PDFs, Markdown files)",
+    )
+    parser.add_argument("--prompt", help="Path to custom prompt file for document parsing")
+    parser.add_argument(
+        "--with_keywords", action="store_true", help="Enable keyword generation for enhanced search"
     )
     parser.add_argument(
-        "--prompt", 
-        help="Path to custom prompt file for document parsing"
-    )
-    parser.add_argument(
-        "--with_keywords", 
-        action="store_true",
-        help="Enable keyword generation for enhanced search"
-    )
-    parser.add_argument(
-        "--keyword_model", 
+        "--keyword_model",
         default="gpt-4o-mini",
-        help="Model to use for keyword generation (default: gpt-4o-mini)"
+        help="Model to use for keyword generation (default: gpt-4o-mini)",
     )
     parser.add_argument(
         "--mode",
@@ -53,9 +50,7 @@ async def main():
         help="Parsing mode: 'datasheet' for pair extraction, 'generic' for simple PDF, 'auto' to detect",
     )
     parser.add_argument(
-        "--config", 
-        default="config.yaml", 
-        help="Configuration file path (default: config.yaml)"
+        "--config", default="config.yaml", help="Configuration file path (default: config.yaml)"
     )
 
     args = parser.parse_args()
@@ -72,7 +67,7 @@ async def main():
     else:
         is_datasheet_mode = args.mode == "datasheet"
 
-    logger.info(f"🚀 Starting document ingestion pipeline...")
+    logger.info("🚀 Starting document ingestion pipeline...")
     logger.info(f"📁 Sources: {args.src}")
     logger.info(f"🎯 Mode: {args.mode} (datasheet_mode: {is_datasheet_mode})")
     logger.info(f"🔍 Keywords enabled: {args.with_keywords}")
@@ -88,12 +83,13 @@ async def main():
             is_datasheet_mode=is_datasheet_mode,
             config_file=args.config,
         )
-        
+
         logger.info("✅ Pipeline completed successfully!")
-        
+
     except Exception as e:
         logger.error(f"❌ Pipeline failed: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

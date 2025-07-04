@@ -7,12 +7,12 @@ A production-ready ETL pipeline that ingests PDF datasheets and Markdown documen
 ## ✨ Key Features
 
 - **Multi-format Support**: PDF datasheets, generic PDFs, and Markdown files
-- **Intelligent Parsing**: 
+- **Intelligent Parsing**:
   - Special datasheet parsing with model/part number extraction
   - Generic PDF parsing for regular documents
   - Direct Markdown ingestion without API calls
 - **Hybrid Search**: Combines vector embeddings (semantic) with BM25 (keyword) search
-- **Cost Optimization**: 
+- **Cost Optimization**:
   - Disk-based caching to avoid redundant API calls
   - Batch API support for keyword generation
 - **Production Ready**:
@@ -31,7 +31,7 @@ graph TB
         A3[Markdown Files]
         A4[URLs]
     end
-    
+
     subgraph "Processing Pipeline"
         B1[Document Fetcher<br/>+ Validator]
         B2[Cache Manager]
@@ -40,36 +40,36 @@ graph TB
         B5[Chunker]
         B6[Keyword Generator]
     end
-    
+
     subgraph "Storage Layer"
         C1[JSONL Artifacts]
         C2[Qdrant Vector DB]
         C3[SQLite BM25 Index]
         C4[Disk Cache]
     end
-    
+
     subgraph "Search Interface"
         D1[Hybrid Search]
         D2[Vector Search]
         D3[Keyword Search]
     end
-    
+
     A1 --> B1
     A2 --> B1
     A3 --> B1
     A4 --> B1
-    
+
     B1 --> B2
     B2 --> B3
     B3 --> B4
     B4 --> B5
     B5 --> B6
-    
+
     B4 --> C1
     B6 --> C2
     B6 --> C3
     B2 --> C4
-    
+
     C2 --> D1
     C3 --> D1
     C2 --> D2
@@ -228,35 +228,35 @@ python -c "from keyword_index import BM25Index; print(BM25Index().get_stats())"
 pipeline:
   max_concurrent: 5
   timeout_seconds: 300
-  
+
 validation:
   validate_urls: true
   validate_files: true
-  
+
 limits:
   max_file_size_mb: 100
   max_pages_per_pdf: 50
-  
+
 cache:
   enabled: true
   directory: "./cache"
   ttl_days: 7
   compress: true
-  
+
 batch:
   enabled: true
   threshold: 10
-  
+
 openai:
   vision_model: "gpt-4o"
   embedding_model: "text-embedding-3-small"
   keyword_model: "gpt-4o-mini"
   max_retries: 3
-  
+
 logging:
   level: "INFO"
   file: "pipeline.log"
-  
+
 search:
   hybrid_alpha: 0.7  # Weight for vector search
   result_limit: 10
