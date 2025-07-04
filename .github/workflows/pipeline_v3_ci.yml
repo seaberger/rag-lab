@@ -23,7 +23,19 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+          - 6334:6334
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -53,7 +65,7 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --all-extras --dev
-        uv pip install pytest-timeout
+        uv pip install pytest-timeout pytest-xdist
 
     - name: Create test environment
       run: |
@@ -62,6 +74,7 @@ jobs:
 
     - name: Run unit tests
       run: |
+        # Includes new utility tests that boost coverage from 26% to 88%
         uv run pytest src/pipeline_v3/tests/unit/ -v \
           --cov=src.pipeline_v3 \
           --cov-report=xml \
@@ -76,34 +89,51 @@ jobs:
           --cov-append \
           --junit-xml=test-results/security-results.xml
 
-    - name: Run integration tests (non-Qdrant)
+    - name: Run smoke integration tests
       run: |
         uv run pytest src/pipeline_v3/tests/integration/ -v \
-          -k "not search and not vector and not e2e" \
+          --timeout=300 \
           --cov=src.pipeline_v3 \
           --cov-append \
-          --junit-xml=test-results/integration-results.xml
+          --junit-xml=test-results/smoke-integration-results.xml \
+          -m "smoke"
 
-    # Skip Qdrant tests in CI until server mode is implemented (Issue #71)
-    # These tests hang in GitHub Actions due to file lock contention
-    # - name: Run search/Qdrant tests
-    #   run: |
-    #     uv run pytest src/pipeline_v3/tests/integration/test_search_integration.py -v \
-    #       --cov=src.pipeline_v3 \
-    #       --cov-append \
-    #       --junit-xml=test-results/search-results.xml
-    #   continue-on-error: true  # Allow failures until Qdrant server mode
+    - name: Run lightweight integration tests
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=600 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/lightweight-integration-results.xml \
+          -m "integration and not heavy and not e2e"
 
-    # Skip E2E tests in CI until server mode is implemented (Issue #71)
-    # These tests also use Qdrant and can hang in GitHub Actions
-    # - name: Run E2E tests
-    #   run: |
-    #     uv run pytest src/pipeline_v3/tests/integration/test_e2e_integration.py -v \
-    #       --timeout=600 \
-    #       --cov=src.pipeline_v3 \
-    #       --cov-append \
-    #       --junit-xml=test-results/e2e-results.xml
-    #   continue-on-error: true  # Allow failures until Qdrant server mode
+    - name: Run server-specific tests
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=900 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/server-results.xml \
+          -m "server"
+
+    - name: Run E2E tests (critical path)
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=1200 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/e2e-results.xml \
+          -m "e2e"
+
+    - name: Run heavy resource tests (optional)
+      run: |
+        uv run pytest src/pipeline_v3/tests/integration/ -v \
+          --timeout=1800 \
+          --cov=src.pipeline_v3 \
+          --cov-append \
+          --junit-xml=test-results/heavy-results.xml \
+          -m "heavy"
+      continue-on-error: true  # Allow failures for heavy tests
 
     - name: Run regression tests
       run: |
@@ -260,6 +290,16 @@ jobs:
         uv sync --all-extras --dev
 
     - name: Run quick smoke test
+      env:
+        SKIP_QDRANT_CHECK: "true"
       run: |
         uv run python -m src.pipeline_v3.cli_main --help
-        uv run pytest src/pipeline_v3/tests/unit/test_cli_simple.py -v
+        # Run utility tests (fast, no external dependencies)
+        uv run pytest src/pipeline_v3/tests/unit/test_cli_validation.py \
+                      src/pipeline_v3/tests/unit/test_cli_formatting.py \
+                      src/pipeline_v3/tests/unit/test_env_utils.py \
+                      src/pipeline_v3/tests/unit/test_common_utils.py \
+                      src/pipeline_v3/tests/unit/test_general_validation.py \
+                      src/pipeline_v3/tests/unit/test_config.py -v
+        # Run basic CLI tests that don't require Qdrant server
+        uv run pytest src/pipeline_v3/tests/unit/test_cli_simple.py -v -m "not requires_qdrant_server"

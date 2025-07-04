@@ -28,11 +28,8 @@ def test_cli_help():
         assert "add" in result.stdout
         assert "search" in result.stdout
         assert "queue" in result.stdout
-
-        return True
     except Exception as e:
-        print(f"CLI help test failed: {e}")
-        return False
+        pytest.fail(f"CLI help test failed: {e}")
 
 
 def test_cli_subcommands():
@@ -49,16 +46,10 @@ def test_cli_subcommands():
                 check=False,
             )
 
-            if result.returncode != 0:
-                print(f"Command {cmd} help failed with code {result.returncode}")
-                print("STDERR:", result.stderr)
-                return False
+            assert result.returncode == 0, f"Command {cmd} help failed with code {result.returncode}\nSTDERR: {result.stderr}"
 
         except Exception as e:
-            print(f"Command {cmd} test failed: {e}")
-            return False
-
-    return True
+            pytest.fail(f"Command {cmd} test failed: {e}")
 
 
 def test_queue_subcommands():
@@ -75,15 +66,10 @@ def test_queue_subcommands():
                 check=False,
             )
 
-            if result.returncode != 0:
-                print(f"Queue command {cmd} help failed with code {result.returncode}")
-                return False
+            assert result.returncode == 0, f"Queue command {cmd} help failed with code {result.returncode}"
 
         except Exception as e:
-            print(f"Queue command {cmd} test failed: {e}")
-            return False
-
-    return True
+            pytest.fail(f"Queue command {cmd} test failed: {e}")
 
 
 def test_config_subcommands():
@@ -104,15 +90,10 @@ def test_config_subcommands():
                 check=False,
             )
 
-            if result.returncode != 0:
-                print(f"Config command {cmd} help failed with code {result.returncode}")
-                return False
+            assert result.returncode == 0, f"Config command {cmd} help failed with code {result.returncode}"
 
         except Exception as e:
-            print(f"Config command {cmd} test failed: {e}")
-            return False
-
-    return True
+            pytest.fail(f"Config command {cmd} test failed: {e}")
 
 
 def run_simple_tests():

@@ -20,6 +20,14 @@ try:
     from llama_index.core.vector_stores import VectorStoreQuery
     from llama_index.embeddings.openai import OpenAIEmbedding
     from llama_index.vector_stores.qdrant import QdrantVectorStore
+    from qdrant_client.models import (
+        Distance,
+        FieldCondition,
+        Filter,
+        FilterSelector,
+        MatchValue,
+        VectorParams,
+    )
 
     LLAMA_INDEX_AVAILABLE = True
 except ImportError:
@@ -68,7 +76,7 @@ class IndexManager:
         logger.info(f"IndexManager initialized with Qdrant: {self.qdrant_path}")
 
     def _init_qdrant(self) -> None:
-        """Initialize Qdrant vector store."""
+        """Initialize Qdrant vector store (supports both local and server modes)."""
         if not LLAMA_INDEX_AVAILABLE:
             logger.warning("LlamaIndex not available - vector operations disabled")
             self.qdrant_client = None
@@ -76,8 +84,36 @@ class IndexManager:
             return
 
         try:
-            # Create Qdrant client
-            self.qdrant_client = qdrant_client.QdrantClient(path=self.qdrant_path)
+            # Create Qdrant client based on mode
+            if self.config.qdrant.mode == "server":
+                # Server mode configuration
+                import os
+
+                logger.info(
+                    f"Initializing Qdrant in server mode: {self.config.qdrant.server.host}:{self.config.qdrant.server.port}"
+                )
+
+                # Get API key from environment if not in config
+                api_key = self.config.qdrant.server.api_key
+                if api_key is None:
+                    api_key = os.getenv("QDRANT_API_KEY")
+
+                self.qdrant_client = qdrant_client.QdrantClient(
+                    host=self.config.qdrant.server.host,
+                    port=self.config.qdrant.server.port,
+                    grpc_port=self.config.qdrant.server.grpc_port,
+                    api_key=api_key,
+                    https=self.config.qdrant.server.https,
+                    timeout=self.config.qdrant.server.timeout,
+                )
+
+                # Ensure collection exists
+                self._ensure_collection_exists()
+
+            else:
+                # Local mode (default)
+                logger.info(f"Initializing Qdrant in local mode: {self.qdrant_path}")
+                self.qdrant_client = qdrant_client.QdrantClient(path=self.qdrant_path)
 
             # Initialize vector store
             self.vector_store = QdrantVectorStore(
@@ -92,6 +128,32 @@ class IndexManager:
             logger.error(f"Failed to initialize Qdrant: {e}")
             self.qdrant_client = None
             self.vector_store = None
+
+    def _ensure_collection_exists(self) -> None:
+        """Ensure the Qdrant collection exists with proper configuration."""
+        try:
+            # Check if collection exists
+            collections = self.qdrant_client.get_collections()
+            collection_names = [col.name for col in collections.collections]
+
+            if self.config.qdrant.collection_name not in collection_names:
+                logger.info(f"Creating Qdrant collection: {self.config.qdrant.collection_name}")
+
+                # Create collection with proper vector configuration
+                self.qdrant_client.create_collection(
+                    collection_name=self.config.qdrant.collection_name,
+                    vectors_config=VectorParams(
+                        size=self.config.openai.dimensions,
+                        distance=Distance.COSINE,
+                    ),
+                )
+                logger.info(f"Created collection: {self.config.qdrant.collection_name}")
+            else:
+                logger.info(f"Collection already exists: {self.config.qdrant.collection_name}")
+
+        except Exception as e:
+            logger.error(f"Error ensuring collection exists: {e}")
+            raise
 
     def _init_keyword_index(self) -> None:
         """Initialize SQLite-based keyword index."""
@@ -173,11 +235,17 @@ class IndexManager:
                 logger.error("LlamaIndex not available - cannot add document")
                 return False
 
-            # Create document
-            doc = Document(text=content, doc_id=doc_id, metadata=metadata or {})
+            # Create document with doc_id in metadata
+            doc_metadata = metadata or {}
+            doc_metadata["doc_id"] = doc_id  # Ensure doc_id is in metadata
+            doc = Document(text=content, doc_id=doc_id, metadata=doc_metadata)
 
             # Split into chunks
             nodes = self.text_splitter.get_nodes_from_documents([doc])
+
+            # Ensure doc_id is in each node's metadata
+            for node in nodes:
+                node.metadata["doc_id"] = doc_id
 
             success = True
 
@@ -415,11 +483,30 @@ class IndexManager:
                 try:
                     vector_entries = [e for e in entries if e.index_type == IndexType.VECTOR.value]
                     if vector_entries:
-                        # QdrantVectorStore.delete() expects ref_doc_id (document ID), not node IDs
-                        self.vector_store.delete(doc_id)
-                        logger.info(
-                            f"Removed {len(vector_entries)} vector entries for document {doc_id[:8]}"
-                        )
+                        # In server mode, use direct Qdrant client for proper chunk deletion
+                        if self.config.qdrant.mode == "server" and self.qdrant_client:
+                            # Use filter-based deletion to ensure all chunks are removed
+                            self.qdrant_client.delete(
+                                collection_name=self.config.qdrant.collection_name,
+                                points_selector=FilterSelector(
+                                    filter=Filter(
+                                        must=[
+                                            FieldCondition(
+                                                key="doc_id", match=MatchValue(value=doc_id)
+                                            )
+                                        ]
+                                    )
+                                ),
+                            )
+                            logger.info(
+                                f"Removed all chunks for document {doc_id[:8]} using server mode deletion"
+                            )
+                        else:
+                            # For local mode, use LlamaIndex's delete method
+                            self.vector_store.delete(doc_id)
+                            logger.info(
+                                f"Removed {len(vector_entries)} vector entries for document {doc_id[:8]}"
+                            )
 
                 except Exception as e:
                     logger.error(f"Failed to remove from vector index: {e}")
@@ -510,6 +597,41 @@ class IndexManager:
 
         return chunks
 
+    def _extract_payload_data(self, payload: dict) -> dict:
+        """Extract data from Qdrant payload, handling server mode serialization.
+
+        In server mode, node data is serialized in _node_content field.
+        This method extracts the actual data regardless of storage format.
+        """
+        try:
+            # Check if this is server mode format with _node_content
+            if "_node_content" in payload and isinstance(payload["_node_content"], str):
+                import json
+
+                node_content = json.loads(payload["_node_content"])
+
+                # Extract commonly needed fields
+                extracted = {
+                    "text": node_content.get("text", ""),
+                    "metadata": node_content.get("metadata", {}),
+                    "doc_id": payload.get("doc_id")
+                    or node_content.get("metadata", {}).get("doc_id", "unknown"),
+                }
+
+                # Merge top-level payload fields (excluding _node_content)
+                for key, value in payload.items():
+                    if key not in ["_node_content", "_node_type"]:
+                        extracted[key] = value
+
+                return extracted
+            else:
+                # Direct payload format (local mode or legacy)
+                return payload
+
+        except Exception as e:
+            logger.warning(f"Failed to extract payload data: {e}")
+            return payload
+
     def _get_document_source(self, doc_id: str) -> str:
         """Get document source path from registry with caching."""
         if doc_id in self._doc_source_cache:
@@ -568,13 +690,24 @@ class IndexManager:
                 return []
 
             for result in result_nodes:
-                doc_id = getattr(result, "metadata", {}).get("doc_id", "unknown")
+                # Extract doc_id from metadata or result attributes
+                metadata = getattr(result, "metadata", {})
+                doc_id = metadata.get("doc_id", None)
+
+                # In server mode, doc_id might be a direct attribute
+                if not doc_id:
+                    doc_id = getattr(result, "doc_id", None)
+
+                # Fallback to ref_doc_id if available
+                if not doc_id:
+                    doc_id = metadata.get("ref_doc_id", "unknown")
+
                 search_results.append(
                     {
                         "node_id": getattr(result, "node_id", getattr(result, "id_", "unknown")),
                         "score": getattr(result, "score", 0.0),
                         "content": getattr(result, "text", getattr(result, "content", "")),
-                        "metadata": getattr(result, "metadata", {}),
+                        "metadata": metadata,
                         "doc_id": doc_id,
                         "source": self._get_document_source(doc_id),
                     }
@@ -1188,9 +1321,23 @@ class IndexManager:
                 logger.warning("Vector store not available")
                 return False
 
-            # Use the existing vector store delete method
-            # QdrantVectorStore.delete() expects ref_doc_id (document ID)
-            self.vector_store.delete(doc_id)
+            # In server mode, use direct Qdrant client for proper chunk deletion
+            if self.config.qdrant.mode == "server" and self.qdrant_client:
+                # Use filter-based deletion to ensure all chunks are removed
+                self.qdrant_client.delete(
+                    collection_name=self.config.qdrant.collection_name,
+                    points_selector=FilterSelector(
+                        filter=Filter(
+                            must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
+                        )
+                    ),
+                )
+                logger.info(
+                    f"Deleted all chunks for document {doc_id[:8]} using server mode deletion"
+                )
+            else:
+                # For local mode, use LlamaIndex's delete method
+                self.vector_store.delete(doc_id)
 
             logger.info(f"Deleted document {doc_id[:8]} from vector index")
             return True

@@ -254,8 +254,23 @@ async def ingest_sources(
     )
     Settings.embed_model = embed_model
 
-    # Initialize storage
-    qclient = QdrantClient(path=config.qdrant.path)
+    # Initialize storage based on mode
+    if config.qdrant.mode == "server":
+        import os
+
+        api_key = config.qdrant.server.api_key or os.getenv("QDRANT_API_KEY")
+        qclient = QdrantClient(
+            host=config.qdrant.server.host,
+            port=config.qdrant.server.port,
+            grpc_port=config.qdrant.server.grpc_port,
+            api_key=api_key,
+            https=config.qdrant.server.https,
+            timeout=config.qdrant.server.timeout,
+        )
+    else:
+        # Local mode
+        qclient = QdrantClient(path=config.qdrant.path)
+
     vstore = QdrantVectorStore(client=qclient, collection_name=config.qdrant.collection_name)
     storage = StorageContext.from_defaults(vector_store=vstore)
 

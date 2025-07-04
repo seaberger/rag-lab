@@ -32,14 +32,30 @@ async def search_documents(query: str, mode: str | None = None, limit: int | Non
 
     # Get values from config
     embedding_model_name = config.openai.embedding_model
-    qdrant_path = config.qdrant.path
     keyword_index_path = config.storage.keyword_db_path
     collection_name = config.qdrant.collection_name
     hybrid_alpha = config.search.hybrid_alpha
 
     # Initialize components
     embedding_model = OpenAIEmbedding(model=embedding_model_name)
-    qdrant_client = QdrantClient(path=qdrant_path)
+
+    # Initialize Qdrant based on mode
+    if config.qdrant.mode == "server":
+        import os
+
+        api_key = config.qdrant.server.api_key or os.getenv("QDRANT_API_KEY")
+        qdrant_client = QdrantClient(
+            host=config.qdrant.server.host,
+            port=config.qdrant.server.port,
+            grpc_port=config.qdrant.server.grpc_port,
+            api_key=api_key,
+            https=config.qdrant.server.https,
+            timeout=config.qdrant.server.timeout,
+        )
+    else:
+        # Local mode
+        qdrant_client = QdrantClient(path=config.qdrant.path)
+
     bm25_index = BM25Index(db_path=keyword_index_path)
 
     if mode == "hybrid":

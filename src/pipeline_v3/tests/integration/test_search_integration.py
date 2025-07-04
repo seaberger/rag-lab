@@ -27,6 +27,7 @@ from storage.keyword_index import BM25Index as KeywordIndex
 from utils.config import PipelineConfig
 
 
+@pytest.mark.requires_qdrant_server
 class TestSearchIntegration:
     """Integration tests for search functionality."""
 
@@ -187,6 +188,9 @@ class TestSearchIntegration:
             )
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for vector search tests
     async def test_vector_search_accuracy(self, search_components, mock_embeddings):
         """Test vector search relevance and accuracy."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -226,6 +230,9 @@ class TestSearchIntegration:
             ), f"No relevant results found for query '{query}' with tags {expected_tags}"
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.smoke
+    @pytest.mark.timeout(300)  # 5 minutes for keyword search
     async def test_keyword_search_precision(self, search_components, mock_embeddings):
         """Test keyword search with exact and fuzzy matching."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -267,6 +274,10 @@ class TestSearchIntegration:
         ), "No power meter related content found in phrase search"
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.smoke
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for hybrid search
     async def test_hybrid_search_fusion(self, search_components, mock_embeddings):
         """Test hybrid search with different fusion methods."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -294,6 +305,9 @@ class TestSearchIntegration:
         assert rrf_results[0]["score"] >= 0, "Scores should be non-negative"
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(300)  # 5 minutes for filter tests
     async def test_search_with_filters(self, search_components, mock_embeddings):
         """Test search with metadata filters."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -317,6 +331,9 @@ class TestSearchIntegration:
         assert isinstance(filtered_results, list)
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(300)  # 5 minutes for scoring tests
     async def test_search_result_scoring(self, search_components, mock_embeddings):
         """Test search result scoring and normalization."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -385,6 +402,9 @@ class TestSearchIntegration:
         ), f"No results found for '{query}' across any search method"
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.smoke
+    @pytest.mark.timeout(180)  # 3 minutes for error handling
     async def test_empty_index_handling(self, search_components, mock_embeddings):
         """Test search behavior with empty indexes."""
         query = "test query"
@@ -404,6 +424,8 @@ class TestSearchIntegration:
         assert keyword_results == []
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.timeout(300)  # 5 minutes for pagination
     async def test_search_pagination(self, search_components, mock_embeddings):
         """Test search with different top_k values."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -424,6 +446,10 @@ class TestSearchIntegration:
                 assert len(results) == 5
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.heavy
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for concurrent tests
     async def test_concurrent_searches(self, search_components, mock_embeddings):
         """Test concurrent search operations."""
         await self.add_test_documents(search_components, mock_embeddings)
@@ -452,6 +478,8 @@ class TestSearchIntegration:
             assert len(result) > 0
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.timeout(300)  # 5 minutes for error recovery
     async def test_search_error_recovery(self, search_components, mock_embeddings):
         """Test search error handling and recovery."""
         # Test with invalid query (simplified)
@@ -475,6 +503,9 @@ class TestSearchIntegration:
         assert isinstance(results, list)
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.smoke
+    @pytest.mark.timeout(300)  # 5 minutes for special character tests
     async def test_search_special_characters(self, search_components, mock_embeddings):
         """Test search with special characters and edge cases."""
         await self.add_test_documents(search_components, mock_embeddings)

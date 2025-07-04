@@ -70,7 +70,7 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 
 #### **Search & Retrieval System**
 - **Hybrid Search Engine**: Combines semantic understanding with keyword precision
-- **Vector Store**: Qdrant-based embeddings for conceptual search
+- **Vector Store**: Qdrant server-based embeddings for conceptual search (scalable, production-ready)
 - **BM25 Index**: SQLite FTS5 for exact match and technical term retrieval
 - **Fusion Algorithms**: Adaptive scoring for optimal result ranking
 
@@ -98,6 +98,10 @@ uv sync
 
 # Configure OpenAI API
 echo "OPENAI_API_KEY=your-key-here" > .env
+
+# Start Qdrant vector database server (REQUIRED)
+./scripts/qdrant_server.sh start
+# Dashboard available at: http://localhost:6333/dashboard
 ```
 
 ### Basic Usage
@@ -202,7 +206,8 @@ uv run python -m src.pipeline_v3.cli_main migrate --check-status
 ## 🛡️ Security & Compliance
 
 - **API Key Management**: Environment-based configuration, no hardcoded secrets
-- **Data Privacy**: All processing can be done on-premises (with local Qdrant)
+- **Data Privacy**: All processing can be done on-premises
+- **Vector Storage**: Qdrant server mode (default) for production security and scalability
 - **Access Control**: Ready for integration with enterprise auth systems
 - **Audit Logging**: Complete operation tracking and document history
 - **Input Validation**: Protection against SQL injection and path traversal
@@ -236,7 +241,8 @@ See [ROADMAP.md](ROADMAP.md) for current priorities and [CONTRIBUTING.md](CONTRI
 - ✅ **Search System**: Hybrid vector + keyword with fusion
 - ✅ **Queue System**: Scalable batch processing
 - ✅ **CI/CD Pipeline**: Automated testing, quality checks, and security scanning
-- 🚧 **In Progress**: Security hardening, Qdrant server mode
+- ✅ **Qdrant Server Mode**: Default vector storage for production scalability
+- 🚧 **In Progress**: Security hardening, test coverage improvements
 - 🔜 **Planned**: Web UI, REST API, metadata filtering
 
 ## 📄 License

@@ -4,12 +4,8 @@ End-to-End Integration Tests for Pipeline v3
 Comprehensive integration tests with real documents to validate
 the complete pipeline functionality before production deployment.
 
-IMPORTANT: Test classes are prefixed with letters to control execution order:
-- Test_A_* : Run first - create and index documents
-- Test_B_* : Run second - smoke tests
-- Test_Z_* : Run last - cleanup and isolation tests
-
-This ensures data dependencies are satisfied (e.g., search tests have documents to find).
+Note: Tests are now designed to be independent using proper fixtures
+instead of relying on alphabetical execution order.
 """
 
 import os
@@ -25,18 +21,19 @@ import yaml
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from pipeline_v3.core.index_manager import IndexManager
-from pipeline_v3.core.registry import DocumentRegistry
-from pipeline_v3.job_queue.manager import DocumentQueue
-from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
-from pipeline_v3.utils.config import PipelineConfig
-from pipeline_v3.utils.monitoring import ProgressMonitor
+from core.index_manager import IndexManager
+from core.registry import DocumentRegistry
+from job_queue.manager import DocumentQueue
+from pipeline.enhanced_core import EnhancedPipeline
+from utils.config import PipelineConfig
+from utils.monitoring import ProgressMonitor
 
 
-class Test_A_E2EIntegration:
+@pytest.mark.requires_qdrant_server
+class TestE2EIntegration:
     """End-to-end integration tests with real documents.
 
-    Named with A prefix to ensure it runs first alphabetically.
+    Tests are independent and use proper fixtures for data setup.
     """
 
     def get_test_documents(self, test_docs_path: Path, limit: int = 5) -> list[Path]:
@@ -57,7 +54,9 @@ class Test_A_E2EIntegration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     @pytest.mark.integration
+    @pytest.mark.heavy
     @pytest.mark.requires_api
+    @pytest.mark.timeout(900)  # 15 minutes for heavy operations
     async def test_document_ingestion(
         self, test_pipeline, sample_documents, expected_content
     ):
@@ -135,9 +134,10 @@ class Test_A_E2EIntegration:
         assert all(r["success"] for r in ingestion_results)
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
     @pytest.mark.integration
+    @pytest.mark.e2e
     @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for search tests
     async def test_search_functionality(self, populated_pipeline, expected_content):
         """Test different search types with pre-populated data."""
         pipeline = populated_pipeline
@@ -187,6 +187,9 @@ class Test_A_E2EIntegration:
                 pytest.fail(f"Search failed for '{query}' with {search_type}: {e}")
 
     @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.smoke
+    @pytest.mark.timeout(300)  # 5 minutes for quick tests
     async def test_queue_management(self, test_pipeline):
         """Test queue operations."""
         pipeline = test_pipeline
@@ -312,7 +315,8 @@ class Test_A_E2EIntegration:
         assert status["indexes"]["keyword_index"]["entry_count"] >= 0
 
 
-class Test_B_SmokeIntegration:
+@pytest.mark.requires_qdrant_server
+class TestSmokeIntegration:
     """Quick smoke tests for CI/CD - focused on speed over comprehensiveness."""
 
     @pytest_asyncio.fixture
@@ -337,6 +341,10 @@ class Test_B_SmokeIntegration:
         yield {"config": config, "pipeline": pipeline, "temp_dir": tmp_path}
 
     @pytest.mark.asyncio
+    @pytest.mark.smoke
+    @pytest.mark.integration
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for smoke tests with API
     async def test_smoke_document_ingestion(self, smoke_test_environment):
         """Quick smoke test for document ingestion."""
         pipeline = smoke_test_environment["pipeline"]
@@ -363,6 +371,9 @@ class Test_B_SmokeIntegration:
         assert "doc_id" in result or "document_id" in result
 
     @pytest.mark.asyncio
+    @pytest.mark.smoke
+    @pytest.mark.integration
+    @pytest.mark.timeout(300)  # 5 minutes for search only
     async def test_smoke_keyword_search(self, smoke_test_environment):
         """Quick smoke test for keyword search only."""
         pipeline = smoke_test_environment["pipeline"]
@@ -394,10 +405,11 @@ class Test_B_SmokeIntegration:
         assert isinstance(queue_status, dict)
 
 
-class Test_Z_DatabaseIsolation:
+@pytest.mark.requires_qdrant_server
+class TestDatabaseIsolation:
     """Test database isolation and environment separation.
 
-    Named with Z prefix to ensure it runs last alphabetically.
+    Tests are independent and use proper cleanup fixtures.
     """
 
     @pytest.mark.asyncio

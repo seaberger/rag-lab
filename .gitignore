@@ -234,6 +234,8 @@ qdrant_data_v3/
 **/qdrant_data_v3/
 qdrant_data/
 **/qdrant_data/
+qdrant_server_data/
+**/qdrant_server_data/
 
 # Processing artifacts
 fingerprints_v3.db

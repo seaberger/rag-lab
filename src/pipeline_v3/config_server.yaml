@@ -1,9 +1,9 @@
-# Production Pipeline v3 Configuration
-# Extends v2.1 configuration with enterprise production features
+# Production Pipeline v3 Configuration - Server Mode
+# This configuration uses Qdrant server instead of local file storage
 
 # Core pipeline settings
 pipeline:
-  max_concurrent: 10  # Increased for production
+  max_concurrent: 10
   timeout_seconds: 300
   version: "3.0.0-dev"
 
@@ -29,7 +29,7 @@ batch:
   enabled: true
   threshold: 10
 
-# Job queue management (NEW in v3)
+# Job queue management
 job_queue:
   max_concurrent: 10
   job_persistence: true
@@ -39,17 +39,17 @@ job_queue:
   default_priority: 0
   resume_interrupted: true
 
-# Document fingerprinting (NEW in v3)
+# Document fingerprinting
 fingerprint:
   enabled: true
   storage_path: ./fingerprints_v3.db
   retention_days: 90
   include_metadata: true
 
-# Index management (NEW in v3)
+# Index management
 index_management:
   consistency_checks: true
-  auto_backup: false  # Disabled by default
+  auto_backup: false
   backup_path: ./backups_v3
   backup_retention_days: 90
   rebuild_on_corruption: true
@@ -69,7 +69,7 @@ logging:
   detailed_progress: true
   performance_metrics: true
 
-# Enhanced monitoring (NEW in v3)
+# Enhanced monitoring
 monitoring:
   progress_callback: true
   save_report: true
@@ -77,14 +77,10 @@ monitoring:
   resource_monitoring: true
   alert_on_failures: true
 
-# Vector store settings
+# Vector store settings - SERVER MODE
 qdrant:
-  # Mode: "local" for file-based storage, "server" for Qdrant server
-  mode: server  # DEFAULT NOW SERVER - local still supported
-
-  # Local mode settings
-  local:
-    path: ./qdrant_data_v3
+  # Use server mode for production
+  mode: server
 
   # Server mode settings
   server:
@@ -97,9 +93,9 @@ qdrant:
 
   # Common settings
   collection_name: datasheets_v3
-  collections:  # For multi-collection support
+  collections:
     default: datasheets_v3
-    # Business groups can be added here:
+    # Add business group collections as needed:
     # finance: datasheets_finance
     # engineering: datasheets_engineering
 

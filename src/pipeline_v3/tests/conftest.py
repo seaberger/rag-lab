@@ -4,6 +4,7 @@ Provides fixtures for test isolation, database management, and pre-populated tes
 """
 
 import asyncio
+import contextlib
 import os
 import shutil
 
@@ -17,13 +18,87 @@ import pytest_asyncio
 
 # Import cleanup fixtures
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
-from pipeline_v3.utils.config import PipelineConfig
+from pipeline.enhanced_core import EnhancedPipeline
+from qdrant_client import QdrantClient
+from qdrant_client.http import exceptions as qdrant_exceptions
+
+from utils.config import PipelineConfig
 
 # Test environment name
 TEST_ENVIRONMENT = "test_env"
+
+
+@contextlib.contextmanager
+def qdrant_client_context(config):
+    """Context manager for Qdrant client with proper cleanup."""
+    client = None
+    try:
+        client = QdrantClient(
+            host=config.qdrant.server.host,
+            port=config.qdrant.server.port,
+            timeout=10,
+        )
+        yield client
+    finally:
+        if client:
+            try:
+                client.close()
+            except Exception as e:
+                print(f"Warning: Error closing Qdrant client: {e}")
+
+
+def ensure_database_connections_closed():
+    """Force close any lingering database connections."""
+    import gc
+    import sqlite3
+
+    # Force garbage collection to close any lingering connections
+    gc.collect()
+
+    # Try to close any open SQLite connections
+    try:
+        # This is a bit of a hack, but helps with SQLite connection cleanup
+        for obj in gc.get_objects():
+            if isinstance(obj, sqlite3.Connection):
+                with contextlib.suppress(Exception):
+                    obj.close()
+    except Exception:
+        pass  # Best effort cleanup
+
+
+@pytest.fixture(scope="session")
+def ensure_qdrant_server():
+    """Ensure Qdrant server is running for tests that require it.
+
+    This fixture should be explicitly requested by tests that need Qdrant.
+    Tests that don't need Qdrant won't be affected.
+    """
+    try:
+        # Try to connect to the Qdrant server
+        client = QdrantClient(host="localhost", port=6333, timeout=5)
+        client.get_collections()
+        client.close()
+        print("✓ Qdrant server is running")
+    except (qdrant_exceptions.UnexpectedResponse, ConnectionError, Exception) as e:
+        # In CI/CD, the service should be running for main test job
+        # Compatibility tests will skip these tests with the marker
+        if os.getenv("CI"):
+            pytest.fail(f"Qdrant server is not running in CI environment: {e}")
+        else:
+            pytest.skip(
+                f"Qdrant server is not running. Start it with: ./scripts/qdrant_server.sh start\nError: {e}"
+            )
+
+
+@pytest.fixture
+def qdrant_required(ensure_qdrant_server):
+    """Fixture to explicitly require Qdrant for a test.
+
+    Use this fixture in tests that need Qdrant connectivity.
+    """
+    return True
 
 
 def create_test_config(
@@ -32,9 +107,9 @@ def create_test_config(
     """Create a test configuration with isolated databases and unique collection names."""
     config = PipelineConfig()
 
-    # Generate unique identifier for this test instance
+    # Generate unique identifier for this test instance (use UUID for better uniqueness)
     if unique_id is None:
-        unique_id = str(uuid.uuid4())[:8]
+        unique_id = str(uuid.uuid4()).replace("-", "")[:12]  # 12 char unique ID
 
     # Create environment-specific paths with unique ID
     env_path = base_path / f"{environment}_{unique_id}"
@@ -46,7 +121,8 @@ def create_test_config(
     config.storage.document_registry_path = str(env_path / "document_registry.db")
 
     config.cache.directory = str(env_path / "cache")
-    config.qdrant.path = str(env_path / "qdrant_data")
+    # Configure Qdrant for server mode (baseline for all tests)
+    config.qdrant.mode = "server"
     # Create unique collection name per test to avoid conflicts
     config.qdrant.collection_name = f"datasheets_{environment}_{unique_id}"
 
@@ -61,14 +137,47 @@ def create_test_config(
     return config
 
 
-def cleanup_qdrant_resources(pipeline_or_index_manager):
-    """Properly cleanup Qdrant connections and resources."""
+def cleanup_qdrant_resources(pipeline_or_index_manager, config=None):
+    """Properly cleanup Qdrant connections and resources with retry logic."""
+    import time
+
+    max_retries = 3
+    retry_delay = 1.0
+
     try:
         # Handle both pipeline and index_manager objects
         if hasattr(pipeline_or_index_manager, "index_manager"):
             index_manager = pipeline_or_index_manager.index_manager
+            if not config and hasattr(pipeline_or_index_manager, "config"):
+                config = pipeline_or_index_manager.config
         else:
             index_manager = pipeline_or_index_manager
+
+        # In server mode, delete the test collection with retries
+        if config and config.qdrant.mode == "server" and hasattr(index_manager, "qdrant_client"):
+            for attempt in range(max_retries):
+                try:
+                    if index_manager.qdrant_client:
+                        # Check if collection exists before trying to delete
+                        collections = index_manager.qdrant_client.get_collections().collections
+                        collection_names = [c.name for c in collections]
+                        if config.qdrant.collection_name in collection_names:
+                            index_manager.qdrant_client.delete_collection(
+                                config.qdrant.collection_name
+                            )
+                            print(
+                                f"Successfully deleted test collection: {config.qdrant.collection_name}"
+                            )
+                        break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(f"Retry {attempt + 1}/{max_retries} collection deletion: {e}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        print(
+                            f"Warning: Failed to delete test collection after {max_retries} attempts: {e}"
+                        )
 
         # Close Qdrant client connection if it exists
         if hasattr(index_manager, "qdrant_client") and index_manager.qdrant_client:
@@ -90,32 +199,89 @@ def cleanup_qdrant_resources(pipeline_or_index_manager):
 
 
 def clear_test_databases(config: PipelineConfig):
-    """Clear all test databases and storage."""
-    # Remove entire storage directory
+    """Clear all test databases and storage with improved error handling."""
+    import time
+
+    max_retries = 3
+    retry_delay = 0.5
+
+    # Remove entire storage directory with retries
     storage_dir = Path(config.storage.base_dir)
     if storage_dir.exists():
-        shutil.rmtree(storage_dir)
+        for attempt in range(max_retries):
+            try:
+                shutil.rmtree(storage_dir)
+                break
+            except OSError as e:
+                if attempt < max_retries - 1:
+                    print(f"Retry {attempt + 1}/{max_retries} storage cleanup: {e}")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"Warning: Could not remove storage directory: {e}")
 
-    # Remove cache
+    # Remove cache with retries
     cache_dir = Path(config.cache.directory)
     if cache_dir.exists():
-        shutil.rmtree(cache_dir)
+        for attempt in range(max_retries):
+            try:
+                shutil.rmtree(cache_dir)
+                break
+            except OSError as e:
+                if attempt < max_retries - 1:
+                    print(f"Retry {attempt + 1}/{max_retries} cache cleanup: {e}")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"Warning: Could not remove cache directory: {e}")
 
-    # Remove Qdrant data
-    qdrant_dir = Path(config.qdrant.path)
-    if qdrant_dir.exists():
-        shutil.rmtree(qdrant_dir)
+    # Handle Qdrant cleanup based on mode
+    if config.qdrant.mode == "server":
+        # For server mode, delete the test collection if it exists
+        for attempt in range(max_retries):
+            try:
+                with qdrant_client_context(config) as client:
+                    # Check if collection exists and delete it
+                    collections = client.get_collections()
+                    collection_names = [col.name for col in collections.collections]
+                    if config.qdrant.collection_name in collection_names:
+                        client.delete_collection(config.qdrant.collection_name)
+                        print(f"Deleted test collection: {config.qdrant.collection_name}")
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"Retry {attempt + 1}/{max_retries} Qdrant cleanup: {e}")
+                    time.sleep(retry_delay * (attempt + 1))  # Increasing delay
+                else:
+                    print(f"Warning: Could not clean up Qdrant collection: {e}")
+    else:
+        # For local mode, remove Qdrant data directory
+        qdrant_dir = Path(config.qdrant.path)
+        if qdrant_dir.exists():
+            try:
+                shutil.rmtree(qdrant_dir)
+            except OSError as e:
+                print(f"Warning: Could not remove Qdrant directory: {e}")
 
-    # Remove individual database files
-    for db_path in [
+    # Remove individual database files with retries
+    db_paths = [
         config.storage.keyword_db_path,
         config.storage.document_registry_path,
         config.job_queue.job_storage_path,
         config.fingerprint.storage_path,
-    ]:
+    ]
+
+    for db_path in db_paths:
         db_file = Path(db_path)
         if db_file.exists():
-            db_file.unlink()
+            for attempt in range(max_retries):
+                try:
+                    db_file.unlink()
+                    break
+                except OSError as e:
+                    if attempt < max_retries - 1:
+                        print(f"Retry {attempt + 1}/{max_retries} removing {db_file.name}: {e}")
+                        time.sleep(retry_delay)
+                    else:
+                        print(f"Warning: Could not remove {db_file.name}: {e}")
 
 
 @pytest.fixture(scope="session")
@@ -138,16 +304,24 @@ def test_config(test_base_dir):
     clear_test_databases(config)
 
     # Ensure directories exist
-    for path in [
+    paths_to_create = [
         config.storage.base_dir,
         config.cache.directory,
-        config.qdrant.path,
         Path(config.job_queue.job_storage_path).parent,
         Path(config.fingerprint.storage_path).parent,
-    ]:
+    ]
+
+    # Only create qdrant path for local mode
+    if config.qdrant.mode == "local":
+        paths_to_create.append(config.qdrant.path)
+
+    for path in paths_to_create:
         Path(path).mkdir(parents=True, exist_ok=True)
 
     yield config
+
+    # Ensure all database connections are closed
+    ensure_database_connections_closed()
 
     # Optionally clear after test (comment out for debugging)
     # clear_test_databases(config)
@@ -156,14 +330,36 @@ def test_config(test_base_dir):
 @pytest_asyncio.fixture
 async def test_pipeline(test_config):
     """Provide an initialized test pipeline with proper cleanup."""
-    pipeline = EnhancedPipeline(test_config)
-    yield pipeline
+    pipeline = None
+    try:
+        pipeline = EnhancedPipeline(test_config)
 
-    # Proper cleanup of Qdrant resources
-    cleanup_qdrant_resources(pipeline)
+        # Wait for Qdrant to be ready
+        import time
 
-    # Optional: Clear databases if needed for this specific test
-    # clear_test_databases(test_config)
+        max_wait = 10
+        wait_time = 0.5
+        for _ in range(int(max_wait / wait_time)):
+            try:
+                if (
+                    hasattr(pipeline.index_manager, "qdrant_client")
+                    and pipeline.index_manager.qdrant_client
+                ):
+                    # Test connection
+                    pipeline.index_manager.qdrant_client.get_collections()
+                    break
+            except Exception:
+                time.sleep(wait_time)
+
+        yield pipeline
+
+    finally:
+        # Proper cleanup of Qdrant resources
+        if pipeline:
+            cleanup_qdrant_resources(pipeline, test_config)
+
+        # Optional: Clear databases if needed for this specific test
+        # clear_test_databases(test_config)
 
 
 @pytest_asyncio.fixture
@@ -259,6 +455,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "requires_api: marks tests that require API keys")
     config.addinivalue_line("markers", "security: marks security-focused tests")
     config.addinivalue_line("markers", "unit: marks unit tests (fast, isolated)")
+    config.addinivalue_line(
+        "markers", "requires_qdrant_server: marks tests that require Qdrant server"
+    )
 
 
 # Skip tests if no API key

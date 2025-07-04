@@ -27,13 +27,17 @@ A comprehensive guide to using the Production Document Processing Pipeline v3 fo
 # 1. Navigate to project root
 cd /path/to/rag_lab
 
-# 2. Add your first document (with modern CLI syntax)
+# 2. Start Qdrant server (REQUIRED - now the default)
+./scripts/qdrant_server.sh start
+# Dashboard available at: http://localhost:6333/dashboard
+
+# 3. Add your first document (with modern CLI syntax)
 uv run python -m src.pipeline_v3.cli_main add my_document.pdf --document-type datasheet --processing-options keywords
 
-# 3. Search for content (Enhanced hybrid search)
+# 4. Search for content (Enhanced hybrid search)
 uv run python -m src.pipeline_v3.cli_main search "important keyword" --fusion-method adaptive --top-k 5
 
-# 4. Check system status
+# 5. Check system status
 uv run python -m src.pipeline_v3.cli_main status
 ```
 
@@ -68,7 +72,16 @@ uv run python -m src.pipeline_v3.cli_main status
    uv sync
    ```
 
-2. **Configure Environment Variables:**
+2. **Start Qdrant Server:**
+   ```bash
+   # Start the vector database server (REQUIRED)
+   ./scripts/qdrant_server.sh start
+
+   # Verify it's running
+   ./scripts/qdrant_server.sh status
+   ```
+
+3. **Configure Environment Variables:**
    ```bash
    # Copy and edit .env file
    cp .env.example .env
@@ -80,7 +93,7 @@ uv run python -m src.pipeline_v3.cli_main status
    LLAMA_CLOUD_API_KEY=your_llama_key_here
    ```
 
-3. **Verify Installation:**
+4. **Verify Installation:**
    ```bash
    cd src/pipeline_v3
    python cli_main.py --help
@@ -976,6 +989,33 @@ cache:
 
 ### Key Configuration Sections
 
+#### Vector Storage (Qdrant) 🆕
+```yaml
+qdrant:
+  mode: server           # "server" (default) or "local"
+
+  # Server mode settings (production-ready)
+  server:
+    host: localhost
+    port: 6333
+    grpc_port: 6334
+    api_key: null        # Set via QDRANT_API_KEY env var
+    https: false
+    timeout: 30
+
+  # Local mode settings (development)
+  local:
+    path: ./qdrant_data_v3
+
+  collection_name: datasheets_v3
+```
+
+**Important:** Server mode is now the default! To use local mode:
+```bash
+# Use local file-based storage
+python cli_main.py --config config_local.yaml [command]
+```
+
 #### Performance Settings
 ```yaml
 pipeline:
@@ -1192,7 +1232,19 @@ print(f'Verification result: {result}')
 
 ### Common Issues
 
-#### 1. "No module named 'llama_index'" Error
+#### 1. "Qdrant server is not running" Error 🆕
+```bash
+# Solution: Start the Qdrant server
+./scripts/qdrant_server.sh start
+
+# Verify it's running
+./scripts/qdrant_server.sh status
+
+# Check dashboard
+open http://localhost:6333/dashboard
+```
+
+#### 2. "No module named 'llama_index'" Error
 ```bash
 # Solution: Install dependencies
 uv sync
@@ -1201,7 +1253,7 @@ uv sync
 uv add llama-index llama-index-vector-stores-qdrant
 ```
 
-#### 2. Search Returns No Results
+#### 3. Search Returns No Results
 ```bash
 # Check if documents are indexed
 python cli_main.py status --detailed
@@ -1213,7 +1265,7 @@ python cli_main.py config get storage.keyword_db_path
 python cli_main.py search "keyword" --type keyword
 ```
 
-#### 3. Queue Not Processing
+#### 4. Queue Not Processing
 ```bash
 # Check queue status
 python cli_main.py queue status --detailed
@@ -1223,7 +1275,7 @@ python cli_main.py queue stop
 python cli_main.py queue start --workers 4
 ```
 
-#### 4. Performance Issues
+#### 5. Performance Issues
 ```bash
 # Check system status
 python cli_main.py status --detailed
@@ -1235,7 +1287,7 @@ python cli_main.py maintenance --repair --cleanup
 python cli_main.py config set queue.max_workers 2
 ```
 
-#### 5. Page Range Issues 🆕
+#### 6. Page Range Issues 🆕
 ```bash
 # "Page range exceeds document length" error
 # Solution: Check total pages first
@@ -1246,7 +1298,7 @@ pdfinfo document.pdf | grep Pages
 python cli_main.py add doc.pdf --pages "1-10" --timeout-per-page 45
 ```
 
-#### 6. OpenAI API Issues 🆕
+#### 7. OpenAI API Issues 🆕
 ```bash
 # "API key not found" error
 # Solution: Check environment variable
@@ -1467,6 +1519,21 @@ python cli_main.py search "recent" --top-k 5
 
 ### Advanced Configuration Examples
 
+#### Qdrant Server Management 🆕
+```bash
+# Server control commands
+./scripts/qdrant_server.sh start    # Start server
+./scripts/qdrant_server.sh stop     # Stop server
+./scripts/qdrant_server.sh restart  # Restart server
+./scripts/qdrant_server.sh status   # Check status
+./scripts/qdrant_server.sh logs     # View logs
+./scripts/qdrant_server.sh reset    # Reset all data (WARNING!)
+
+# Using local mode for offline development
+python cli_main.py --config config_local.yaml add document.pdf
+python cli_main.py --config config_local.yaml search "query"
+```
+
 #### High-Performance Setup
 ```yaml
 # config.yaml for high-performance processing
@@ -1485,6 +1552,10 @@ chunking:
 cache:
   enabled: true
   compress: true
+
+# Ensure server mode for production
+qdrant:
+  mode: server
 ```
 
 #### Memory-Optimized Setup

@@ -74,9 +74,32 @@ class MonitoringSettings:
 
 
 @dataclass
-class QdrantSettings:
+class QdrantLocalSettings:
     path: str = "./qdrant_data_v3"
+
+
+@dataclass
+class QdrantServerSettings:
+    host: str = "localhost"
+    port: int = 6333
+    grpc_port: int = 6334
+    api_key: str | None = None
+    https: bool = False
+    timeout: int = 30
+
+
+@dataclass
+class QdrantSettings:
+    mode: str = "server"  # "local" or "server" - DEFAULT NOW SERVER
+    local: QdrantLocalSettings = field(default_factory=QdrantLocalSettings)
+    server: QdrantServerSettings = field(default_factory=QdrantServerSettings)
     collection_name: str = "datasheets_v3"
+    collections: dict = field(default_factory=lambda: {"default": "datasheets_v3"})
+
+    # Legacy support for path attribute
+    @property
+    def path(self) -> str:
+        return self.local.path
 
 
 @dataclass
