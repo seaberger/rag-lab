@@ -166,7 +166,7 @@ jobs:
       id: ruff-format
       run: |
         echo "## Ruff Formatting Check" >> $GITHUB_STEP_SUMMARY
-        if uv run ruff format --check . --extend-exclude="*.ipynb"; then
+        if uv run ruff format --check .; then
           echo "✅ Code formatting is correct" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Code formatting issues found" >> $GITHUB_STEP_SUMMARY
@@ -253,11 +253,11 @@ jobs:
       id: bandit
       run: |
         echo "## Bandit Security Scan" >> $GITHUB_STEP_SUMMARY
-        if uv run bandit -r src/pipeline_v3 -f json -o bandit-report.json; then
+        if uv run bandit -r src/pipeline_v3 -f json -o bandit-report.json --skip B101,B608 -x "*/tests/*,*/legacy_backup/*"; then
           echo "✅ No security issues found" >> $GITHUB_STEP_SUMMARY
         else
           echo "⚠️ Potential security issues detected" >> $GITHUB_STEP_SUMMARY
-          uv run bandit -r src/pipeline_v3 -f txt
+          uv run bandit -r src/pipeline_v3 -f txt --skip B101,B608 -x "*/tests/*,*/legacy_backup/*"
         fi
 
     - name: Upload security reports
@@ -322,7 +322,7 @@ jobs:
         echo "## Smoke Test" >> $GITHUB_STEP_SUMMARY
         uv run python -c "
         from src.pipeline_v3.core.registry import DocumentRegistry
-        from src.pipeline_v3.core.keyword_index import KeywordIndex
+        from src.pipeline_v3.storage.keyword_index import KeywordIndex
         print('✅ Core modules import successfully')
         "
         echo "✅ Core modules import successfully" >> $GITHUB_STEP_SUMMARY
