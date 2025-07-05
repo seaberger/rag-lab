@@ -6,23 +6,20 @@ Basic integration tests for the CLI to verify functionality.
 
 import subprocess
 import sys
+import os
 from pathlib import Path
-
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import pytest
 
 
 def test_cli_help():
     """Test that CLI help works."""
     try:
-        # Get the pipeline v3 directory dynamically
-        pipeline_v3_dir = Path(__file__).parent.parent.parent
         result = subprocess.run(
-            [sys.executable, "cli_main.py", "--help"],
+            [sys.executable, "-m", "src.pipeline_v3.cli_main", "--help"],
             capture_output=True,
             text=True,
-            cwd=str(pipeline_v3_dir),
             check=False,
+            env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)}
         )
 
         assert result.returncode == 0, f"CLI help failed with code {result.returncode}"
@@ -40,14 +37,12 @@ def test_cli_subcommands():
 
     for cmd in commands:
         try:
-            # Get the pipeline v3 directory dynamically
-            pipeline_v3_dir = Path(__file__).parent.parent.parent
             result = subprocess.run(
-                [sys.executable, "cli_main.py", cmd, "--help"],
+                [sys.executable, "-m", "src.pipeline_v3.cli_main", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd=str(pipeline_v3_dir),
                 check=False,
+                env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)}
             )
 
             assert result.returncode == 0, f"Command {cmd} help failed with code {result.returncode}\nSTDERR: {result.stderr}"
@@ -62,14 +57,12 @@ def test_queue_subcommands():
 
     for cmd in queue_commands:
         try:
-            # Get the pipeline v3 directory dynamically
-            pipeline_v3_dir = Path(__file__).parent.parent.parent
             result = subprocess.run(
-                [sys.executable, "cli_main.py", "queue", cmd, "--help"],
+                [sys.executable, "-m", "src.pipeline_v3.cli_main", "queue", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd=str(pipeline_v3_dir),
                 check=False,
+                env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)}
             )
 
             assert result.returncode == 0, f"Queue command {cmd} help failed with code {result.returncode}"
@@ -88,14 +81,12 @@ def test_config_subcommands():
             if cmd in ["get", "set"]:
                 continue
 
-            # Get the pipeline v3 directory dynamically
-            pipeline_v3_dir = Path(__file__).parent.parent.parent
             result = subprocess.run(
-                [sys.executable, "cli_main.py", "config", cmd, "--help"],
+                [sys.executable, "-m", "src.pipeline_v3.cli_main", "config", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd=str(pipeline_v3_dir),
                 check=False,
+                env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)}
             )
 
             assert result.returncode == 0, f"Config command {cmd} help failed with code {result.returncode}"
