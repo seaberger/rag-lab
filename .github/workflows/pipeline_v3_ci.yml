@@ -441,14 +441,14 @@ jobs:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         PYTHONPATH: ${{ github.workspace }}/src/pipeline_v3
       run: |
-        cd src/pipeline_v3
-        uv run python -m cli_main --help
+        # Run from project root with PYTHONPATH set
+        uv run python -m src.pipeline_v3.cli_main --help
         # Run utility tests (fast, no external dependencies)
-        uv run pytest tests/unit/test_cli_validation.py \
-                      tests/unit/test_cli_formatting.py \
-                      tests/unit/test_env_utils.py \
-                      tests/unit/test_common_utils.py \
-                      tests/unit/test_general_validation.py \
-                      tests/unit/test_config.py -v
+        uv run pytest src/pipeline_v3/tests/unit/test_cli_validation.py \
+                      src/pipeline_v3/tests/unit/test_cli_formatting.py \
+                      src/pipeline_v3/tests/unit/test_env_utils.py \
+                      src/pipeline_v3/tests/unit/test_common_utils.py \
+                      src/pipeline_v3/tests/unit/test_general_validation.py \
+                      src/pipeline_v3/tests/unit/test_config.py -v
         # Run basic CLI tests that don't require Qdrant server
-        uv run pytest tests/unit/test_cli_simple.py -v -m "not requires_qdrant_server"
+        uv run pytest src/pipeline_v3/tests/unit/test_cli_simple.py -v -m "not requires_qdrant_server"
