@@ -34,17 +34,36 @@ class TestSearchIntegration:
     @pytest.fixture
     def search_components(self, test_config):
         """Initialize search components using centralized config."""
-        # Use the centralized IndexManager which already has unique collection names
-        keyword_index = KeywordIndex(config=test_config)
-        index_manager = IndexManager(config=test_config)
+        # Mock the OpenAI embedding model to avoid API calls
+        with patch("llama_index.embeddings.openai.OpenAIEmbedding") as mock_embedding_class:
+            # Create a mock that returns consistent embeddings
+            mock_embedding = MagicMock()
 
-        # Don't create separate Qdrant client - use the one from IndexManager
-        components = {
-            "keyword_index": keyword_index,
-            "index_manager": index_manager,
-        }
+            def get_text_embedding(text):
+                # Generate consistent fake embeddings based on text hash
+                import hashlib
+                hash_val = int(hashlib.md5(text.encode()).hexdigest(), 16)
+                base_embedding = [0.001] * 1536
+                # Make it somewhat unique based on text
+                for i in range(min(len(text), 100)):
+                    base_embedding[i] = (ord(text[i % len(text)]) / 255.0) * 0.1
+                base_embedding[0] = (hash_val % 1000) / 1000.0
+                return base_embedding
 
-        yield components
+            mock_embedding.get_text_embedding.side_effect = get_text_embedding
+            mock_embedding_class.return_value = mock_embedding
+
+            # Use the centralized IndexManager which already has unique collection names
+            keyword_index = KeywordIndex(config=test_config)
+            index_manager = IndexManager(config=test_config)
+
+            # Don't create separate Qdrant client - use the one from IndexManager
+            components = {
+                "keyword_index": keyword_index,
+                "index_manager": index_manager,
+            }
+
+            yield components
 
         # Cleanup handled by conftest.py centralized cleanup
         try:
@@ -82,6 +101,73 @@ class TestSearchIntegration:
 
             instance.get_embeddings = AsyncMock(side_effect=generate_embedding)
             yield instance
+
+    async def add_test_documents_keyword_only(self, search_components):
+        """Helper to add test documents to keyword index only (no embeddings needed)."""
+        test_docs = [
+            {
+                "content": "High-precision laser power meter with USB interface and real-time monitoring",
+                "metadata": {
+                    "source": "laser_meter.pdf",
+                    "product": "PM100USB",
+                    "category": "power_meters",
+                },
+            },
+            {
+                "content": "Thermopile sensors for accurate temperature measurement in industrial applications",
+                "metadata": {
+                    "source": "thermopile.pdf",
+                    "product": "TP-500",
+                    "category": "sensors",
+                },
+            },
+            {
+                "content": "Advanced optical power measurement system with wavelength calibration",
+                "metadata": {
+                    "source": "optical_system.pdf",
+                    "product": "OPM-2000",
+                    "category": "optical_systems",
+                },
+            },
+            {
+                "content": "USB-powered energy sensor for pulsed laser applications",
+                "metadata": {
+                    "source": "energy_sensor.pdf",
+                    "product": "ES-USB",
+                    "category": "sensors",
+                },
+            },
+            {
+                "content": "Portable field measurement device with touchscreen interface",
+                "metadata": {
+                    "source": "field_device.pdf",
+                    "product": "FM-Touch",
+                    "category": "portable_devices",
+                },
+            },
+        ]
+
+        # Add documents to keyword index only
+        for i, doc in enumerate(test_docs):
+            # First register the document in the registry
+            registry = search_components["index_manager"].registry
+            doc_id = registry.register_document(
+                source=doc["metadata"]["source"],
+                content_hash=f"hash_{i}",
+                size=len(doc["content"]),
+                modified_time=1640995200,  # Fixed timestamp for testing
+                metadata=doc["metadata"],
+            )
+
+            # Now add to keyword index only
+            from core.registry import IndexType
+
+            search_components["index_manager"].add_document(
+                doc_id=doc_id,
+                content=doc["content"],
+                metadata=doc["metadata"],
+                index_types=IndexType.KEYWORD,  # Only keyword index
+            )
 
     async def add_test_documents(self, search_components, mock_embeddings):
         """Helper to add test documents to indexes."""
@@ -235,7 +321,8 @@ class TestSearchIntegration:
     @pytest.mark.timeout(300)  # 5 minutes for keyword search
     async def test_keyword_search_precision(self, search_components, mock_embeddings):
         """Test keyword search with exact and fuzzy matching."""
-        await self.add_test_documents(search_components, mock_embeddings)
+        # Add documents only to keyword index for smoke test
+        await self.add_test_documents_keyword_only(search_components)
 
         # Test exact keyword matching
         exact_queries = [
@@ -276,10 +363,10 @@ class TestSearchIntegration:
     @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.smoke
-    @pytest.mark.requires_api
     @pytest.mark.timeout(600)  # 10 minutes for hybrid search
     async def test_hybrid_search_fusion(self, search_components, mock_embeddings):
         """Test hybrid search with different fusion methods."""
+        # For smoke test, use the mocked embeddings from search_components fixture
         await self.add_test_documents(search_components, mock_embeddings)
 
         # Test query that benefits from both vector and keyword
