@@ -34,12 +34,11 @@ jobs:
           - 6333:6333
           - 6334:6334
         options: >-
-          --health-cmd "curl -f http://localhost:6333/health 2>/dev/null || curl -f http://127.0.0.1:6333/health 2>/dev/null || exit 1"
-          --health-interval 20s
-          --health-timeout 15s
-          --health-retries 10
-          --health-start-period 45s
           --memory=2g
+        env:
+          QDRANT__LOG_LEVEL: INFO
+        volumes:
+          - /tmp/qdrant_storage:/qdrant/storage
 
     steps:
     - uses: actions/checkout@v4
@@ -73,26 +72,62 @@ jobs:
 
     - name: Wait for Qdrant service
       run: |
-        echo "Waiting for Qdrant service to be ready..."
-        for i in {1..30}; do
-          if curl -f http://localhost:6333/health >/dev/null 2>&1; then
-            echo "Qdrant is ready!"
-            curl -s http://localhost:6333/health | jq .
+        echo "🔄 Waiting for Qdrant service to be ready..."
+
+        # Phase 1: Wait for container to start (basic connectivity)
+        echo "Phase 1: Checking container startup..."
+        for i in {1..20}; do
+          if nc -z localhost 6333 2>/dev/null; then
+            echo "✅ Qdrant port 6333 is responding"
             break
           fi
-          echo "Attempt $i: Qdrant not ready yet, waiting 5 seconds..."
+          echo "⏳ Attempt $i: Port not ready, waiting 3 seconds..."
+          sleep 3
+        done
+
+        # Phase 2: Wait for REST API to be available
+        echo "Phase 2: Checking REST API availability..."
+        for i in {1..30}; do
+          # Try multiple endpoints - Qdrant exposes /healthz, /livez, /readyz
+          if curl -f -s http://localhost:6333/ >/dev/null 2>&1; then
+            echo "✅ Qdrant REST API is responding"
+            break
+          elif curl -f -s http://localhost:6333/healthz >/dev/null 2>&1; then
+            echo "✅ Qdrant health endpoint is responding"
+            break
+          elif curl -f -s http://localhost:6333/readyz >/dev/null 2>&1; then
+            echo "✅ Qdrant readiness endpoint is responding"
+            break
+          fi
+          echo "⏳ Attempt $i: REST API not ready, waiting 4 seconds..."
+          sleep 4
+        done
+
+        # Phase 3: Verify collections endpoint (full functionality)
+        echo "Phase 3: Verifying full Qdrant functionality..."
+        for i in {1..15}; do
+          if curl -f -s http://localhost:6333/collections >/dev/null 2>&1; then
+            echo "✅ Qdrant collections endpoint is responding"
+            curl -s http://localhost:6333/collections | head -5
+            echo "🎉 Qdrant is fully ready!"
+            exit 0
+          fi
+          echo "⏳ Attempt $i: Collections endpoint not ready, waiting 5 seconds..."
           sleep 5
         done
 
-        # Final verification with fallback
-        if ! curl -f http://localhost:6333/health >/dev/null 2>&1 && ! curl -f http://127.0.0.1:6333/health >/dev/null 2>&1; then
-          echo "WARNING: Qdrant health check failed after 150 seconds"
-          echo "Container logs:"
-          docker logs $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") || echo "No container logs available"
-          echo "Will proceed with tests (some may be skipped without Qdrant)"
-        else
-          echo "✅ Qdrant is ready and responding"
-        fi
+        # Diagnostic information if we get here
+        echo "⚠️ Qdrant may not be fully ready after all checks"
+        echo "=== Diagnostic Information ==="
+        echo "Container status:"
+        docker ps --filter "ancestor=qdrant/qdrant:latest" --format "table {{.ID}}\\t{{.Status}}\\t{{.Ports}}" || true
+        echo "Port connectivity:"
+        nc -z localhost 6333 && echo "Port 6333: ✅ Open" || echo "Port 6333: ❌ Closed"
+        echo "Basic endpoint test:"
+        curl -s -w "HTTP Status: %{http_code}\\n" http://localhost:6333/ || echo "Connection failed"
+        echo "Container logs (last 20 lines):"
+        docker logs --tail 20 $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") 2>/dev/null || echo "No container logs available"
+        echo "Will proceed with tests (some may be skipped without full Qdrant functionality)"
 
     - name: Create test environment
       run: |
