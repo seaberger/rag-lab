@@ -52,10 +52,17 @@ jobs:
     - name: Set up Python
       run: uv python install ${{ env.PYTHON_VERSION }}
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y poppler-utils
+
     - name: Install dependencies
       run: |
         uv sync --all-extras --dev
         uv pip install pytest-cov pytest-html pytest-json-report pytest-asyncio pytest-timeout
+        # Set PYTHONPATH for relative imports
+        echo "PYTHONPATH=${{ github.workspace }}/src/pipeline_v3" >> $GITHUB_ENV
 
     - name: Wait for Qdrant service
       run: |
@@ -166,6 +173,7 @@ jobs:
           -k "not test_cli_regression" \
           --maxfail=5 \
           --timeout=300 \
+          --ignore=src/pipeline_v3/tests/archive \
           src/pipeline_v3/tests/
 
         TEST_EXIT_CODE=$?
