@@ -136,6 +136,8 @@ jobs:
         echo "QDRANT_PORT=6333" >> .env
         mkdir -p test_data
         mkdir -p test-results
+        # Set PYTHONPATH for relative imports
+        echo "PYTHONPATH=${{ github.workspace }}/src/pipeline_v3" >> $GITHUB_ENV
 
     - name: Verify test environment
       run: |

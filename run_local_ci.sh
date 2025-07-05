@@ -40,11 +40,15 @@ print_error() {
 # Create test results directory
 mkdir -p test-results
 
+# Set PYTHONPATH for relative imports
+export PYTHONPATH="${PWD}/src/pipeline_v3:${PYTHONPATH}"
+
 print_step "Environment Setup"
 echo "OPENAI_API_KEY status: $(if [[ -n "$OPENAI_API_KEY" ]]; then echo "✅ Set"; else echo "❌ Missing"; fi)"
 echo "Python version: $(python3 --version)"
 echo "UV version: $(uv --version)"
 echo "Working directory: $(pwd)"
+echo "PYTHONPATH: $PYTHONPATH"
 
 print_step "CLI Smoke Test"
 uv run python -m src.pipeline_v3.cli_main --help > /dev/null

@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.pipeline_v3.core.index_manager import IndexManager
-from src.pipeline_v3.core.registry import DocumentState, IndexType
+from core.index_manager import IndexManager
+from core.registry import DocumentState, IndexType
 from llama_index.core.schema import TextNode
 
-from src.pipeline_v3.utils.config import PipelineConfig
+from utils.config import PipelineConfig
 
 
 class TestIndexManager:
@@ -50,8 +50,8 @@ class TestIndexManager:
 
         # Mock all the complex internal operations
         with (
-            patch("src.pipeline_v3.core.index_manager.VectorStoreIndex"),
-            patch("src.pipeline_v3.core.index_manager.StorageContext"),
+            patch("core.index_manager.VectorStoreIndex"),
+            patch("core.index_manager.StorageContext"),
             patch.object(index_manager.registry, "register_index_entry"),
             patch.object(index_manager.registry, "register_document"),
         ):

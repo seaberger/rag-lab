@@ -12,18 +12,19 @@ import time
 from pathlib import Path
 from typing import Any
 
-from src.pipeline_v3.core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
-from src.pipeline_v3.core.fingerprint import FingerprintManager
-from src.pipeline_v3.core.index_manager import IndexManager, IndexType
-from src.pipeline_v3.core.parsers import parse_document
-from src.pipeline_v3.core.pipeline import DatasheetArtefact, DocumentClassifier, fetch_document
-from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState
-from src.pipeline_v3.job_queue.job import JobManager
-from src.pipeline_v3.job_queue.manager import DocumentQueue, JobPriority
-from src.pipeline_v3.storage.cache import CacheManager
-from src.pipeline_v3.utils.common_utils import logger
-from src.pipeline_v3.utils.config import PipelineConfig
-from src.pipeline_v3.utils.monitoring import ProgressMonitor
+from core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
+from core.fingerprint import FingerprintManager
+from core.index_manager import IndexManager, IndexType
+from core.parsers import parse_document
+from core.pipeline import DatasheetArtefact, DocumentClassifier, fetch_document
+from core.registry import DocumentRegistry, DocumentState
+from job_queue.job import JobManager
+from job_queue.manager import DocumentQueue, JobPriority
+from storage.cache import CacheManager
+
+from utils.common_utils import logger
+from utils.config import PipelineConfig
+from utils.monitoring import ProgressMonitor
 
 
 class EnhancedPipeline:

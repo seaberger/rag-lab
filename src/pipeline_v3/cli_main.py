@@ -14,10 +14,11 @@ import asyncio
 import logging
 import sys
 
-# Import using absolute imports
-from src.pipeline_v3.cli.management import main
-from src.pipeline_v3.utils.cleanup import cleanup_temp_resources, get_resource_manager
-from src.pipeline_v3.utils.common_utils import (
+# Import using relative imports
+from cli.management import main
+
+from utils.cleanup import cleanup_temp_resources, get_resource_manager
+from utils.common_utils import (
     CLIArgumentError,
     ConfigLoadError,
     DependencyError,

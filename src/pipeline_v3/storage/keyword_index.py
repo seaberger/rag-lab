@@ -13,8 +13,8 @@ from pathlib import Path
 # import numpy as np # numpy seems unused in this file, commenting out.
 from llama_index.core.schema import TextNode  # Added TextNode
 
-from src.pipeline_v3.utils.common_utils import logger
-from src.pipeline_v3.utils.config import PipelineConfig
+from utils.common_utils import logger
+from utils.config import PipelineConfig
 
 
 class BM25Index:

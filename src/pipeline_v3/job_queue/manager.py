@@ -14,8 +14,8 @@ from pathlib import Path
 from queue import PriorityQueue
 from typing import Any
 
-from src.pipeline_v3.utils.common_utils import logger
-from src.pipeline_v3.utils.config import PipelineConfig
+from utils.common_utils import logger
+from utils.config import PipelineConfig
 
 
 class JobStatus(Enum):

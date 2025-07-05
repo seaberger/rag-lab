@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-from src.pipeline_v3.utils.common_utils import logger
+from utils.common_utils import logger
 
 
 class QdrantMigrator:

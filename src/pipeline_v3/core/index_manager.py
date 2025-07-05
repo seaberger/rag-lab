@@ -30,18 +30,22 @@ try:
     )
 
     LLAMA_INDEX_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    import logging
+
+    logging.exception(f"Failed to import LlamaIndex dependencies: {e}")
     LLAMA_INDEX_AVAILABLE = False
 
-from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState, IndexType
-from src.pipeline_v3.core.transaction_coordinator import (
+from core.registry import DocumentRegistry, DocumentState, IndexType
+from core.transaction_coordinator import (
     Checkpoint,
     OperationType,
     TransactionOperation,
 )
-from src.pipeline_v3.utils.common_utils import logger
-from src.pipeline_v3.utils.config import PipelineConfig
-from src.pipeline_v3.utils.filter_utils import FilterBuilder
+
+from utils.common_utils import logger
+from utils.config import PipelineConfig
+from utils.filter_utils import FilterBuilder
 
 
 class IndexManager:

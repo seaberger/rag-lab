@@ -12,10 +12,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from src.pipeline_v3.core.fingerprint import DocumentFingerprint, FingerprintManager
-from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState
-from src.pipeline_v3.utils.common_utils import logger
-from src.pipeline_v3.utils.config import PipelineConfig
+from core.fingerprint import DocumentFingerprint, FingerprintManager
+from core.registry import DocumentRegistry, DocumentState
+
+from utils.common_utils import logger
+from utils.config import PipelineConfig
 
 
 class ChangeType(Enum):
