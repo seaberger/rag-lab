@@ -2,9 +2,12 @@
 
 This document provides the current development priorities and active issues for the RAG Lab project. It serves as the single source of truth for development planning.
 
-**Last Updated:** July 5, 2025
-**Active GitHub Issues:** 15 open
+> **🚀 NEW: Enterprise Multi-Tenant Focus** - RAG Lab is evolving from a single-user system to a full enterprise platform with PostgreSQL, API authentication, per-tenant MCP servers, and advanced search capabilities. See the new [Enterprise Implementation Guide](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision.
+
+**Last Updated:** January 5, 2025
+**Active GitHub Issues:** 24 open (including 9 new enterprise features)
 **Critical Architecture Gaps:** 9 (see [ISSUES.md](ISSUES.md))
+**Enterprise Implementation Guide:** [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)
 
 ## 🚨 Immediate Priorities (Security & Stability)
 
@@ -47,10 +50,79 @@ Improve how documents are parsed and chunked:
 - **[Issue #13](https://github.com/seaberger/rag-lab/issues/13)**: Hybrid PDF parsing (VLM vs Docling based on type)
 - **[Issue #12](https://github.com/seaberger/rag-lab/issues/12)**: Page-level content classification for mixed document types
 
+## 🏢 Enterprise Multi-Tenant Infrastructure (NEW CRITICAL PATH)
+
+### 🚨 Foundation: Database Migration (BLOCKS ALL MULTI-TENANT FEATURES)
+- **[Issue #77](https://github.com/seaberger/rag-lab/issues/77)**: PostgreSQL Migration for Multi-Tenancy
+  - Replace all SQLite databases with PostgreSQL for concurrent access
+  - Enable row-level security and tenant isolation
+  - Support complex metadata filtering with JSONB
+  - **Priority:** CRITICAL | **Effort:** Large (2-3 weeks)
+
+### 🔐 Security & Authentication (HIGH PRIORITY)
+- **[Issue #78](https://github.com/seaberger/rag-lab/issues/78)**: API Key & Authentication System for Multi-Tenant Access
+  - API key generation and management
+  - Rate limiting per tenant
+  - RBAC implementation
+  - Audit logging
+  - **Priority:** HIGH | **Effort:** Medium (1 week)
+
+- **[Issue #79](https://github.com/seaberger/rag-lab/issues/79)**: Document Security Framework for Access Control
+  - Document-level security (public, internal, restricted)
+  - Group-based permissions
+  - Encryption at rest for sensitive docs
+  - Compliance support (GDPR, HIPAA)
+  - **Priority:** HIGH | **Effort:** Medium (1 week)
+
+- **[Issue #80](https://github.com/seaberger/rag-lab/issues/80)**: Secure Search Implementation with Access Control
+  - Filter search results by permissions
+  - Maintain performance with security
+  - Audit trail for sensitive searches
+  - **Priority:** HIGH | **Effort:** Medium (1 week)
+
+### 🤖 Advanced Platform Features
+- **[Issue #81](https://github.com/seaberger/rag-lab/issues/81)**: MCP Server Implementation Per Tenant
+  - Model Context Protocol servers for agentic workflows
+  - Dynamic document ingestion
+  - Tenant-specific tools
+  - Service discovery and orchestration
+  - **Priority:** HIGH | **Effort:** Large (2 weeks)
+
+- **[Issue #82](https://github.com/seaberger/rag-lab/issues/82)**: Tenant-Specific Search Pipeline Configuration
+  - Configurable search strategies per tenant
+  - Industry-specific optimizations
+  - A/B testing framework
+  - Pipeline templates
+  - **Priority:** HIGH | **Effort:** Medium (1.5 weeks)
+
+- **[Issue #83](https://github.com/seaberger/rag-lab/issues/83)**: Agentic Workflow Framework with MCP Integration
+  - Multi-step workflows with state management
+  - Dynamic tool calling
+  - Industry-specific templates
+  - Error recovery and monitoring
+  - **Priority:** MEDIUM | **Effort:** Large (2 weeks)
+
+### 🔍 Next-Generation Search
+- **[Issue #84](https://github.com/seaberger/rag-lab/issues/84)**: Multi-Vector Search Support (ColBERT, SPLADE, BGE-M3)
+  - Token-level search with ColBERT
+  - Learned sparse representations (SPLADE)
+  - Multi-representation models (BGE-M3)
+  - Advanced fusion strategies
+  - **Priority:** MEDIUM | **Effort:** Large (2-3 weeks)
+
+- **[Issue #85](https://github.com/seaberger/rag-lab/issues/85)**: Adaptive Search Optimization with Usage-Based Learning
+  - Automatic pipeline tuning
+  - Performance monitoring
+  - A/B testing automation
+  - Cross-tenant insights
+  - **Priority:** MEDIUM | **Effort:** Large (2 weeks)
+
 ## 🏢 Advanced Features (Future)
 
-### Multi-User Support
+### Enhanced Multi-User Support
 - **[Issue #56](https://github.com/seaberger/rag-lab/issues/56)**: Multi-tenant collection support for business groups
+  - **Note:** Basic implementation exists. See [MULTI_TENANT_ARCHITECTURE.md](src/pipeline_v3/docs/MULTI_TENANT_ARCHITECTURE.md)
+  - Enterprise enhancements covered in issues #77-#85 above
 
 ### Cost Optimization
 - **[Issue #47](https://github.com/seaberger/rag-lab/issues/47)**: OpenAI Batch API for bulk processing
@@ -137,26 +209,30 @@ Improve how documents are parsed and chunked:
 
 ### What Needs Work 🔧
 - **Security vulnerabilities** (SQL injection, path traversal, SSRF)
+- **Database migration** to PostgreSQL for true multi-tenancy
+- **Authentication system** for secure API access
 - **Search filtering** could be more powerful
 - **Chunking strategies** are basic
 - **Type checking** (247 mypy errors need cleanup)
 
 ### What's Nice to Have 💭
-- Multi-tenant support
 - Batch API integration
 - Advanced web scraping
-- Performance optimizations
+- Visual search capabilities
+- Cross-language support
 
 ## 🚀 Getting Started
 
 For developers looking to contribute:
 
 1. **Security First**: Review and help fix security vulnerabilities (#61, #62)
-2. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
-3. **Type Safety**: Help fix mypy errors (247 issues)
-4. **Document Processing**: Improve chunking strategies (#14, #15)
-5. Check [CLAUDE.md](CLAUDE.md) for project setup
-6. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
+2. **Database Migration**: Help with PostgreSQL migration (#77) - CRITICAL PATH
+3. **Authentication**: Implement API key system (#78)
+4. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
+5. **Type Safety**: Help fix mypy errors (247 issues)
+6. Check [CLAUDE.md](CLAUDE.md) for project setup
+7. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
+8. Review [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision
 
 ### Development Workflow
 - Pre-commit hooks run automatically on commit

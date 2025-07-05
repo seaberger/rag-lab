@@ -13,6 +13,8 @@ A production-ready document processing pipeline with advanced features including
 
 Pipeline v3 delivers a complete, production-ready document processing system built on the stable v2.1 foundation. It adds enterprise-grade features including intelligent queue management, document lifecycle operations, and comprehensive CLI tools for production deployment.
 
+> **🚀 Coming Soon: Enterprise Multi-Tenant Platform** - Pipeline v4 will transform RAG Lab into a full enterprise platform with PostgreSQL backend, API authentication, per-tenant MCP servers, and advanced multi-vector search. See the [Enterprise Roadmap](#-future-enterprise-architecture-v40) below.
+
 ### 🚨 Important: Qdrant Server Mode is Now Default!
 Pipeline v3 now uses **Qdrant server mode** by default instead of local file storage. This provides:
 - ✅ Better performance and scalability
@@ -36,6 +38,7 @@ Pipeline v3 now uses **Qdrant server mode** by default instead of local file sto
 
 ## 🏗️ Architecture
 
+### Current Architecture (v3.0)
 ```
 Pipeline v3 Architecture
 ┌─────────────────────────────────────────────────────────────┐
@@ -54,6 +57,33 @@ Pipeline v3 Architecture
 │  🔍 Hybrid Search  │  💾 Storage  │  📈 Monitoring          │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 🚀 Future Enterprise Architecture (v4.0)
+```
+Enterprise Multi-Tenant Architecture
+┌─────────────────────────────────────────────────────────────┐
+│            🔐 API Gateway & Authentication                  │
+├─────────────────────────────────────────────────────────────┤
+│         Per-Tenant MCP Servers │ Agentic Workflows          │
+├─────────────────────────────────────────────────────────────┤
+│    Tenant-Specific Search Pipelines │ Multi-Vector Search   │
+├─────────────────────────────────────────────────────────────┤
+│              PostgreSQL (Metadata & Keywords)               │
+├─────────────────────────────────────────────────────────────┤
+│         Qdrant Server (Dense, Sparse, ColBERT)             │
+├─────────────────────────────────────────────────────────────┤
+│    Document Security │ Audit Logs │ Usage Analytics        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 🏢 Enterprise Features Roadmap:
+- **PostgreSQL Migration**: Replace SQLite for concurrent multi-tenant access
+- **API Authentication**: Secure API keys with rate limiting and RBAC
+- **MCP Servers**: Per-tenant Model Context Protocol for agentic workflows
+- **Advanced Search**: ColBERT, SPLADE, and adaptive optimization
+- **Document Security**: Fine-grained access control and encryption
+
+See [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](./docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision.
 
 ### 🚨 Critical: Queue System for Production
 
@@ -178,7 +208,7 @@ src/pipeline_v3/
 
 ## 🚀 Quick Start
 
-> **📖 For detailed instructions, see the [User Manual](./USER_MANUAL.md)** | **🚀 For daily commands, see [Quick Reference](./QUICK_REFERENCE.md)**
+> **📖 For detailed instructions, see the [User Manual](./USER_MANUAL.md)** | **🚀 For daily commands, see [Quick Reference](./QUICK_REFERENCE.md)** | **🏢 For enterprise features, see [Enterprise Implementation](./docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)**
 
 ### Prerequisites
 
@@ -411,6 +441,14 @@ Pipeline v3 maintains full backward compatibility:
 - **Automated Workflows** - JSON API support
 - **Team Usage** - Multi-user CLI tools
 - **System Integration** - Standardized interfaces
+
+### 🚀 Coming in v4.0 (Enterprise Edition)
+- **Multi-Tenant Platform** - Complete tenant isolation with PostgreSQL
+- **API Authentication** - Secure access with rate limiting
+- **MCP Servers** - Per-tenant servers for agentic workflows
+- **Advanced Search** - ColBERT, SPLADE, and multi-vector fusion
+- **Document Security** - Row-level security and encryption
+- **Usage Analytics** - Adaptive optimization based on usage patterns
 
 ## 🤝 Contributing
 

@@ -8,11 +8,16 @@
 
 ## 🎯 Vision
 
-RAG Lab is a production-ready document intelligence engine designed to transform how SMBs and enterprises interact with their technical documentation. By combining state-of-the-art AI models with enterprise-grade infrastructure, RAG Lab enables organizations to instantly access and understand complex technical information across thousands of documents.
+RAG Lab is evolving from a production-ready document intelligence engine to a full **enterprise multi-tenant platform** designed to transform how organizations interact with their technical documentation. By combining state-of-the-art AI models with enterprise-grade infrastructure, RAG Lab enables instant access to complex technical information across thousands of documents.
+
+### Current State → Future Vision
+
+**Today**: Single-user document processing with hybrid search
+**Tomorrow**: Multi-tenant platform with per-organization MCP servers, advanced multi-vector search (ColBERT, SPLADE), and agentic workflows
 
 ### Why RAG Lab?
 
-In today's knowledge economy, critical business information is trapped in PDFs, datasheets, manuals, and presentations. RAG Lab liberates this information, making it instantly searchable, intelligently retrievable, and contextually understandable.
+In today's knowledge economy, critical business information is trapped in PDFs, datasheets, manuals, and presentations. RAG Lab liberates this information, making it instantly searchable, intelligently retrievable, and contextually understandable—with enterprise-grade security and tenant isolation.
 
 ## 🏢 Enterprise-Grade Capabilities
 
@@ -37,6 +42,7 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 
 ## 🏗️ System Architecture
 
+### Current Architecture (v3)
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Enterprise Application Layer                  │
@@ -60,6 +66,30 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 │        OpenAI APIs       │        Qdrant        │      S3       │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### 🚀 Future Enterprise Architecture (v4)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│            🔐 API Gateway & Authentication Layer                 │
+├─────────────────────────────────────────────────────────────────┤
+│         Per-Tenant MCP Servers │ Agentic Workflows              │
+├─────────────────────────────────────────────────────────────────┤
+│    Tenant-Specific Search Pipelines │ Multi-Vector Search       │
+├─────────────────────────────────────────────────────────────────┤
+│              PostgreSQL (All Metadata & Keywords)                │
+├─────────────────────────────────────────────────────────────────┤
+│      Qdrant Server (Dense, Sparse, ColBERT Vectors)            │
+├─────────────────────────────────────────────────────────────────┤
+│    Document Security │ Audit Logs │ Usage Analytics            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Architecture Changes:**
+- **SQLite → PostgreSQL**: Enable concurrent multi-tenant access
+- **Single Collection → Tenant Isolation**: Complete data separation
+- **Basic Auth → API Keys**: Rate limiting and RBAC
+- **Fixed Search → Adaptive Pipelines**: Per-tenant optimization
+- **Single Vector → Multi-Vector**: ColBERT, SPLADE, BGE-M3
 
 ### Core Components
 
@@ -273,6 +303,7 @@ uv run python -m src.pipeline_v3.cli_main maintenance --repair
 ### 📋 **Project Management**
 - **[ROADMAP.md](./ROADMAP.md)** - Current development priorities and active issues
 - **[ISSUES.md](./ISSUES.md)** - Critical architecture gaps and security considerations
+- **[Enterprise Implementation](./src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)** - Complete multi-tenant platform vision
 
 ## 🏆 Project Status
 
@@ -287,12 +318,17 @@ uv run python -m src.pipeline_v3.cli_main maintenance --repair
 
 ### 🚧 **In Progress**
 - Security hardening and vulnerability fixes ([Issue #61](https://github.com/seaberger/rag-lab/issues/61), [Issue #62](https://github.com/seaberger/rag-lab/issues/62))
-- CI/CD infrastructure improvements ([Issue #75](https://github.com/seaberger/rag-lab/issues/75))
+- PostgreSQL migration for multi-tenancy ([Issue #77](https://github.com/seaberger/rag-lab/issues/77))
 
-### 🔜 **Planned**
-- Web UI and REST API
-- Advanced metadata filtering ([Issue #53](https://github.com/seaberger/rag-lab/issues/53), [Issue #54](https://github.com/seaberger/rag-lab/issues/54))
-- Enhanced document-type aware chunking strategies ([Issue #14](https://github.com/seaberger/rag-lab/issues/14))
+### 🔜 **Enterprise Roadmap (v4)**
+- **Multi-Tenant Platform**: PostgreSQL backend, complete tenant isolation
+- **API Authentication**: Secure API keys with rate limiting ([Issue #78](https://github.com/seaberger/rag-lab/issues/78))
+- **MCP Servers**: Per-tenant servers for agentic workflows ([Issue #81](https://github.com/seaberger/rag-lab/issues/81))
+- **Advanced Search**: ColBERT, SPLADE, multi-vector fusion ([Issue #84](https://github.com/seaberger/rag-lab/issues/84))
+- **Document Security**: Fine-grained access control ([Issue #79](https://github.com/seaberger/rag-lab/issues/79))
+- **Adaptive Optimization**: Usage-based search tuning ([Issue #85](https://github.com/seaberger/rag-lab/issues/85))
+
+See [ROADMAP.md](./ROADMAP.md) for complete details and [Enterprise Implementation Guide](./src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the full vision.
 
 ## 🤝 Contributing
 
