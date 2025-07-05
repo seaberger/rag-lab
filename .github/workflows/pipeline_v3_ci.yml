@@ -149,7 +149,7 @@ jobs:
 
         # Test basic imports
         uv run python -c "from src.pipeline_v3.core.registry import DocumentRegistry; print('✓ Core imports work')"
-        uv run python -c "from src.pipeline_v3.storage.vector_store import QdrantStore; print('✓ Vector store imports work')"
+        uv run python -c "from src.pipeline_v3.storage.vector_store import EmbeddingManager; print('✓ Vector store imports work')"
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
