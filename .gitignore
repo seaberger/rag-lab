@@ -259,3 +259,21 @@ temp_*
 tmp_*
 download_*
 test_data/
+
+# Test files in root directory
+/test_*.py
+
+# Miscellaneous documentation (moved to archive)
+document_support.md
+enterprise_features.md
+error_logging_audit_matrix.md
+latest_features.md
+queue_guidance.md
+search_capabilities.md
+
+# Old storage directory
+storage_data/
+
+# Test results
+test_results.json
+test-results/

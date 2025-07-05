@@ -10,12 +10,12 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from qdrant_client import QdrantClient
 from rich.console import Console
 from rich.table import Table
-from search.hybrid import HybridSearch
+
+from src.pipeline_v3.search.hybrid import HybridSearch
 
 # Project-specific
-from storage.keyword_index import BM25Index
-
-from utils.config import PipelineConfig
+from src.pipeline_v3.storage.keyword_index import BM25Index
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 async def search_documents(query: str, mode: str | None = None, limit: int | None = None):

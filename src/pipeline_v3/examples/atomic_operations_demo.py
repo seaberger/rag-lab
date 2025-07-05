@@ -13,10 +13,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
-from core.consistency_checker import RepairStrategy
-from core.index_manager_atomic import AtomicIndexManager
-
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.consistency_checker import RepairStrategy
+from src.pipeline_v3.core.index_manager_atomic import AtomicIndexManager
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 async def demonstrate_atomic_operations():

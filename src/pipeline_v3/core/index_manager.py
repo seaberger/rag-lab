@@ -33,17 +33,15 @@ try:
 except ImportError:
     LLAMA_INDEX_AVAILABLE = False
 
-# Add parent directory to path for imports
-import sys
-
-sys.path.append(str(Path(__file__).parent.parent))
-
-from core.registry import DocumentRegistry, DocumentState, IndexType
-from core.transaction_coordinator import Checkpoint, OperationType, TransactionOperation
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
-from utils.filter_utils import FilterBuilder
+from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState, IndexType
+from src.pipeline_v3.core.transaction_coordinator import (
+    Checkpoint,
+    OperationType,
+    TransactionOperation,
+)
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
+from src.pipeline_v3.utils.filter_utils import FilterBuilder
 
 
 class IndexManager:

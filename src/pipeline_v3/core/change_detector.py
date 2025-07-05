@@ -6,22 +6,16 @@ Determines optimal update strategies based on content analysis and change patter
 """
 
 import hashlib
-
-# Add parent directory to path for imports
-import sys
 import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-sys.path.append(str(Path(__file__).parent.parent))
-
-from core.fingerprint import DocumentFingerprint, FingerprintManager
-from core.registry import DocumentRegistry, DocumentState
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.fingerprint import DocumentFingerprint, FingerprintManager
+from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class ChangeType(Enum):

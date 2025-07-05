@@ -7,18 +7,13 @@ Tracks document versions to avoid redundant processing and enable updates.
 
 import hashlib
 import sqlite3
-
-# Add parent directory to path for imports
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-sys.path.append(str(Path(__file__).parent.parent))
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 @dataclass

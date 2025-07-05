@@ -5,7 +5,8 @@ Hybrid search combining vector similarity and BM25.
 # import numpy as np # numpy seems unused
 from llama_index.embeddings.openai import OpenAIEmbedding  # For type hinting
 from qdrant_client import QdrantClient  # For type hinting
-from storage.keyword_index import BM25Index  # For type hinting
+
+from src.pipeline_v3.storage.keyword_index import BM25Index  # For type hinting
 
 
 class HybridSearch:

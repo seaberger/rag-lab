@@ -29,14 +29,16 @@ from pathlib import Path
 from typing import Any
 
 # Import custom exceptions and logger
-from utils.common_utils import CLIArgumentError, ConfigLoadError, DependencyError, logger
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.pipeline_v3.utils.common_utils import (
+    CLIArgumentError,
+    ConfigLoadError,
+    DependencyError,
+    logger,
+)
 
 # Import with graceful degradation
 try:
-    from pipeline.enhanced_core import EnhancedPipeline
+    from src.pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
 
     PIPELINE_AVAILABLE = True
 except ImportError as e:
@@ -45,14 +47,17 @@ except ImportError as e:
     EnhancedPipeline = None
 
 try:
-    from core.index_manager import IndexManager
-    from core.registry import DocumentRegistry, IndexType
-    from job_queue.manager import DocumentQueue
-
-    from utils.config import PipelineConfig
-    from utils.env_utils import setup_environment
-    from utils.monitoring import ProgressMonitor
-    from utils.url_utils import create_url_batch_file, extract_urls_from_file, validate_url_list
+    from src.pipeline_v3.core.index_manager import IndexManager
+    from src.pipeline_v3.core.registry import DocumentRegistry, IndexType
+    from src.pipeline_v3.job_queue.manager import DocumentQueue
+    from src.pipeline_v3.utils.config import PipelineConfig
+    from src.pipeline_v3.utils.env_utils import setup_environment
+    from src.pipeline_v3.utils.monitoring import ProgressMonitor
+    from src.pipeline_v3.utils.url_utils import (
+        create_url_batch_file,
+        extract_urls_from_file,
+        validate_url_list,
+    )
 
     CORE_AVAILABLE = True
 except ImportError as e:
