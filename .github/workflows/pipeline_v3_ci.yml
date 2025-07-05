@@ -136,6 +136,15 @@ jobs:
 
     - name: Create test environment
       run: |
+        # Debug GitHub secret availability
+        if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+          echo "❌ OPENAI_API_KEY secret is not configured or is empty"
+          echo "Available secrets: $(env | grep -E '^[A-Z_]*=' | grep -v OPENAI_API_KEY | head -5)"
+        else
+          echo "✅ OPENAI_API_KEY secret is available (length: ${#OPENAI_API_KEY})"
+          echo "✅ API key starts with: $(echo $OPENAI_API_KEY | cut -c1-7)..."
+        fi
+
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
         echo "QDRANT_HOST=localhost" >> .env
         echo "QDRANT_PORT=6333" >> .env
@@ -143,6 +152,8 @@ jobs:
         mkdir -p test-results
         # Set PYTHONPATH for relative imports
         echo "PYTHONPATH=${{ github.workspace }}/src/pipeline_v3" >> $GITHUB_ENV
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Verify test environment
       run: |

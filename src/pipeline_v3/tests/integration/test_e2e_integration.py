@@ -85,8 +85,26 @@ class TestE2EIntegration:
             try:
                 # Test document addition
                 print(f"About to process document: {doc_path}")
-                print(f"Pipeline config - OpenAI API key present: {bool(pipeline.config.openai_api_key)}")
-                print(f"Environment OPENAI_API_KEY present: {bool(os.environ.get('OPENAI_API_KEY'))}")
+                # Check if OpenAI API key is available and test client creation
+                api_key_in_env = bool(os.environ.get('OPENAI_API_KEY'))
+                print(f"Environment OPENAI_API_KEY present: {api_key_in_env}")
+                if hasattr(pipeline.config, 'openai') and hasattr(pipeline.config.openai, 'api_key'):
+                    print(f"Pipeline config has OpenAI API key: {bool(pipeline.config.openai.api_key)}")
+                else:
+                    print("Pipeline config structure doesn't have openai.api_key")
+
+                # Test OpenAI client creation to catch API key issues early
+                try:
+                    from utils.openai_client import OpenAIClientFactory
+                    api_key_info = OpenAIClientFactory.get_api_key_info(pipeline.config)
+                    print(f"API key info: {api_key_info}")
+
+                    # Try to create a client to validate the API key
+                    test_client = OpenAIClientFactory.create_client(config=pipeline.config)
+                    print(f"OpenAI client created successfully")
+                except Exception as e:
+                    print(f"ERROR: Failed to create OpenAI client: {e}")
+                    print(f"This indicates the API key issue is preventing document processing")
 
                 result = await pipeline.process_document(
                     str(doc_path),
@@ -146,6 +164,13 @@ class TestE2EIntegration:
             except Exception as e:
                 print(f"Exception during processing: {type(e).__name__}: {e}")
                 print(f"Result before exception: {result if 'result' in locals() else 'No result yet'}")
+
+                # Check if this is an API key related error
+                error_str = str(e).lower()
+                if any(key_phrase in error_str for key_phrase in ['api key', 'authentication', 'unauthorized', 'forbidden']):
+                    print(f"DETECTED API KEY ERROR: {e}")
+                    print("The issue is likely that the GitHub secret OPENAI_API_KEY is not being passed correctly to the test environment")
+
                 pytest.fail(f"Document ingestion failed for {doc_path.name}: {e}")
 
         # Verify all documents were processed

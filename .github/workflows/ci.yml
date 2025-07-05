@@ -148,6 +148,25 @@ jobs:
 
         echo "🎯 Verification complete - proceeding with tests"
 
+    - name: Create test environment
+      run: |
+        # Debug GitHub secret availability
+        if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+          echo "❌ OPENAI_API_KEY secret is not configured or is empty"
+          echo "Note: GitHub secrets are only available in the repository where they are configured"
+        else
+          echo "✅ OPENAI_API_KEY secret is available (length: ${#OPENAI_API_KEY})"
+          echo "✅ API key starts with: $(echo $OPENAI_API_KEY | cut -c1-7)..."
+        fi
+
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+        echo "QDRANT_HOST=localhost" >> .env
+        echo "QDRANT_PORT=6333" >> .env
+        mkdir -p test_data
+        mkdir -p test-results
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
     - name: Run tests with coverage
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -155,8 +174,6 @@ jobs:
         QDRANT_PORT: 6333
         SKIP_QDRANT_TESTS: ${{ env.QDRANT_AVAILABLE == 'false' && 'true' || 'false' }}
       run: |
-        # Ensure test results directory exists
-        mkdir -p test-results
 
         # Run tests with proper error handling
         set +e  # Don't exit on test failures
