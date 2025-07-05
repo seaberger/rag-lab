@@ -52,7 +52,11 @@ def test_llama_index_imports():
 
     # Check if we can access the flag from index_manager
     try:
-        from src.pipeline_v3.core.index_manager import LLAMA_INDEX_AVAILABLE
+        # Try with relative import
+        import sys
+        import os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        from core.index_manager import LLAMA_INDEX_AVAILABLE
         print(f"✓ LLAMA_INDEX_AVAILABLE = {LLAMA_INDEX_AVAILABLE}")
         if not LLAMA_INDEX_AVAILABLE:
             errors.append("LLAMA_INDEX_AVAILABLE is False!")

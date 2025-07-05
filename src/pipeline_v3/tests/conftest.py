@@ -371,7 +371,7 @@ async def populated_pipeline(test_pipeline, test_config):
     test_doc_path = Path("data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf")
 
     if test_doc_path.exists():
-        # Process document without keywords for speed
+        # Process document WITH keywords to enable keyword search tests
         result = await pipeline.process_document(
             str(test_doc_path),
             metadata={
@@ -379,7 +379,7 @@ async def populated_pipeline(test_pipeline, test_config):
                 "document_type": "datasheet",
                 "test_doc": "fieldmax",
             },
-            with_keywords=False,
+            with_keywords=True,  # Enable keyword indexing for search tests
         )
 
         # Store the doc_id for tests to use
