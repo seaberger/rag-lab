@@ -15,11 +15,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 def test_cli_help():
     """Test that CLI help works."""
     try:
+        # Get the pipeline v3 directory dynamically
+        pipeline_v3_dir = Path(__file__).parent.parent.parent
         result = subprocess.run(
             [sys.executable, "cli_main.py", "--help"],
             capture_output=True,
             text=True,
-            cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
+            cwd=str(pipeline_v3_dir),
             check=False,
         )
 
@@ -38,11 +40,13 @@ def test_cli_subcommands():
 
     for cmd in commands:
         try:
+            # Get the pipeline v3 directory dynamically
+            pipeline_v3_dir = Path(__file__).parent.parent.parent
             result = subprocess.run(
                 [sys.executable, "cli_main.py", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
+                cwd=str(pipeline_v3_dir),
                 check=False,
             )
 
@@ -58,11 +62,13 @@ def test_queue_subcommands():
 
     for cmd in queue_commands:
         try:
+            # Get the pipeline v3 directory dynamically
+            pipeline_v3_dir = Path(__file__).parent.parent.parent
             result = subprocess.run(
                 [sys.executable, "cli_main.py", "queue", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
+                cwd=str(pipeline_v3_dir),
                 check=False,
             )
 
@@ -82,11 +88,13 @@ def test_config_subcommands():
             if cmd in ["get", "set"]:
                 continue
 
+            # Get the pipeline v3 directory dynamically
+            pipeline_v3_dir = Path(__file__).parent.parent.parent
             result = subprocess.run(
                 [sys.executable, "cli_main.py", "config", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
+                cwd=str(pipeline_v3_dir),
                 check=False,
             )
 
