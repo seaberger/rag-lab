@@ -9,11 +9,13 @@ This file provides repository-wide context and navigation guidance for Claude Co
 - **Keyword Model**: `gpt-4.1-mini` (NOT gpt-4o-mini)
 - **Embedding Model**: `text-embedding-3-small`
 
-## 🎯 Current Development Focus: Pipeline v3
+## 🎯 Current Development Focus: Enterprise Multi-Tenant Platform
 
 **Active Area**: `src/pipeline_v3/` - Production-ready document processing system
+**Future Vision**: Enterprise multi-tenant platform with PostgreSQL, API authentication, and advanced search
 **Detailed Context**: [Pipeline v3 CLAUDE.md](src/pipeline_v3/CLAUDE.md)
-**Status**: Core functionality complete, optimization phase
+**Enterprise Vision**: [Enterprise Implementation Guide](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)
+**Status**: Core functionality complete, planning enterprise migration
 
 ### Quick Start for Pipeline v3:
 ```bash
@@ -23,6 +25,14 @@ cd src/pipeline_v3
 # Follow Pipeline v3 CLAUDE.md for detailed context
 # Primary CLI: uv run python -m src.pipeline_v3.cli_main
 ```
+
+### 🚀 Enterprise Features Roadmap (Issues #77-#85):
+- **PostgreSQL Migration** (#77) - Replace SQLite for multi-tenant concurrency
+- **API Authentication** (#78) - Secure API keys with rate limiting
+- **Document Security** (#79) - Fine-grained access control
+- **MCP Servers** (#81) - Per-tenant servers for agentic workflows
+- **Multi-Vector Search** (#84) - ColBERT, SPLADE, BGE-M3 support
+- **Adaptive Optimization** (#85) - Usage-based search tuning
 
 ## 📊 Project Status Overview
 
@@ -145,6 +155,26 @@ uv run python -m src.pipeline_v3.cli_main --help
 - **Active Issues**: [Open Issues](https://github.com/seaberger/rag-lab/issues)
 - **Latest Commits**: [Commit History](https://github.com/seaberger/rag-lab/commits/main)
 
+## 📝 GitHub Issue Creation Guidelines
+
+### Available Labels (Use ONLY these):
+- **bug** - Something isn't working
+- **documentation** - Improvements or additions to documentation
+- **duplicate** - This issue or pull request already exists
+- **enhancement** - New feature or request
+- **good first issue** - Good for newcomers
+- **help wanted** - Extra attention is needed
+- **invalid** - This doesn't seem right
+- **question** - Further information is requested
+- **wontfix** - This will not be worked on
+
+### When Creating Issues:
+- **DO NOT** create custom labels like "security", "infrastructure", "critical", etc.
+- **DO** use only the standard GitHub labels listed above
+- **DO** use "enhancement" for all new features (including enterprise features)
+- **DO** use "bug" for security vulnerabilities and critical issues
+- **DO** use clear issue titles that describe the feature/fix
+
 ---
 
 **🎯 For Pipeline v3 work, go directly to:** [src/pipeline_v3/CLAUDE.md](src/pipeline_v3/CLAUDE.md)
@@ -152,3 +182,4 @@ uv run python -m src.pipeline_v3.cli_main --help
 **📊 Current Status**: Production-ready with core functionality, enterprise features, and reliability improvements
 **🔄 Development Planning**: See [ROADMAP.md](ROADMAP.md) for current priorities
 **📋 Architecture Gaps**: See [ISSUES.md](ISSUES.md) for comprehensive analysis
+**🏢 Enterprise Vision**: See [Enterprise Implementation Guide](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)
