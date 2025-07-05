@@ -65,7 +65,13 @@ class TestE2EIntegration:
 
         # Use specific small datasheet for predictable testing
         doc_path = sample_documents["small_datasheet"]
+        print(f"Looking for test document at: {doc_path}")
+        print(f"Document exists: {doc_path.exists()}")
         if not doc_path.exists():
+            # Try to list what's available in the parent directory
+            parent = doc_path.parent
+            if parent.exists():
+                print(f"Files in {parent}: {list(parent.glob('*.pdf'))[:5]}")
             pytest.skip(f"Test document not found: {doc_path}")
 
         test_docs = [doc_path]
@@ -78,6 +84,7 @@ class TestE2EIntegration:
 
             try:
                 # Test document addition
+
                 result = await pipeline.process_document(
                     str(doc_path),
                     metadata={
@@ -99,10 +106,10 @@ class TestE2EIntegration:
                 )
 
                 # Verify the document was processed
-                assert result is not None
-                assert "doc_id" in result
-                assert result["status"] == "success"
-                assert result["action"] == "indexed"
+                assert result is not None, f"Result is None for {doc_path.name}"
+                assert "doc_id" in result, f"No doc_id in result: {result}"
+                assert result.get("status") == "success", f"Status is not success: {result}"
+                assert result.get("action") == "indexed", f"Action is not indexed: {result}"
 
                 # Check the enhanced markdown was extracted
                 if "enhanced_markdown" in result:
@@ -240,6 +247,9 @@ class TestE2EIntegration:
         """Test CLI commands with real pipeline."""
         config = test_config
         temp_dir = test_base_dir / "test_env"
+
+        # Ensure the directory exists
+        temp_dir.mkdir(exist_ok=True)
 
         # Create a test PDF file
         test_pdf = temp_dir / "test.pdf"
@@ -413,7 +423,7 @@ class TestDatabaseIsolation:
     """
 
     @pytest.mark.asyncio
-    async def test_environment_isolation(self, test_base_dir):
+    async def test_environment_isolation(self, test_base_dir, sample_documents):
         """Test that different environments have isolated databases."""
         from ..conftest import clear_test_databases, create_test_config
 
@@ -430,9 +440,7 @@ class TestDatabaseIsolation:
         pipeline2 = EnhancedPipeline(config2)
 
         # Add a document to env1
-        test_doc = Path(
-            "data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf"
-        )
+        test_doc = sample_documents["small_datasheet"]
         if test_doc.exists():
             result1 = await pipeline1.process_document(
                 str(test_doc), metadata={"env": "env1"}
@@ -456,16 +464,14 @@ class TestDatabaseIsolation:
         clear_test_databases(config2)
 
     @pytest.mark.asyncio
-    async def test_database_cleanup(self, test_config, test_pipeline):
+    async def test_database_cleanup(self, test_config, test_pipeline, sample_documents):
         """Test that database cleanup works properly."""
         from ..conftest import clear_test_databases
 
         pipeline = test_pipeline
 
         # Add a document
-        test_doc = Path(
-            "data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf"
-        )
+        test_doc = sample_documents["small_datasheet"]
         if test_doc.exists():
             await pipeline.process_document(str(test_doc))
 

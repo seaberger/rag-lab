@@ -7,17 +7,12 @@ Ensures consistency and enables intelligent lifecycle management operations.
 
 import json
 import sqlite3
-
-# Add parent directory to path for imports
-import sys
 import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
-
-sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.common_utils import logger
 from utils.config import PipelineConfig

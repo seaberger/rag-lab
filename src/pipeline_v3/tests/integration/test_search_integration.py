@@ -34,6 +34,7 @@ class TestSearchIntegration:
     @pytest.fixture
     def search_components(self, test_config):
         """Initialize search components using centralized config."""
+        # Use real OpenAI embeddings - we have the API key in CI
         # Use the centralized IndexManager which already has unique collection names
         keyword_index = KeywordIndex(config=test_config)
         index_manager = IndexManager(config=test_config)
@@ -82,6 +83,7 @@ class TestSearchIntegration:
 
             instance.get_embeddings = AsyncMock(side_effect=generate_embedding)
             yield instance
+
 
     async def add_test_documents(self, search_components, mock_embeddings):
         """Helper to add test documents to indexes."""
@@ -180,12 +182,16 @@ class TestSearchIntegration:
             # Now add to indexes using IndexManager.add_document
             from core.registry import IndexType
 
-            search_components["index_manager"].add_document(
+            result = search_components["index_manager"].add_document(
                 doc_id=doc_id,
                 content=doc["content"],
                 metadata=doc["metadata"],
                 index_types=IndexType.BOTH,
             )
+
+            # Debug: verify document was added
+            print(f"Added document {doc_id}: {result}")
+            assert result, f"Failed to add document {doc_id}"
 
     @pytest.mark.asyncio
     @pytest.mark.integration
@@ -232,9 +238,11 @@ class TestSearchIntegration:
     @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.smoke
+    @pytest.mark.requires_api
     @pytest.mark.timeout(300)  # 5 minutes for keyword search
     async def test_keyword_search_precision(self, search_components, mock_embeddings):
         """Test keyword search with exact and fuzzy matching."""
+        # Use real embeddings and add to both indexes
         await self.add_test_documents(search_components, mock_embeddings)
 
         # Test exact keyword matching
@@ -276,10 +284,10 @@ class TestSearchIntegration:
     @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.smoke
-    @pytest.mark.requires_api
     @pytest.mark.timeout(600)  # 10 minutes for hybrid search
     async def test_hybrid_search_fusion(self, search_components, mock_embeddings):
         """Test hybrid search with different fusion methods."""
+        # For smoke test, use the mocked embeddings from search_components fixture
         await self.add_test_documents(search_components, mock_embeddings)
 
         # Test query that benefits from both vector and keyword

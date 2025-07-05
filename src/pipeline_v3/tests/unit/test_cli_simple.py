@@ -6,24 +6,28 @@ Basic integration tests for the CLI to verify functionality.
 
 import subprocess
 import sys
+import os
 from pathlib import Path
-
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import pytest
 
 
 def test_cli_help():
     """Test that CLI help works."""
     try:
+        # Set up environment with PYTHONPATH pointing to src/pipeline_v3
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(Path(__file__).parent.parent.parent)
+
         result = subprocess.run(
-            [sys.executable, "cli_main.py", "--help"],
+            [sys.executable, "-m", "cli_main", "--help"],
             capture_output=True,
             text=True,
-            cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
             check=False,
+            env=env,
+            cwd=str(Path(__file__).parent.parent.parent)  # Run from src/pipeline_v3
         )
 
-        assert result.returncode == 0, f"CLI help failed with code {result.returncode}"
+        assert result.returncode == 0, f"CLI help failed with code {result.returncode}\nSTDERR: {result.stderr}"
         assert "Production Document Processing Pipeline v3" in result.stdout
         assert "add" in result.stdout
         assert "search" in result.stdout
@@ -38,12 +42,17 @@ def test_cli_subcommands():
 
     for cmd in commands:
         try:
+            # Set up environment with PYTHONPATH pointing to src/pipeline_v3
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(Path(__file__).parent.parent.parent)
+
             result = subprocess.run(
-                [sys.executable, "cli_main.py", cmd, "--help"],
+                [sys.executable, "-m", "cli_main", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
                 check=False,
+                env=env,
+                cwd=str(Path(__file__).parent.parent.parent)  # Run from src/pipeline_v3
             )
 
             assert result.returncode == 0, f"Command {cmd} help failed with code {result.returncode}\nSTDERR: {result.stderr}"
@@ -58,15 +67,20 @@ def test_queue_subcommands():
 
     for cmd in queue_commands:
         try:
+            # Set up environment with PYTHONPATH pointing to src/pipeline_v3
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(Path(__file__).parent.parent.parent)
+
             result = subprocess.run(
-                [sys.executable, "cli_main.py", "queue", cmd, "--help"],
+                [sys.executable, "-m", "cli_main", "queue", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
                 check=False,
+                env=env,
+                cwd=str(Path(__file__).parent.parent.parent)  # Run from src/pipeline_v3
             )
 
-            assert result.returncode == 0, f"Queue command {cmd} help failed with code {result.returncode}"
+            assert result.returncode == 0, f"Queue command {cmd} help failed with code {result.returncode}\nSTDERR: {result.stderr}"
 
         except Exception as e:
             pytest.fail(f"Queue command {cmd} test failed: {e}")
@@ -82,15 +96,20 @@ def test_config_subcommands():
             if cmd in ["get", "set"]:
                 continue
 
+            # Set up environment with PYTHONPATH pointing to src/pipeline_v3
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(Path(__file__).parent.parent.parent)
+
             result = subprocess.run(
-                [sys.executable, "cli_main.py", "config", cmd, "--help"],
+                [sys.executable, "-m", "cli_main", "config", cmd, "--help"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/seanbergman/Repositories/rag_lab/src/pipeline_v3",
                 check=False,
+                env=env,
+                cwd=str(Path(__file__).parent.parent.parent)  # Run from src/pipeline_v3
             )
 
-            assert result.returncode == 0, f"Config command {cmd} help failed with code {result.returncode}"
+            assert result.returncode == 0, f"Config command {cmd} help failed with code {result.returncode}\nSTDERR: {result.stderr}"
 
         except Exception as e:
             pytest.fail(f"Config command {cmd} test failed: {e}")

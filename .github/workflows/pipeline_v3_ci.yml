@@ -19,6 +19,8 @@ on:
 env:
   PYTHON_VERSION: '3.12'
   UV_VERSION: '0.5.13'
+  QDRANT_HOST: 'localhost'
+  QDRANT_PORT: '6333'
 
 jobs:
   test:
@@ -32,10 +34,11 @@ jobs:
           - 6333:6333
           - 6334:6334
         options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --memory=2g
+        env:
+          QDRANT__LOG_LEVEL: INFO
+        volumes:
+          - /tmp/qdrant_storage:/qdrant/storage
 
     steps:
     - uses: actions/checkout@v4
@@ -62,19 +65,107 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-uv-
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y poppler-utils
+
     - name: Install dependencies
       run: |
         uv sync --all-extras --dev
         uv pip install pytest-timeout pytest-xdist
 
+    - name: Wait for Qdrant service
+      run: |
+        echo "🔄 Waiting for Qdrant service to be ready..."
+
+        # Phase 1: Wait for container to start (basic connectivity)
+        echo "Phase 1: Checking container startup..."
+        for i in {1..20}; do
+          if nc -z localhost 6333 2>/dev/null; then
+            echo "✅ Qdrant port 6333 is responding"
+            break
+          fi
+          echo "⏳ Attempt $i: Port not ready, waiting 3 seconds..."
+          sleep 3
+        done
+
+        # Phase 2: Wait for REST API to be available
+        echo "Phase 2: Checking REST API availability..."
+        for i in {1..30}; do
+          # Try multiple endpoints - Qdrant exposes /healthz, /livez, /readyz
+          if curl -f -s http://localhost:6333/ >/dev/null 2>&1; then
+            echo "✅ Qdrant REST API is responding"
+            break
+          elif curl -f -s http://localhost:6333/healthz >/dev/null 2>&1; then
+            echo "✅ Qdrant health endpoint is responding"
+            break
+          elif curl -f -s http://localhost:6333/readyz >/dev/null 2>&1; then
+            echo "✅ Qdrant readiness endpoint is responding"
+            break
+          fi
+          echo "⏳ Attempt $i: REST API not ready, waiting 4 seconds..."
+          sleep 4
+        done
+
+        # Phase 3: Verify collections endpoint (full functionality)
+        echo "Phase 3: Verifying full Qdrant functionality..."
+        for i in {1..15}; do
+          if curl -f -s http://localhost:6333/collections >/dev/null 2>&1; then
+            echo "✅ Qdrant collections endpoint is responding"
+            curl -s http://localhost:6333/collections | head -5
+            echo "🎉 Qdrant is fully ready!"
+            exit 0
+          fi
+          echo "⏳ Attempt $i: Collections endpoint not ready, waiting 5 seconds..."
+          sleep 5
+        done
+
+        # Diagnostic information if we get here
+        echo "⚠️ Qdrant may not be fully ready after all checks"
+        echo "=== Diagnostic Information ==="
+        echo "Container status:"
+        docker ps --filter "ancestor=qdrant/qdrant:latest" --format "table {{.ID}}\\t{{.Status}}\\t{{.Ports}}" || true
+        echo "Port connectivity:"
+        nc -z localhost 6333 && echo "Port 6333: ✅ Open" || echo "Port 6333: ❌ Closed"
+        echo "Basic endpoint test:"
+        curl -s -w "HTTP Status: %{http_code}\\n" http://localhost:6333/ || echo "Connection failed"
+        echo "Container logs (last 20 lines):"
+        docker logs --tail 20 $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") 2>/dev/null || echo "No container logs available"
+        echo "Will proceed with tests (some may be skipped without full Qdrant functionality)"
+
     - name: Create test environment
       run: |
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+        echo "QDRANT_HOST=localhost" >> .env
+        echo "QDRANT_PORT=6333" >> .env
         mkdir -p test_data
+        mkdir -p test-results
+        # Set PYTHONPATH for relative imports
+        echo "PYTHONPATH=${{ github.workspace }}/src/pipeline_v3" >> $GITHUB_ENV
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    - name: Verify test environment
+      run: |
+        echo "=== Environment Verification ==="
+        echo "OPENAI_API_KEY: $(if [ -n "$OPENAI_API_KEY" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)"
+        echo "Qdrant Health: $(curl -s http://localhost:6333/health | jq -r '.status // "Error"' || echo "Connection failed")"
+        echo "Python: $(python --version)"
+        echo "UV: $(uv --version)"
+        echo "Working Directory: $(pwd)"
+        echo "Test Data Directory: $(ls -la test_data/ || echo 'Not created yet')"
+
+        # Test basic imports
+        uv run python -c "from src.pipeline_v3.core.registry import DocumentRegistry; print('✓ Core imports work')"
+        uv run python -c "from src.pipeline_v3.storage.vector_store import EmbeddingManager; print('✓ Vector store imports work')"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run unit tests
       run: |
         # Includes new utility tests that boost coverage from 26% to 88%
+        set +e  # Don't exit on test failures
         uv run pytest src/pipeline_v3/tests/unit/ -v \
           --cov=src.pipeline_v3 \
           --cov-report=xml \
@@ -82,12 +173,26 @@ jobs:
           --cov-report=term-missing \
           --junit-xml=test-results/unit-results.xml
 
+        TEST_EXIT_CODE=$?
+
+        # Ensure result file exists even on failure
+        if [ ! -f "test-results/unit-results.xml" ]; then
+          mkdir -p test-results
+          echo '<?xml version="1.0" encoding="UTF-8"?><testsuite name="unit-tests" tests="0" failures="0" errors="1" time="0"><testcase name="initialization" classname="setup"><error message="Test execution failed">Unit tests failed to execute properly</error></testcase></testsuite>' > test-results/unit-results.xml
+        fi
+
+        exit $TEST_EXIT_CODE
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
     - name: Run security tests
       run: |
         uv run pytest src/pipeline_v3/tests/security/ -v \
           --cov=src.pipeline_v3 \
           --cov-append \
           --junit-xml=test-results/security-results.xml
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run smoke integration tests
       run: |
@@ -97,6 +202,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/smoke-integration-results.xml \
           -m "smoke"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run lightweight integration tests
       run: |
@@ -106,6 +213,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/lightweight-integration-results.xml \
           -m "integration and not heavy and not e2e"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run server-specific tests
       run: |
@@ -115,6 +224,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/server-results.xml \
           -m "server"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run E2E tests (critical path)
       run: |
@@ -124,6 +235,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/e2e-results.xml \
           -m "e2e"
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run heavy resource tests (optional)
       run: |
@@ -134,6 +247,8 @@ jobs:
           --junit-xml=test-results/heavy-results.xml \
           -m "heavy"
       continue-on-error: true  # Allow failures for heavy tests
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run regression tests
       run: |
@@ -142,6 +257,8 @@ jobs:
           --cov-append \
           --junit-xml=test-results/regression-results.xml
       continue-on-error: true  # Allow some failures
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Generate coverage report
       run: |
@@ -174,23 +291,59 @@ jobs:
           coverage.xml
           htmlcov/
 
+    - name: Collect diagnostic information
+      if: failure()
+      run: |
+        echo "=== Diagnostic Information ==="
+        echo "Qdrant container status:"
+        docker ps -a --filter "ancestor=qdrant/qdrant:latest" || echo "No Qdrant container found"
+
+        echo "Qdrant container logs:"
+        docker logs $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") || echo "No Qdrant logs available"
+
+        echo "Qdrant health endpoint:"
+        curl -v http://localhost:6333/health || echo "Health check failed"
+
+        echo "Environment variables:"
+        env | grep -E "(OPENAI|QDRANT|PYTHON|UV)" || echo "No relevant env vars found"
+
+        echo "Test results directory:"
+        ls -la test-results/ || echo "No test results directory"
+
+        echo "Recent test output:"
+        find test-results/ -name "*.xml" -exec echo "=== {} ===" \; -exec tail -20 {} \; 2>/dev/null || echo "No XML files found"
+
     - name: Check test summary
       if: always()
       run: |
         echo "Test Summary:"
         echo "============="
-        passed=$(grep -r "passed" test-results/*.xml | wc -l || echo 0)
-        failed=$(grep -r "failed" test-results/*.xml | wc -l || echo 0)
-        echo "Passed: $passed"
-        echo "Failed: $failed"
 
-        # Fail if core tests fail (unit, security, basic integration)
-        if [ -f test-results/unit-results.xml ]; then
-          unit_failures=$(grep -c 'failures="[1-9]' test-results/unit-results.xml || echo 0)
-          if [ $unit_failures -gt 0 ]; then
-            echo "Unit tests failed!"
-            exit 1
+        # Ensure test-results directory exists
+        mkdir -p test-results
+
+        # Count results more safely
+        if [ -d "test-results" ] && [ "$(ls -A test-results/)" ]; then
+          passed=$(find test-results/ -name "*.xml" -exec grep -l "passed" {} \; 2>/dev/null | wc -l || echo 0)
+          failed=$(find test-results/ -name "*.xml" -exec grep -l "failed" {} \; 2>/dev/null | wc -l || echo 0)
+          echo "Test files found: $(ls test-results/ | wc -l)"
+          echo "Passed: $passed"
+          echo "Failed: $failed"
+
+          # Check for unit test failures more carefully
+          if [ -f "test-results/unit-results.xml" ]; then
+            unit_failures=$(grep -c 'failures="[1-9]' test-results/unit-results.xml 2>/dev/null || echo 0)
+            if [ $unit_failures -gt 0 ]; then
+              echo "Unit tests failed!"
+              exit 1
+            fi
+          else
+            echo "Warning: unit-results.xml not found"
           fi
+        else
+          echo "No test result files found - tests may have failed to execute"
+          echo "Listing test-results directory:"
+          ls -la test-results/ || echo "test-results directory doesn't exist"
         fi
 
   lint:
@@ -292,7 +445,10 @@ jobs:
     - name: Run quick smoke test
       env:
         SKIP_QDRANT_CHECK: "true"
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        PYTHONPATH: ${{ github.workspace }}/src/pipeline_v3
       run: |
+        # Run from project root with PYTHONPATH set
         uv run python -m src.pipeline_v3.cli_main --help
         # Run utility tests (fast, no external dependencies)
         uv run pytest src/pipeline_v3/tests/unit/test_cli_validation.py \

@@ -371,7 +371,7 @@ async def populated_pipeline(test_pipeline, test_config):
     test_doc_path = Path("data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf")
 
     if test_doc_path.exists():
-        # Process document without keywords for speed
+        # Process document WITH keywords to enable keyword search tests
         result = await pipeline.process_document(
             str(test_doc_path),
             metadata={
@@ -379,7 +379,7 @@ async def populated_pipeline(test_pipeline, test_config):
                 "document_type": "datasheet",
                 "test_doc": "fieldmax",
             },
-            with_keywords=False,
+            with_keywords=True,  # Enable keyword indexing for search tests
         )
 
         # Store the doc_id for tests to use
@@ -393,16 +393,66 @@ async def populated_pipeline(test_pipeline, test_config):
 @pytest.fixture
 def sample_documents():
     """Provide paths to sample documents for testing."""
+    # Debug logging
+    print(f"[sample_documents] __file__ = {__file__}")
+    print(f"[sample_documents] Current working directory = {os.getcwd()}")
+    print(f"[sample_documents] GITHUB_WORKSPACE = {os.environ.get('GITHUB_WORKSPACE', 'Not set')}")
+
     # Find the project root by looking for the data directory
     current_dir = Path(__file__).parent
+    found_via_search = False
+
     while current_dir != current_dir.parent:
-        if (current_dir / "data" / "sample_docs").exists():
-            sample_dir = current_dir / "data" / "sample_docs"
+        check_path = current_dir / "data" / "sample_docs"
+        print(f"[sample_documents] Checking: {check_path}")
+        if check_path.exists():
+            sample_dir = check_path
+            found_via_search = True
+            print(f"[sample_documents] Found via search at: {sample_dir}")
             break
         current_dir = current_dir.parent
+
+    if not found_via_search:
+        # If not found, look for data relative to the test file
+        # This handles both local and CI environments
+        test_file_dir = Path(__file__).parent
+        print(f"[sample_documents] test_file_dir = {test_file_dir}")
+
+        # Go up to find the rag_lab root
+        # From tests/conftest.py -> tests -> pipeline_v3 -> src -> rag_lab
+        rag_lab_root = test_file_dir.parent.parent.parent
+        print(f"[sample_documents] Calculated rag_lab_root = {rag_lab_root}")
+
+        sample_dir = rag_lab_root / "data" / "sample_docs"
+        print(f"[sample_documents] Trying: {sample_dir}")
+        print(f"[sample_documents] Exists: {sample_dir.exists()}")
+
+        if not sample_dir.exists():
+            # Last resort - check if we're in a GitHub Actions environment
+            workspace = os.environ.get("GITHUB_WORKSPACE")
+            if workspace:
+                sample_dir = Path(workspace) / "data" / "sample_docs"
+                print(f"[sample_documents] Trying GITHUB_WORKSPACE path: {sample_dir}")
+                print(f"[sample_documents] Exists: {sample_dir.exists()}")
+
+    # List what's actually in the parent directory
+    if sample_dir.exists():
+        print(f"[sample_documents] Final sample_dir: {sample_dir}")
+        print(f"[sample_documents] First 5 PDFs: {list(sample_dir.glob('*.pdf'))[:5]}")
     else:
-        # Fallback to absolute path if needed
-        sample_dir = Path("/Users/seanbergman/Repositories/rag_lab/data/sample_docs")
+        print(f"[sample_documents] ERROR: sample_dir does not exist: {sample_dir}")
+        # Try to debug what's available
+        parent = sample_dir.parent
+        if parent.exists():
+            print(f"[sample_documents] Parent exists: {parent}")
+            print(f"[sample_documents] Parent contents: {list(parent.iterdir())[:10]}")
+        else:
+            grandparent = parent.parent
+            if grandparent.exists():
+                print(f"[sample_documents] Grandparent exists: {grandparent}")
+                print(
+                    f"[sample_documents] Grandparent contents: {list(grandparent.iterdir())[:10]}"
+                )
 
     return {
         "small_datasheet": sample_dir / "FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf",

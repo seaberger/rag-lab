@@ -30,16 +30,18 @@ try:
     )
 
     LLAMA_INDEX_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    import logging
+
+    logging.exception(f"Failed to import LlamaIndex dependencies: {e}")
     LLAMA_INDEX_AVAILABLE = False
 
-# Add parent directory to path for imports
-import sys
-
-sys.path.append(str(Path(__file__).parent.parent))
-
 from core.registry import DocumentRegistry, DocumentState, IndexType
-from core.transaction_coordinator import Checkpoint, OperationType, TransactionOperation
+from core.transaction_coordinator import (
+    Checkpoint,
+    OperationType,
+    TransactionOperation,
+)
 
 from utils.common_utils import logger
 from utils.config import PipelineConfig

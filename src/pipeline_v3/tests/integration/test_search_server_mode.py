@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from pipeline.enhanced_core import EnhancedPipeline
@@ -18,6 +20,8 @@ from utils.config import PipelineConfig
 from utils.common_utils import logger
 
 
+@pytest.mark.asyncio
+@pytest.mark.requires_qdrant_server
 async def test_search_with_server_mode():
     """Test search functionality in server mode."""
 

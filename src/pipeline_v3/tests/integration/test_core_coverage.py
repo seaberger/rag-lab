@@ -414,14 +414,28 @@ job_queue:
             f.write("TEST_KEY=test_value\n")
             f.write("OPENAI_API_KEY=test_key\n")
 
-        # Change to temp dir and test
+        # Preserve original environment variables
         original_cwd = os.getcwd()
+        original_openai_key = os.environ.get("OPENAI_API_KEY")
+        original_test_key = os.environ.get("TEST_KEY")
+
         try:
             os.chdir(test_base_dir)
             setup_environment()
             # Note: Can't easily test env vars are set without affecting test environment
         finally:
             os.chdir(original_cwd)
+
+            # Restore original environment variables
+            if original_openai_key is not None:
+                os.environ["OPENAI_API_KEY"] = original_openai_key
+            elif "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
+
+            if original_test_key is not None:
+                os.environ["TEST_KEY"] = original_test_key
+            elif "TEST_KEY" in os.environ:
+                del os.environ["TEST_KEY"]
 
     def test_validation_utilities(self, test_base_dir):
         """Test document validation functionality."""

@@ -13,33 +13,17 @@ This is a convenience script that imports and runs the main CLI.
 import asyncio
 import logging
 import sys
-from pathlib import Path
 
-# Add the current directory to Python path for both relative and absolute imports
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Import using relative imports
+from cli.management import main
 
-# Import with fallback for both direct execution and module execution
-try:
-    from .cli.management import main
-    from .utils.cleanup import cleanup_temp_resources, get_resource_manager
-    from .utils.common_utils import (
-        CLIArgumentError,
-        ConfigLoadError,
-        DependencyError,
-        init_cli_logging,
-    )
-except ImportError:
-    # Fallback for direct execution
-    from cli.management import main
-
-    from utils.cleanup import cleanup_temp_resources, get_resource_manager
-    from utils.common_utils import (
-        CLIArgumentError,
-        ConfigLoadError,
-        DependencyError,
-        init_cli_logging,
-    )
+from utils.cleanup import cleanup_temp_resources, get_resource_manager
+from utils.common_utils import (
+    CLIArgumentError,
+    ConfigLoadError,
+    DependencyError,
+    init_cli_logging,
+)
 
 # Initialize logging first
 init_cli_logging()

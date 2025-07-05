@@ -6,17 +6,11 @@ with Phase 2 index lifecycle management for intelligent document operations.
 """
 
 import asyncio
-
-# Add parent directory to path for imports
-import sys
+import builtins
+import contextlib
 import time
 from pathlib import Path
 from typing import Any
-
-sys.path.append(str(Path(__file__).parent.parent))
-
-import builtins
-import contextlib
 
 from core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
 from core.fingerprint import FingerprintManager
@@ -418,7 +412,7 @@ class EnhancedPipeline:
 
         if doc_type.name == "WORD_DOCUMENT":
             # Parse Word document
-            from core.parsers import parse_word_document
+            from src.pipeline_v3.core.parsers import parse_word_document
 
             markdown, pairs, metadata = await parse_word_document(source_path, self.config)
 
@@ -431,7 +425,7 @@ class EnhancedPipeline:
 
         if doc_type.name == "POWERPOINT_PRESENTATION":
             # Parse PowerPoint presentation
-            from core.parsers import parse_powerpoint_document
+            from src.pipeline_v3.core.parsers import parse_powerpoint_document
 
             markdown, pairs, metadata = await parse_powerpoint_document(source_path, self.config)
 
@@ -558,7 +552,7 @@ class EnhancedPipeline:
             # Add document to indexes - use keyword enhancement if enabled
             if with_keywords:
                 # Import chunking_metadata here to avoid circular imports
-                from utils.chunking_metadata import process_and_index_document
+                from src.pipeline_v3.utils.chunking_metadata import process_and_index_document
 
                 # Extract pairs from metadata for enhanced processing
                 pairs = metadata.get("pairs", []) if metadata else []

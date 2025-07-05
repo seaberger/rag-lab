@@ -9,8 +9,10 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
-  UV_VERSION: "0.4.18"
+  UV_VERSION: "0.5.13"
   MIN_COVERAGE: 10
+  QDRANT_HOST: "localhost"
+  QDRANT_PORT: "6333"
 
 permissions:
   contents: read
@@ -30,10 +32,11 @@ jobs:
           - 6333:6333
           - 6334:6334
         options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --memory=2g
+        env:
+          QDRANT__LOG_LEVEL: INFO
+        volumes:
+          - /tmp/qdrant_storage:/qdrant/storage
 
     steps:
     - uses: actions/checkout@v4
@@ -49,15 +52,122 @@ jobs:
     - name: Set up Python
       run: uv python install ${{ env.PYTHON_VERSION }}
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y poppler-utils
+
     - name: Install dependencies
       run: |
         uv sync --all-extras --dev
         uv pip install pytest-cov pytest-html pytest-json-report pytest-asyncio pytest-timeout
+        # Set PYTHONPATH for relative imports
+        echo "PYTHONPATH=${{ github.workspace }}/src/pipeline_v3" >> $GITHUB_ENV
+
+    - name: Wait for Qdrant service
+      run: |
+        echo "🔄 Waiting for Qdrant service to be ready..."
+
+        # Phase 1: Wait for container to start (basic connectivity)
+        echo "Phase 1: Checking container startup..."
+        for i in {1..15}; do
+          if nc -z localhost 6333 2>/dev/null; then
+            echo "✅ Qdrant port 6333 is responding"
+            break
+          fi
+          echo "⏳ Attempt $i: Port not ready, waiting 2 seconds..."
+          sleep 2
+        done
+
+        # Phase 2: Wait for REST API to be available
+        echo "Phase 2: Checking REST API availability..."
+        for i in {1..20}; do
+          # Try multiple endpoints - Qdrant exposes /healthz, /livez, /readyz
+          if curl -f -s http://localhost:6333/ >/dev/null 2>&1; then
+            echo "✅ Qdrant REST API is responding"
+            break
+          elif curl -f -s http://localhost:6333/healthz >/dev/null 2>&1; then
+            echo "✅ Qdrant health endpoint is responding"
+            break
+          elif curl -f -s http://localhost:6333/readyz >/dev/null 2>&1; then
+            echo "✅ Qdrant readiness endpoint is responding"
+            break
+          fi
+          echo "⏳ Attempt $i: REST API not ready, waiting 3 seconds..."
+          sleep 3
+        done
+
+        # Phase 3: Verify collections endpoint (full functionality)
+        echo "Phase 3: Verifying full Qdrant functionality..."
+        for i in {1..10}; do
+          if curl -f -s http://localhost:6333/collections >/dev/null 2>&1; then
+            echo "✅ Qdrant collections endpoint is responding"
+            echo "🎉 Qdrant is fully ready!"
+            exit 0
+          fi
+          echo "⏳ Attempt $i: Collections endpoint not ready, waiting 3 seconds..."
+          sleep 3
+        done
+
+        # If we get here, provide diagnostics but don't fail (quick CI should be more permissive)
+        echo "⚠️ Qdrant may not be fully ready, but proceeding with tests"
+        echo "Basic connectivity test:"
+        nc -z localhost 6333 && echo "Port 6333: ✅ Open" || echo "Port 6333: ❌ Closed"
+        curl -s -w "HTTP Status: %{http_code}\\n" http://localhost:6333/ || echo "Connection failed"
+
+    - name: Verify Qdrant service health
+      run: |
+        echo "🔍 Final Qdrant service verification..."
+
+        # Check container status
+        echo "Container status:"
+        docker ps --filter "ancestor=qdrant/qdrant:latest" --format "table {{.ID}}\\t{{.Status}}\\t{{.Ports}}" || echo "No Qdrant containers found"
+
+        # Test multiple endpoints
+        echo "Testing Qdrant endpoints:"
+
+        # Test main endpoint
+        if curl -f -s http://localhost:6333/ >/dev/null 2>&1; then
+          echo "✅ Main endpoint (/) responding"
+        else
+          echo "❌ Main endpoint (/) not responding"
+        fi
+
+        # Test health endpoints
+        for endpoint in healthz livez readyz collections; do
+          if curl -f -s http://localhost:6333/$endpoint >/dev/null 2>&1; then
+            echo "✅ /$endpoint endpoint responding"
+          else
+            echo "❌ /$endpoint endpoint not responding"
+          fi
+        done
+
+        # Show a sample response
+        echo "Sample response from main endpoint:"
+        curl -s http://localhost:6333/ | head -3 || echo "No response available"
+
+        echo "🎯 Verification complete - proceeding with tests"
+
+    - name: Create test environment
+      run: |
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+        echo "QDRANT_HOST=localhost" >> .env
+        echo "QDRANT_PORT=6333" >> .env
+        mkdir -p test_data
+        mkdir -p test-results
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     - name: Run tests with coverage
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        QDRANT_HOST: localhost
+        QDRANT_PORT: 6333
+        SKIP_QDRANT_TESTS: ${{ env.QDRANT_AVAILABLE == 'false' && 'true' || 'false' }}
       run: |
+
+        # Run tests with proper error handling
+        set +e  # Don't exit on test failures
         uv run pytest \
           --cov=src/pipeline_v3 \
           --cov-report=xml \
@@ -71,7 +181,25 @@ jobs:
           -k "not test_cli_regression" \
           --maxfail=5 \
           --timeout=300 \
+          --ignore=src/pipeline_v3/tests/archive \
           src/pipeline_v3/tests/
+
+        TEST_EXIT_CODE=$?
+
+        # Ensure test-results.json exists even if tests fail
+        if [ ! -f "test-results.json" ]; then
+          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "skipped": 0}, "tests": []}' > test-results.json
+          echo "Created fallback test-results.json due to test execution failure"
+        fi
+
+        # Ensure coverage.xml exists
+        if [ ! -f "coverage.xml" ]; then
+          echo '<?xml version="1.0" encoding="UTF-8"?><coverage></coverage>' > coverage.xml
+          echo "Created fallback coverage.xml"
+        fi
+
+        # Exit with original test result
+        exit $TEST_EXIT_CODE
 
     - name: Upload test results
       if: always()
@@ -323,7 +451,10 @@ jobs:
       run: uv python install ${{ env.PYTHON_VERSION }}
 
     - name: Install dependencies
-      run: uv sync --all-extras --dev
+      run: |
+        uv sync --all-extras --dev
+        # Set PYTHONPATH for relative imports
+        echo "PYTHONPATH=${{ github.workspace }}/src/pipeline_v3" >> $GITHUB_ENV
 
     - name: Verify CLI works
       run: |

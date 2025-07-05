@@ -4,14 +4,10 @@ Unit tests for Index Manager component.
 Tests cover index management, CRUD operations, and search functionality.
 """
 
-import sys
 import uuid
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.index_manager import IndexManager
 from core.registry import DocumentState, IndexType
@@ -33,6 +29,10 @@ class TestIndexManager:
                     # Mock the vector store methods
                     manager.vector_store = Mock()
                     manager.keyword_index = Mock()
+                    # Mock keyword connection
+                    manager.keyword_conn = Mock()
+                    manager.keyword_conn.execute = Mock()
+                    manager.keyword_conn.commit = Mock()
                     return manager
 
     def test_initialization(self, test_config):
@@ -54,12 +54,7 @@ class TestIndexManager:
             patch("core.index_manager.StorageContext"),
             patch.object(index_manager.registry, "register_index_entry"),
             patch.object(index_manager.registry, "register_document"),
-            patch.object(index_manager, "keyword_conn") as mock_keyword_conn,
         ):
-
-            # Mock keyword database connection
-            mock_keyword_conn.execute = Mock()
-            mock_keyword_conn.commit = Mock()
 
             # Index the document
             result = index_manager.add_document(
@@ -71,8 +66,8 @@ class TestIndexManager:
 
             assert result
             # Verify keyword indexing was called
-            mock_keyword_conn.execute.assert_called()
-            mock_keyword_conn.commit.assert_called_once()
+            index_manager.keyword_conn.execute.assert_called()
+            index_manager.keyword_conn.commit.assert_called_once()
 
     def test_search_hybrid(self, index_manager):
         """Test hybrid search functionality."""
