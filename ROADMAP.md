@@ -2,8 +2,8 @@
 
 This document provides the current development priorities and active issues for the RAG Lab project. It serves as the single source of truth for development planning.
 
-**Last Updated:** July 4, 2025
-**Active GitHub Issues:** 16 open
+**Last Updated:** July 5, 2025
+**Active GitHub Issues:** 15 open
 **Critical Architecture Gaps:** 9 (see [ISSUES.md](ISSUES.md))
 
 ## 🚨 Immediate Priorities (Security & Stability)
@@ -13,12 +13,13 @@ Must be addressed before any production deployment:
 - **[Issue #61](https://github.com/seaberger/rag-lab/issues/61)**: Security Audit & Fixes: SQL Injection, Path Traversal, and SSRF Protection
 - **[Issue #62](https://github.com/seaberger/rag-lab/issues/62)**: Input Validation Framework and Secrets Management
 
-### Infrastructure Issues (HIGH)
-Blocking automated CI/CD validation:
-- **[Issue #75](https://github.com/seaberger/rag-lab/issues/75)**: CI/CD Pipeline Failures on GitHub Actions
-  - Qdrant container health check failures in GitHub Actions environment
-  - Missing OpenAI API key configuration in remote testing
-  - Local testing works perfectly (359 tests pass), remote infrastructure needs fixes
+### ~~Infrastructure Issues (HIGH)~~ ✅ **COMPLETED**
+~~Blocking automated CI/CD validation:~~
+- ~~**[Issue #75](https://github.com/seaberger/rag-lab/issues/75)**: CI/CD Pipeline Failures on GitHub Actions~~ ✅ **COMPLETED (July 5, 2025)**
+  - ~~Qdrant container health check failures in GitHub Actions environment~~
+  - ~~Missing OpenAI API key configuration in remote testing~~
+  - ~~Local testing works perfectly (359 tests pass), remote infrastructure needs fixes~~
+  - **Resolution:** Fixed environment variable pollution in tests where test cleanup was overriding real API keys
 
 ### ~~Infrastructure & Scalability (HIGH)~~ ✅ **COMPLETED**
 ~~Critical for production deployment and concurrent usage:~~
@@ -98,6 +99,11 @@ Improve how documents are parsed and chunked:
   - Pre-commit hooks for code quality
   - Test isolation and resource cleanup
 - **[Issue #72](https://github.com/seaberger/rag-lab/issues/72)**: Fix failing quick CI/CD workflow ✅ (July 3)
+- **[Issue #75](https://github.com/seaberger/rag-lab/issues/75)**: CI/CD Pipeline Failures on GitHub Actions ✅ (July 5)
+  - Fixed environment variable pollution in test cleanup
+  - Added missing pytest-asyncio decorators for async tests
+  - Removed debugging artifacts from CI workflows
+  - Both CI workflows now pass consistently on main branch
 
 ### Infrastructure & Reliability (December 2024)
 - **[Issue #27](https://github.com/seaberger/rag-lab/issues/27)**: Cross-System Consistency Guarantees ✅
@@ -131,7 +137,6 @@ Improve how documents are parsed and chunked:
 
 ### What Needs Work 🔧
 - **Security vulnerabilities** (SQL injection, path traversal, SSRF)
-- **CI/CD infrastructure** (GitHub Actions container issues)
 - **Search filtering** could be more powerful
 - **Chunking strategies** are basic
 - **Type checking** (247 mypy errors need cleanup)
@@ -147,12 +152,11 @@ Improve how documents are parsed and chunked:
 For developers looking to contribute:
 
 1. **Security First**: Review and help fix security vulnerabilities (#61, #62)
-2. **Fix CI/CD**: Resolve GitHub Actions infrastructure issues (#75)
-3. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
-4. **Type Safety**: Help fix mypy errors (247 issues)
-5. **Document Processing**: Improve chunking strategies (#14, #15)
-6. Check [CLAUDE.md](CLAUDE.md) for project setup
-7. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
+2. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
+3. **Type Safety**: Help fix mypy errors (247 issues)
+4. **Document Processing**: Improve chunking strategies (#14, #15)
+5. Check [CLAUDE.md](CLAUDE.md) for project setup
+6. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
 
 ### Development Workflow
 - Pre-commit hooks run automatically on commit
