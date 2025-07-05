@@ -44,6 +44,7 @@ except ImportError:
     from storage.keyword_index import BM25Index
 
     from utils.chunking_metadata import process_and_index_document
+    from utils.cleanup import get_resource_manager
     from utils.common_utils import logger
     from utils.config import PipelineConfig
     from utils.monitoring import ProgressMonitor
@@ -63,13 +64,53 @@ async def fetch_document(source: str | Path) -> tuple[Path, str, bytes]:
 
     import aiohttp
 
+    from utils.security import SecurityError, URLSecurityValidator
+
     # Handle URL sources
     if isinstance(source, str) and (source.startswith(("http://", "https://"))):
+        # Validate URL for security
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(source) as response:
+            validated_url = URLSecurityValidator.validate_url(
+                source, allow_localhost=False, allow_private_ips=False
+            )
+        except SecurityError as e:
+            logger.error(f"URL security validation failed: {e}")
+            raise ValueError(f"URL validation failed: {e}")
+
+        try:
+            # Configure client with security settings
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            connector = aiohttp.TCPConnector(limit=10, limit_per_host=2)
+
+            async with aiohttp.ClientSession(
+                timeout=timeout, connector=connector, headers={"User-Agent": "RAGLab/1.0"}
+            ) as session:
+                # Add size limit and redirect limit
+                async with session.get(
+                    validated_url, max_redirects=3, allow_redirects=True
+                ) as response:
                     response.raise_for_status()
-                    raw_bytes = await response.read()
+
+                    # Check content length to prevent DoS
+                    content_length = response.headers.get("Content-Length")
+                    max_size = 100 * 1024 * 1024  # 100MB max
+
+                    if content_length and int(content_length) > max_size:
+                        raise ValueError(
+                            f"File too large: {content_length} bytes (max: {max_size})"
+                        )
+
+                    # Read with size limit
+                    raw_bytes = b""
+                    async for chunk in response.content.iter_chunked(8192):
+                        raw_bytes += chunk
+                        if len(raw_bytes) > max_size:
+                            raise ValueError(
+                                f"File too large during download (max: {max_size} bytes)"
+                            )
+
+                    if not raw_bytes:
+                        raise ValueError("Empty file downloaded")
 
                     # Create doc_id from URL
                     doc_id = hashlib.sha256(source.encode()).hexdigest()[:16]

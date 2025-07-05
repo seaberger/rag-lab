@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from utils.security import PathSecurityValidator, SecurityError
+
 
 class ValidationError(Exception):
     """Raised when input validation fails."""
@@ -17,27 +19,59 @@ class InputValidator:
 
     @staticmethod
     def validate_file_path(path: str, must_exist: bool = True) -> Path:
-        """Validate file path input."""
+        """Validate file path input with security checks."""
+        # First expand and resolve the path
         file_path = Path(path).expanduser().resolve()
 
-        if must_exist and not file_path.exists():
-            raise ValidationError(f"File does not exist: {path}")
+        # For non-existent paths, check the parent directory
+        if not file_path.exists():
+            if must_exist:
+                raise ValidationError(f"File does not exist: {path}")
+            # For new files, check if parent directory is allowed
+            parent = file_path.parent
+            if parent.exists():
+                try:
+                    PathSecurityValidator.validate_path(parent)
+                except SecurityError as e:
+                    raise ValidationError(f"Security validation failed: {e}")
+        else:
+            # For existing paths, validate normally
+            try:
+                file_path = PathSecurityValidator.validate_path(path)
+            except SecurityError as e:
+                raise ValidationError(f"Security validation failed: {e}")
 
-        if must_exist and not file_path.is_file():
-            raise ValidationError(f"Path is not a file: {path}")
+            if must_exist and not file_path.is_file():
+                raise ValidationError(f"Path is not a file: {path}")
 
         return file_path
 
     @staticmethod
     def validate_directory_path(path: str, must_exist: bool = True) -> Path:
-        """Validate directory path input."""
+        """Validate directory path input with security checks."""
+        # First expand and resolve the path
         dir_path = Path(path).expanduser().resolve()
 
-        if must_exist and not dir_path.exists():
-            raise ValidationError(f"Directory does not exist: {path}")
+        # For non-existent paths, check the parent directory
+        if not dir_path.exists():
+            if must_exist:
+                raise ValidationError(f"Directory does not exist: {path}")
+            # For new directories, check if parent directory is allowed
+            parent = dir_path.parent
+            if parent.exists():
+                try:
+                    PathSecurityValidator.validate_path(parent)
+                except SecurityError as e:
+                    raise ValidationError(f"Security validation failed: {e}")
+        else:
+            # For existing paths, validate normally
+            try:
+                dir_path = PathSecurityValidator.validate_path(path)
+            except SecurityError as e:
+                raise ValidationError(f"Security validation failed: {e}")
 
-        if must_exist and not dir_path.is_dir():
-            raise ValidationError(f"Path is not a directory: {path}")
+            if must_exist and not dir_path.is_dir():
+                raise ValidationError(f"Path is not a directory: {path}")
 
         return dir_path
 
@@ -127,19 +161,25 @@ class InputValidator:
 
     @staticmethod
     def validate_file_patterns(patterns: list[str]) -> list[str]:
-        """Validate file glob patterns."""
+        """Validate file glob patterns with enhanced security checks."""
         validated_patterns = []
 
+        # Get allowed base directories (current working directory and data directories)
+        allowed_dirs = [
+            Path.cwd(),
+            Path.cwd() / "data",
+            Path.cwd() / "storage_data_v3",
+        ]
+
         for pattern in patterns:
-            # Basic validation - ensure no path traversal
-            if ".." in pattern:
-                raise ValidationError(f"Path traversal not allowed in pattern: {pattern}")
-
-            # Ensure pattern is reasonable
-            if len(pattern) > 100:
-                raise ValidationError(f"Pattern too long (max 100 chars): {pattern}")
-
-            validated_patterns.append(pattern)
+            try:
+                # Use security validator for comprehensive checks
+                validated_pattern = PathSecurityValidator.validate_glob_pattern(
+                    pattern, allowed_dirs
+                )
+                validated_patterns.append(validated_pattern)
+            except SecurityError as e:
+                raise ValidationError(f"Security validation failed: {e}")
 
         return validated_patterns
 

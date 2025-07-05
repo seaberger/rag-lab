@@ -152,7 +152,8 @@ class OpenAIClientFactory:
 
         if api_key:
             info["api_key_found"] = True
-            info["key_prefix"] = api_key[:7] + "..." if len(api_key) > 7 else "short_key"
+            # Only show first 3-4 characters for better security
+            info["key_prefix"] = api_key[:3] + "..." if len(api_key) > 3 else "***"
             info["key_length"] = len(api_key)
 
         return info
