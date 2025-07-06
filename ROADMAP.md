@@ -61,6 +61,7 @@ Improve how documents are parsed and chunked:
   - Enable row-level security and tenant isolation
   - Support complex metadata filtering with JSONB
   - **Priority:** CRITICAL | **Effort:** Large (2-3 weeks)
+  - **📋 Detailed Implementation Plan:** [POSTGRESQL_MIGRATION_PLAN.md](src/pipeline_v3/docs/POSTGRESQL_MIGRATION_PLAN.md)
 
 ### 🔐 Security & Authentication (HIGH PRIORITY)
 - **[Issue #78](https://github.com/seaberger/rag-lab/issues/78)**: API Key & Authentication System for Multi-Tenant Access

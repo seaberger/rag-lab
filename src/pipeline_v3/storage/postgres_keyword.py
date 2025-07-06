@@ -1,0 +1,472 @@
+"""
+PostgreSQL implementation of keyword search with full-text search.
+
+This module provides PostgreSQL-backed full-text search that replaces
+SQLite FTS5 with PostgreSQL's native tsvector/tsquery functionality.
+"""
+
+import re
+import uuid
+from typing import Any, Dict, List
+
+from llama_index.core.schema import TextNode
+
+from ..core.postgres_base import PostgreSQLBase
+from ..utils.common_utils import logger
+from ..utils.config import PipelineConfig
+
+
+class PostgreSQLKeywordIndex:
+    """PostgreSQL full-text search index with BM25-like ranking."""
+
+    def __init__(self, config: PipelineConfig = None, tenant_id: str | None = None):
+        """
+        Initialize PostgreSQL keyword index.
+
+        Args:
+            config: Pipeline configuration
+            tenant_id: Tenant ID for multi-tenant isolation
+        """
+        self.config = config or PipelineConfig()
+
+        # Get database settings
+        if not hasattr(self.config, "database") or self.config.database.backend != "postgresql":
+            raise ValueError("PostgreSQL backend not configured")
+
+        self.db_settings = self.config.database
+        self.pg_settings = self.db_settings.postgresql
+
+        # Set tenant ID
+        self.tenant_id = tenant_id or self.pg_settings.default_tenant_id
+
+        # Initialize PostgreSQL base
+        self.db = PostgreSQLBase(
+            self.pg_settings,
+            self.pg_settings.search_schema,
+            log_queries=self.db_settings.log_queries,
+        )
+
+        # Initialize connection pool
+        self.db.initialize()
+
+        logger.info(f"PostgreSQLKeywordIndex initialized for tenant: {self.tenant_id}")
+
+    def index_nodes(
+        self,
+        nodes: List[TextNode],
+        doc_id: str,
+        source: str,
+        pairs: List[tuple[str, str]],
+    ):
+        """Index nodes for full-text search."""
+        # Insert or update document metadata
+        metadata_query = """
+            INSERT INTO doc_metadata (doc_id, tenant_id, source, metadata, chunk_count)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (tenant_id, source)
+            DO UPDATE SET
+                doc_id = EXCLUDED.doc_id,
+                metadata = EXCLUDED.metadata,
+                chunk_count = EXCLUDED.chunk_count
+        """
+
+        # Store pairs in metadata JSON
+        metadata = {"pairs": pairs}
+
+        self.db.execute(
+            metadata_query,
+            (
+                uuid.UUID(doc_id),
+                uuid.UUID(self.tenant_id),
+                source,
+                self.db.json_to_jsonb(metadata),
+                len(nodes),
+            ),
+        )
+
+        # Delete existing chunks for this document
+        delete_query = """
+            DELETE FROM documents
+            WHERE doc_id = %s AND tenant_id = %s
+        """
+        self.db.execute(delete_query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+
+        # Index each chunk
+        for node in nodes:
+            # Extract keywords if present
+            keywords = ""
+            if "Context:" in node.text:
+                # Extract keyword line
+                parts = node.text.split("Context:", 1)
+                if len(parts) > 1:
+                    keywords = parts[1].strip().split("\n")[0]
+
+            # Clean text for indexing
+            clean_text = self._clean_text(node.text)
+
+            # Insert chunk
+            chunk_query = """
+                INSERT INTO documents (
+                    doc_id, chunk_id, tenant_id, text, keywords, metadata
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s
+                )
+            """
+
+            self.db.execute(
+                chunk_query,
+                (
+                    uuid.UUID(doc_id),
+                    node.id_,
+                    uuid.UUID(self.tenant_id),
+                    clean_text,
+                    keywords,
+                    self.db.json_to_jsonb(node.metadata),
+                ),
+            )
+
+        logger.info(f"Indexed {len(nodes)} chunks for document: {doc_id[:8]}")
+
+    def _clean_text(self, text: str) -> str:
+        """Clean text for better indexing."""
+        # Remove markdown formatting
+        text = re.sub(r"[#*`\[\]()]", " ", text)
+        # Normalize whitespace
+        return " ".join(text.split())
+
+    def _escape_search_query(self, query: str) -> str:
+        """Escape PostgreSQL full-text search special characters."""
+        if not query or not query.strip():
+            return ""
+
+        # Remove quotes to prevent injection
+        query = query.replace('"', " ").replace("'", " ")
+
+        # Remove PostgreSQL operators
+        query = re.sub(r"[(){}[\]<>|&:!]", " ", query)
+
+        # Remove SQL comments
+        query = re.sub(r"[-]{2,}.*$", " ", query)
+        query = re.sub(r"/\*.*?\*/", " ", query, flags=re.DOTALL)
+
+        # Remove SQL keywords
+        sql_keywords = [
+            "DROP",
+            "DELETE",
+            "INSERT",
+            "UPDATE",
+            "CREATE",
+            "ALTER",
+            "UNION",
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "TABLE",
+            "DATABASE",
+            "SCHEMA",
+            "GRANT",
+            "REVOKE",
+            "EXECUTE",
+        ]
+        for keyword in sql_keywords:
+            query = re.sub(rf"\b{keyword}\b", " ", query, flags=re.IGNORECASE)
+
+        # Clean up whitespace
+        query = " ".join(query.split())
+
+        # Return safe default if empty
+        if not query.strip():
+            return "placeholder"
+
+        return query
+
+    def search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Full-text search using PostgreSQL tsquery.
+
+        Args:
+            query: Search query
+            limit: Maximum results to return
+
+        Returns:
+            List of search results with scores
+        """
+        # Escape and prepare query
+        clean_query = self._escape_search_query(query)
+
+        # Use phrase search for better results
+        search_query = """
+            SELECT
+                doc_id,
+                chunk_id,
+                text,
+                keywords,
+                metadata,
+                ts_rank(search_vector, query) AS score
+            FROM
+                documents,
+                plainto_tsquery('english', %s) query
+            WHERE
+                tenant_id = %s AND
+                search_vector @@ query
+            ORDER BY score DESC
+            LIMIT %s
+        """
+
+        try:
+            rows = self.db.fetch_all(search_query, (clean_query, uuid.UUID(self.tenant_id), limit))
+
+            return [
+                {
+                    "doc_id": str(row["doc_id"]),
+                    "chunk_id": row["chunk_id"],
+                    "text": row["text"],
+                    "keywords": row["keywords"],
+                    "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
+                    "score": float(row["score"]),
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            logger.error(f"Search failed for query '{query}': {e}")
+            return []
+
+    def search_with_filters(
+        self, query: str, filters: Dict[str, Any], limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Search with metadata filters using JSONB queries.
+
+        Args:
+            query: Search query
+            filters: Metadata filters
+            limit: Maximum results
+
+        Returns:
+            Filtered search results
+        """
+        clean_query = self._escape_search_query(query)
+
+        # Build filter conditions
+        conditions = ["tenant_id = %s", "search_vector @@ query"]
+        params = [uuid.UUID(self.tenant_id)]
+
+        # Add JSONB filters
+        for key, value in filters.items():
+            if isinstance(value, list | tuple):
+                # Array contains
+                conditions.append("metadata @> %s")
+                params.append(self.db.json_to_jsonb({key: value}))
+            else:
+                # Exact match
+                conditions.append("metadata @> %s")
+                params.append(self.db.json_to_jsonb({key: value}))
+
+        # Build query
+        search_query = f"""
+            SELECT
+                doc_id,
+                chunk_id,
+                text,
+                keywords,
+                metadata,
+                ts_rank(search_vector, query) AS score
+            FROM
+                documents,
+                plainto_tsquery('english', %s) query
+            WHERE
+                {" AND ".join(conditions)}
+            ORDER BY score DESC
+            LIMIT %s
+        """
+
+        # Add query text and limit to params
+        params.insert(1, clean_query)  # Insert after tenant_id
+        params.append(limit)
+
+        try:
+            rows = self.db.fetch_all(search_query, tuple(params))
+
+            return [
+                {
+                    "doc_id": str(row["doc_id"]),
+                    "chunk_id": row["chunk_id"],
+                    "text": row["text"],
+                    "keywords": row["keywords"],
+                    "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
+                    "score": float(row["score"]),
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            logger.error(f"Filtered search failed: {e}")
+            return []
+
+    def search_by_part_number(self, part_number: str) -> List[Dict[str, Any]]:
+        """Search specifically by part number in metadata."""
+        # Use JSONB search for pairs
+        query = """
+            SELECT DISTINCT
+                dm.doc_id,
+                dm.source,
+                dm.metadata
+            FROM doc_metadata dm
+            WHERE
+                dm.tenant_id = %s AND
+                dm.metadata @> %s
+        """
+
+        # Search for part number in pairs array
+        search_filter = {"pairs": [[part_number]]}  # Nested array structure
+
+        rows = self.db.fetch_all(
+            query, (uuid.UUID(self.tenant_id), self.db.json_to_jsonb(search_filter))
+        )
+
+        results = []
+        for row in rows:
+            metadata = self.db.jsonb_to_dict(row["metadata"]) or {}
+            results.append(
+                {
+                    "doc_id": str(row["doc_id"]),
+                    "source": row["source"],
+                    "pairs": metadata.get("pairs", []),
+                }
+            )
+
+        return results
+
+    def fuzzy_search(
+        self, query: str, similarity: float = 0.3, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Fuzzy search using PostgreSQL trigram similarity.
+
+        Args:
+            query: Search query
+            similarity: Minimum similarity threshold (0-1)
+            limit: Maximum results
+
+        Returns:
+            Fuzzy search results
+        """
+        clean_query = self._escape_search_query(query)
+
+        # Use trigram similarity for fuzzy matching
+        fuzzy_query = """
+            SELECT
+                doc_id,
+                chunk_id,
+                text,
+                keywords,
+                metadata,
+                similarity(text, %s) AS score
+            FROM documents
+            WHERE
+                tenant_id = %s AND
+                text %% %s AND
+                similarity(text, %s) > %s
+            ORDER BY score DESC
+            LIMIT %s
+        """
+
+        try:
+            rows = self.db.fetch_all(
+                fuzzy_query,
+                (
+                    clean_query,
+                    uuid.UUID(self.tenant_id),
+                    clean_query,
+                    clean_query,
+                    similarity,
+                    limit,
+                ),
+            )
+
+            return [
+                {
+                    "doc_id": str(row["doc_id"]),
+                    "chunk_id": row["chunk_id"],
+                    "text": row["text"],
+                    "keywords": row["keywords"],
+                    "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
+                    "score": float(row["score"]),
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            logger.error(f"Fuzzy search failed: {e}")
+            return []
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get index statistics."""
+        stats_query = """
+            SELECT
+                COUNT(DISTINCT doc_id) as total_documents,
+                COUNT(*) as total_chunks,
+                COUNT(CASE WHEN keywords != '' THEN 1 END) as chunks_with_keywords,
+                pg_size_pretty(pg_relation_size('search.documents')) as table_size,
+                pg_size_pretty(pg_relation_size('search.idx_search_vector')) as index_size
+            FROM documents
+            WHERE tenant_id = %s
+        """
+
+        stats = self.db.fetch_one(stats_query, (uuid.UUID(self.tenant_id),))
+
+        return {
+            "total_documents": stats["total_documents"] or 0,
+            "total_chunks": stats["total_chunks"] or 0,
+            "documents_with_keywords": stats["chunks_with_keywords"] or 0,
+            "table_size": stats["table_size"],
+            "index_size": stats["index_size"],
+            "tenant_id": self.tenant_id,
+        }
+
+    def delete_document(self, doc_id: str) -> int:
+        """Delete all chunks for a document."""
+        query = """
+            DELETE FROM documents
+            WHERE doc_id = %s AND tenant_id = %s
+        """
+
+        result = self.db.execute(query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+
+        # Also delete from metadata
+        meta_query = """
+            DELETE FROM doc_metadata
+            WHERE doc_id = %s AND tenant_id = %s
+        """
+        self.db.execute(meta_query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+
+        logger.info(f"Deleted {result} chunks for document: {doc_id[:8]}")
+        return result
+
+    def rebuild_search_vectors(self) -> int:
+        """Rebuild search vectors for all documents (maintenance operation)."""
+        # This would be triggered if we change the text search configuration
+        query = """
+            UPDATE documents
+            SET search_vector =
+                setweight(to_tsvector('english', COALESCE(keywords, '')), 'A') ||
+                setweight(to_tsvector('english', text), 'B')
+            WHERE tenant_id = %s
+        """
+
+        result = self.db.execute(query, (uuid.UUID(self.tenant_id),))
+        logger.info(f"Rebuilt search vectors for {result} documents")
+        return result
+
+    def close(self):
+        """Close database connection."""
+        self.db.close()
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
