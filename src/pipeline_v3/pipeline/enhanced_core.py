@@ -63,7 +63,16 @@ class EnhancedPipeline:
         # Initialize components that don't use DatabaseFactory (yet)
         self.document_queue = DocumentQueue(self.config)
         self.index_manager = index_manager or IndexManager(self.config, registry=self.registry)
-        self.change_detector = ChangeDetector(self.config, registry=self.registry)
+
+        # Pass fingerprint_manager from DatabaseFactory to ChangeDetector if available
+        fingerprint_manager = (
+            database_adapters.get("fingerprint_manager") if database_adapters else None
+        )
+        self.change_detector = ChangeDetector(
+            self.config,
+            registry=self.registry,
+            fingerprint_manager=fingerprint_manager if database_adapters else None,
+        )
 
         # Initialize cache for document parsing
         self.cache = CacheManager(config=self.config) if self.config.cache.enabled else None
