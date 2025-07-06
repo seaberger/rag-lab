@@ -22,13 +22,19 @@ from utils.config import PipelineConfig
 class PostgreSQLFingerprintManager:
     """PostgreSQL implementation of fingerprint store with multi-tenant support."""
 
-    def __init__(self, config: PipelineConfig | None = None, tenant_id: str | None = None):
+    def __init__(
+        self,
+        config: PipelineConfig | None = None,
+        tenant_id: str | None = None,
+        connection_manager=None,
+    ):
         """
         Initialize PostgreSQL fingerprint manager.
 
         Args:
             config: Pipeline configuration
             tenant_id: Tenant ID for multi-tenant isolation
+            connection_manager: Optional tenant connection manager for pooling
         """
         self.config = config or PipelineConfig()
 
@@ -46,15 +52,21 @@ class PostgreSQLFingerprintManager:
         self.retention_days = self.config.fingerprint.retention_days
         self.include_metadata = self.config.fingerprint.include_metadata
 
-        # Initialize PostgreSQL base
-        self.db = PostgreSQLBase(
-            self.pg_settings,
-            self.pg_settings.fingerprints_schema,
-            log_queries=self.db_settings.log_queries,
-        )
-
-        # Initialize connection pool
-        self.db.initialize()
+        # Initialize PostgreSQL base with connection manager
+        if connection_manager:
+            # Use shared connection pool from tenant manager
+            self.db = connection_manager.get_pool(
+                self.tenant_id, self.pg_settings.fingerprints_schema
+            )
+        else:
+            # Create dedicated connection pool
+            self.db = PostgreSQLBase(
+                self.pg_settings,
+                self.pg_settings.fingerprints_schema,
+                log_queries=self.db_settings.log_queries,
+            )
+            # Initialize connection pool
+            self.db.initialize()
 
         # Set tenant context for RLS
         self._set_tenant_context()

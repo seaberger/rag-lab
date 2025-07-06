@@ -5,7 +5,14 @@ This module provides a factory pattern to create database adapters based on
 configuration, supporting both SQLite and PostgreSQL backends.
 """
 
+import sys
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+
+# Add the pipeline_v3 root to Python path
+pipeline_root = Path(__file__).parent.parent
+if str(pipeline_root) not in sys.path:
+    sys.path.insert(0, str(pipeline_root))
 
 from utils.common_utils import logger
 from utils.config import PipelineConfig
@@ -149,6 +156,13 @@ class DatabaseFactory:
         self.tenant_id = tenant_id
         self.backend = self.config.database.backend
 
+        # Initialize connection manager for PostgreSQL
+        self._connection_manager = None
+        if self.backend == "postgresql":
+            from core.tenant_connection_manager import get_tenant_connection_manager
+
+            self._connection_manager = get_tenant_connection_manager(self.config)
+
         logger.info(f"DatabaseFactory initialized with backend: {self.backend}")
 
     def create_document_registry(self) -> DocumentRegistryProtocol:
@@ -156,7 +170,9 @@ class DatabaseFactory:
         if self.backend == "postgresql":
             from core.postgres_registry import PostgreSQLDocumentRegistry
 
-            registry = PostgreSQLDocumentRegistry(self.config, self.tenant_id)
+            registry = PostgreSQLDocumentRegistry(
+                self.config, self.tenant_id, connection_manager=self._connection_manager
+            )
             logger.info("Created PostgreSQL document registry")
             return registry
         else:
@@ -171,11 +187,13 @@ class DatabaseFactory:
         if self.backend == "postgresql":
             from storage.postgres_keyword import PostgreSQLKeywordIndex
 
-            index = PostgreSQLKeywordIndex(self.config, self.tenant_id)
+            index = PostgreSQLKeywordIndex(
+                self.config, self.tenant_id, connection_manager=self._connection_manager
+            )
             logger.info("Created PostgreSQL keyword index")
             return index
         else:
-            from core.keyword_index import KeywordIndex
+            from storage.keyword_index import KeywordIndex
 
             index = KeywordIndex(self.config)
             logger.info("Created SQLite keyword index")
@@ -186,7 +204,9 @@ class DatabaseFactory:
         if self.backend == "postgresql":
             from job_queue.postgres_jobs import PostgreSQLJobManager
 
-            manager = PostgreSQLJobManager(self.config, self.tenant_id)
+            manager = PostgreSQLJobManager(
+                self.config, self.tenant_id, connection_manager=self._connection_manager
+            )
             logger.info("Created PostgreSQL job manager")
             return manager
         else:
@@ -201,7 +221,9 @@ class DatabaseFactory:
         if self.backend == "postgresql":
             from core.postgres_fingerprint import PostgreSQLFingerprintManager
 
-            manager = PostgreSQLFingerprintManager(self.config, self.tenant_id)
+            manager = PostgreSQLFingerprintManager(
+                self.config, self.tenant_id, connection_manager=self._connection_manager
+            )
             logger.info("Created PostgreSQL fingerprint manager")
             return manager
         else:

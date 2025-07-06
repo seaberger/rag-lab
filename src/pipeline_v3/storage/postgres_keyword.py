@@ -19,13 +19,16 @@ from utils.config import PipelineConfig
 class PostgreSQLKeywordIndex:
     """PostgreSQL full-text search index with BM25-like ranking."""
 
-    def __init__(self, config: PipelineConfig = None, tenant_id: str | None = None):
+    def __init__(
+        self, config: PipelineConfig = None, tenant_id: str | None = None, connection_manager=None
+    ):
         """
         Initialize PostgreSQL keyword index.
 
         Args:
             config: Pipeline configuration
             tenant_id: Tenant ID for multi-tenant isolation
+            connection_manager: Optional tenant connection manager for pooling
         """
         self.config = config or PipelineConfig()
 
@@ -39,15 +42,19 @@ class PostgreSQLKeywordIndex:
         # Set tenant ID
         self.tenant_id = tenant_id or self.pg_settings.default_tenant_id
 
-        # Initialize PostgreSQL base
-        self.db = PostgreSQLBase(
-            self.pg_settings,
-            self.pg_settings.search_schema,
-            log_queries=self.db_settings.log_queries,
-        )
-
-        # Initialize connection pool
-        self.db.initialize()
+        # Initialize PostgreSQL base with connection manager
+        if connection_manager:
+            # Use shared connection pool from tenant manager
+            self.db = connection_manager.get_pool(self.tenant_id, self.pg_settings.search_schema)
+        else:
+            # Create dedicated connection pool
+            self.db = PostgreSQLBase(
+                self.pg_settings,
+                self.pg_settings.search_schema,
+                log_queries=self.db_settings.log_queries,
+            )
+            # Initialize connection pool
+            self.db.initialize()
 
         # Set tenant context for RLS
         self._set_tenant_context()

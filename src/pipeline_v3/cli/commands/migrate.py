@@ -5,6 +5,7 @@ Provides commands to migrate data between different backends.
 """
 
 import asyncio
+import sys
 from pathlib import Path
 
 import typer
@@ -12,6 +13,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+
+# Add the pipeline_v3 root to Python path
+pipeline_root = Path(__file__).parent.parent.parent
+if str(pipeline_root) not in sys.path:
+    sys.path.insert(0, str(pipeline_root))
+
 from tools.sqlite_to_postgres import SQLiteToPostgresMigrator
 
 from utils.config import PipelineConfig
