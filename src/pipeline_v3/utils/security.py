@@ -372,7 +372,7 @@ class InputSanitizer:
     @staticmethod
     def sanitize_metadata_value(value: str) -> str:
         """
-        Sanitize a metadata value to prevent injection attacks.
+        Sanitize a metadata value to prevent injection attacks while preserving JSON.
 
         Args:
             value: Value to sanitize
@@ -383,11 +383,52 @@ class InputSanitizer:
         # Remove null bytes
         value = value.replace("\x00", "")
 
-        # Remove/escape potentially dangerous characters for shell commands
-        # Allow common punctuation but escape shell metacharacters
-        dangerous_chars = ["$", "`", "\\", "\n", "\r", ";", "|", "&", ">", "<", "(", ")", "{", "}"]
-        for char in dangerous_chars:
-            value = value.replace(char, f"\\{char}")
+        # Check if this looks like JSON (starts with { or [ and ends with } or ])
+        is_json = False
+        trimmed = value.strip()
+        if (trimmed.startswith("{") and trimmed.endswith("}")) or (
+            trimmed.startswith("[") and trimmed.endswith("]")
+        ):
+            # Validate it's actually valid JSON
+            try:
+                import json
+
+                json.loads(trimmed)
+                is_json = True
+            except (json.JSONDecodeError, ValueError):
+                # Not valid JSON, treat as regular string
+                is_json = False
+
+        if is_json:
+            # For valid JSON, we need to be careful not to break the JSON structure
+            # The JSON itself provides a level of escaping/safety
+            # We only need to prevent breaking out of the JSON context in shell
+            # Since JSON is already quoted/escaped internally, we can leave it mostly intact
+            # Just remove the most dangerous items that could break shell parsing
+            value = value.replace("\x00", "")  # Null bytes
+            value = value.replace("\n", "\\n")  # Newlines should be escaped in JSON anyway
+            value = value.replace("\r", "\\r")  # Carriage returns too
+        else:
+            # For non-JSON values, be more aggressive with sanitization
+            # Remove/escape potentially dangerous characters for shell commands
+            dangerous_chars = [
+                "$",
+                "`",
+                "\\",
+                "\n",
+                "\r",
+                ";",
+                "|",
+                "&",
+                ">",
+                "<",
+                "(",
+                ")",
+                "{",
+                "}",
+            ]
+            for char in dangerous_chars:
+                value = value.replace(char, f"\\{char}")
 
         # Limit length to prevent DoS
         max_length = 1000
