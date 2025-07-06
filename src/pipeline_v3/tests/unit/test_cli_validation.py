@@ -192,12 +192,12 @@ class TestInputValidator:
 
     def test_validate_file_patterns_path_traversal(self):
         """Test file pattern validation with path traversal."""
-        with pytest.raises(ValidationError, match="Path traversal not allowed"):
+        with pytest.raises(ValidationError, match="Path traversal detected"):
             InputValidator.validate_file_patterns(["../secret.txt"])
 
     def test_validate_file_patterns_too_long(self):
         """Test file pattern validation with overly long pattern."""
-        long_pattern = "a" * 101
+        long_pattern = "a" * 256  # Security module uses 255 as max
         with pytest.raises(ValidationError, match="Pattern too long"):
             InputValidator.validate_file_patterns([long_pattern])
 

@@ -89,7 +89,8 @@ def ensure_openai_key() -> bool:
         logger.warning("⚠️ OPENAI_API_KEY doesn't start with 'sk-', may be invalid")
         return False
 
-    logger.info("✅ OpenAI API key found in environment")
+    # Don't log anything that could expose the key
+    logger.info("✅ OpenAI API key validation passed")
     return True
 
 
