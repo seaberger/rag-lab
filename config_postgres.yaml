@@ -1,0 +1,109 @@
+# PostgreSQL Configuration for Pipeline v3
+# This configuration uses PostgreSQL for all storage and Qdrant server for vectors
+
+database:
+  backend: postgresql
+  postgresql:
+    host: localhost
+    port: 5432
+    database: rag_lab
+    user: rag_user
+    password: ""  # Set via POSTGRES_PASSWORD environment variable
+    default_tenant_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"  # lmc-dev tenant UUID
+    pool_size: 10
+    max_overflow: 20
+
+qdrant:
+  mode: server
+  server:
+    host: localhost
+    port: 6333
+    grpc_port: 6334
+    api_key: null  # Set if using Qdrant Cloud
+    https: false
+    timeout: 30
+  collection_name: datasheets_v3
+  collections:
+    default: datasheets_v3
+    lmc-dev: datasheets_lmc_dev  # Tenant-specific collection
+
+# OpenAI settings (same as before)
+openai:
+  vision_model: gpt-4.1
+  keyword_model: gpt-4.1-mini
+  embedding_model: text-embedding-3-small
+  dimensions: 1536
+  max_retries: 3
+  timeout_per_page: 30
+  timeout_base: 60
+
+# Storage settings (artifacts still go to filesystem)
+storage:
+  # These paths are not used with PostgreSQL backend, but kept for compatibility
+  keyword_db_path: ./keyword_index_v3.db
+  document_registry_path: ./document_registry_v3.db
+  base_dir: ./storage_data_v3  # JSONL artifacts still go here
+
+# Job Queue settings
+job_queue:
+  max_concurrent: 10
+  job_persistence: true
+  job_storage_path: ./jobs_v3.db  # Not used with PostgreSQL
+  job_retention_days: 30
+  chunk_size: 100
+  default_priority: 0
+  resume_interrupted: true
+
+# Fingerprint settings
+fingerprint:
+  enabled: true
+  storage_path: ./fingerprints_v3.db  # Not used with PostgreSQL
+  retention_days: 90
+  include_metadata: true
+
+# Cache settings (same as before)
+cache:
+  enabled: true
+  type: redis  # Can use Redis for distributed caching
+  redis:
+    host: localhost
+    port: 6379
+    db: 0
+    prefix: "rag_lab:lmc-dev:"
+  ttl_seconds: 86400  # 24 hours
+  compression: lz4
+
+# PDF processing settings
+pdf:
+  dpi: 150
+  max_pages: 500
+  page_timeout: 60
+
+# Chunking settings
+chunking:
+  chunk_size: 1024
+  chunk_overlap: 128
+
+# Parser settings
+parser:
+  datasheet_prompt_path: datasheet_parsing_prompt.md
+  generic_prompt_path: generic_parsing_prompt.md
+
+# Logging settings
+logging:
+  level: INFO
+  file: pipeline_postgres.log
+
+# Monitoring settings
+monitoring:
+  progress_callback: true
+  save_report: true
+  report_file: processing_report.json
+
+# Index management settings
+index_management:
+  consistency_checks: true
+  auto_backup: false
+  backup_path: ./backups
+  backup_retention_days: 90
+  rebuild_on_corruption: true

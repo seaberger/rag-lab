@@ -10,11 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from core.postgres_base import PostgreSQLBase
-from core.registry import DocumentRecord, DocumentState, IndexRecord, IndexType
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from ..utils.common_utils import logger
+from ..utils.config import PipelineConfig
+from .postgres_base import PostgreSQLBase
+from .registry import DocumentRecord, DocumentState, IndexRecord, IndexType
 
 
 class PostgreSQLDocumentRegistry:
@@ -73,7 +72,7 @@ class PostgreSQLDocumentRegistry:
         try:
             self.db.execute(
                 "SELECT tenants.set_current_tenant(%s)",
-                (uuid.UUID(self.tenant_id),),
+                (self.tenant_id,),
             )
             logger.debug(f"Set tenant context to: {self.tenant_id}")
         except Exception as e:
@@ -147,7 +146,7 @@ class PostgreSQLDocumentRegistry:
                     chunk_count,
                     self.db.json_to_jsonb(metadata) if metadata else None,
                     existing.doc_id,
-                    uuid.UUID(self.tenant_id),
+                    self.tenant_id,
                 ),
             )
 
@@ -157,23 +156,27 @@ class PostgreSQLDocumentRegistry:
         query = """
             INSERT INTO documents (
                 doc_id, tenant_id, source, content_hash, size,
-                modified_time, state, metadata
+                modified_time, state, metadata,
+                vector_indexed, keyword_indexed, chunk_count
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
 
         self.db.execute(
             query,
             (
-                uuid.UUID(doc_id),
-                uuid.UUID(self.tenant_id),
+                doc_id,  # Already a string, no need to convert to UUID
+                self.tenant_id,
                 source_key,
                 content_hash,
                 size,
                 datetime.fromtimestamp(modified_time),
                 DocumentState.NEW.value,
                 self.db.json_to_jsonb(metadata) if metadata else None,
+                False,  # vector_indexed
+                False,  # keyword_indexed
+                0,  # chunk_count
             ),
         )
 
@@ -187,7 +190,7 @@ class PostgreSQLDocumentRegistry:
             WHERE doc_id = %s AND tenant_id = %s
         """
 
-        row = self.db.fetch_one(query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+        row = self.db.fetch_one(query, (doc_id, self.tenant_id))
 
         if row:
             return self._row_to_document(row)
@@ -202,7 +205,7 @@ class PostgreSQLDocumentRegistry:
             WHERE source = %s AND tenant_id = %s
         """
 
-        row = self.db.fetch_one(query, (source_key, uuid.UUID(self.tenant_id)))
+        row = self.db.fetch_one(query, (source_key, self.tenant_id))
 
         if row:
             return self._row_to_document(row)
@@ -210,21 +213,28 @@ class PostgreSQLDocumentRegistry:
 
     def _row_to_document(self, row: Dict[str, Any]) -> DocumentRecord:
         """Convert database row to DocumentRecord."""
+        # Handle schema differences between SQLite and PostgreSQL
+        # PostgreSQL has 'error_message' instead of 'error_count' and 'last_error'
+        error_count = 0
+        if row.get("error_message"):
+            # If there's an error message, assume at least one error
+            error_count = 1
+
         return DocumentRecord(
             doc_id=str(row["doc_id"]),
             source=row["source"],
             content_hash=row["content_hash"],
-            size=row["size"],
-            modified_time=row["modified_time"].timestamp(),
-            created_at=row["created_at"].timestamp(),
-            updated_at=row["updated_at"].timestamp(),
+            size=row["size"] or 0,
+            modified_time=row["modified_time"].timestamp() if row.get("modified_time") else 0,
+            created_at=row["created_at"].timestamp() if row.get("created_at") else 0,
+            updated_at=row["updated_at"].timestamp() if row.get("updated_at") else 0,
             state=row["state"],
-            vector_indexed=row["vector_indexed"],
-            keyword_indexed=row["keyword_indexed"],
-            chunk_count=row["chunk_count"],
-            error_count=row["error_count"],
-            last_error=row["last_error"],
-            metadata=self.db.jsonb_to_dict(row["metadata"]) or {},
+            vector_indexed=row.get("vector_indexed", False),
+            keyword_indexed=row.get("keyword_indexed", False),
+            chunk_count=row.get("chunk_count", 0),
+            error_count=error_count,
+            last_error=row.get("error_message"),
+            metadata=self.db.jsonb_to_dict(row.get("metadata")) or {},
         )
 
     def update_document_state(
@@ -234,15 +244,12 @@ class PostgreSQLDocumentRegistry:
         query = """
             UPDATE documents
             SET state = %s,
-                last_error = %s,
-                error_count = CASE WHEN %s IS NOT NULL THEN error_count + 1 ELSE error_count END,
+                error_message = %s,
                 updated_at = NOW()
             WHERE doc_id = %s AND tenant_id = %s
         """
 
-        result = self.db.execute(
-            query, (state.value, error_msg, error_msg, uuid.UUID(doc_id), uuid.UUID(self.tenant_id))
-        )
+        result = self.db.execute(query, (state.value, error_msg, doc_id, self.tenant_id))
 
         success = result > 0
         if success:
@@ -288,8 +295,8 @@ class PostgreSQLDocumentRegistry:
             (
                 DocumentState.INDEXED.value,
                 chunk_count,
-                uuid.UUID(doc_id),
-                uuid.UUID(self.tenant_id),
+                doc_id,
+                self.tenant_id,
             ),
         )
 
@@ -310,7 +317,7 @@ class PostgreSQLDocumentRegistry:
     ) -> bool:
         """Register an index entry for a document chunk."""
         query = """
-            INSERT INTO index_entries (
+            INSERT INTO registry.index_entries (
                 doc_id, tenant_id, index_type, node_id,
                 chunk_index, content_hash, metadata
             ) VALUES (
@@ -328,8 +335,8 @@ class PostgreSQLDocumentRegistry:
             self.db.execute(
                 query,
                 (
-                    uuid.UUID(doc_id),
-                    uuid.UUID(self.tenant_id),
+                    doc_id,
+                    self.tenant_id,
                     index_type.value,
                     node_id,
                     chunk_index,
@@ -348,18 +355,18 @@ class PostgreSQLDocumentRegistry:
         """Get index entries for a document."""
         if index_type:
             query = """
-                SELECT * FROM index_entries
+                SELECT * FROM registry.index_entries
                 WHERE doc_id = %s AND tenant_id = %s AND index_type = %s
                 ORDER BY chunk_index
             """
-            params = (uuid.UUID(doc_id), uuid.UUID(self.tenant_id), index_type.value)
+            params = (doc_id, self.tenant_id, index_type.value)
         else:
             query = """
-                SELECT * FROM index_entries
+                SELECT * FROM registry.index_entries
                 WHERE doc_id = %s AND tenant_id = %s
                 ORDER BY index_type, chunk_index
             """
-            params = (uuid.UUID(doc_id), uuid.UUID(self.tenant_id))
+            params = (doc_id, self.tenant_id)
 
         rows = self.db.fetch_all(query, params)
 
@@ -384,14 +391,14 @@ class PostgreSQLDocumentRegistry:
             with conn.cursor() as cur:
                 # Delete index entries first (foreign key constraint)
                 cur.execute(
-                    "DELETE FROM index_entries WHERE doc_id = %s AND tenant_id = %s",
-                    (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)),
+                    "DELETE FROM registry.index_entries WHERE doc_id = %s AND tenant_id = %s",
+                    (doc_id, self.tenant_id),
                 )
 
                 # Delete document
                 cur.execute(
                     "DELETE FROM documents WHERE doc_id = %s AND tenant_id = %s",
-                    (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)),
+                    (doc_id, self.tenant_id),
                 )
 
                 deleted = cur.rowcount > 0
@@ -404,13 +411,11 @@ class PostgreSQLDocumentRegistry:
     def remove_index_entries(self, doc_id: str, index_type: IndexType) -> bool:
         """Remove index entries for a specific index type."""
         query = """
-            DELETE FROM index_entries
+            DELETE FROM registry.index_entries
             WHERE doc_id = %s AND tenant_id = %s AND index_type = %s
         """
 
-        result = self.db.execute(
-            query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id), index_type.value)
-        )
+        result = self.db.execute(query, (doc_id, self.tenant_id, index_type.value))
 
         if result > 0:
             # Update document index flags
@@ -421,7 +426,7 @@ class PostgreSQLDocumentRegistry:
             else:
                 flag_query = "UPDATE documents SET vector_indexed = FALSE, keyword_indexed = FALSE WHERE doc_id = %s AND tenant_id = %s"
 
-            self.db.execute(flag_query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+            self.db.execute(flag_query, (doc_id, self.tenant_id))
             logger.info(f"Removed {result} index entries for document: {doc_id[:8]}")
 
         return result > 0
@@ -434,7 +439,7 @@ class PostgreSQLDocumentRegistry:
     ) -> list[DocumentRecord]:
         """List documents with optional filtering."""
         conditions = ["tenant_id = %s"]
-        params = [uuid.UUID(self.tenant_id)]
+        params = [self.tenant_id]
 
         if state:
             conditions.append("state = %s")
@@ -466,14 +471,14 @@ class PostgreSQLDocumentRegistry:
             WHERE d.tenant_id = %s AND (
                 -- Marked as indexed but no index entries
                 (d.vector_indexed = TRUE AND NOT EXISTS (
-                    SELECT 1 FROM index_entries ie
+                    SELECT 1 FROM registry.index_entries ie
                     WHERE ie.doc_id = d.doc_id
                     AND ie.tenant_id = d.tenant_id
                     AND ie.index_type = 'vector'
                 )) OR
                 -- Has index entries but not marked as indexed
                 (d.vector_indexed = FALSE AND EXISTS (
-                    SELECT 1 FROM index_entries ie
+                    SELECT 1 FROM registry.index_entries ie
                     WHERE ie.doc_id = d.doc_id
                     AND ie.tenant_id = d.tenant_id
                     AND ie.index_type = 'vector'
@@ -481,18 +486,18 @@ class PostgreSQLDocumentRegistry:
             )
         """
 
-        rows = self.db.fetch_all(query, (uuid.UUID(self.tenant_id),))
+        rows = self.db.fetch_all(query, (self.tenant_id,))
         return [self._row_to_document(row) for row in rows]
 
     def get_orphaned_index_entries(self) -> list[IndexRecord]:
         """Get index entries without corresponding documents."""
         query = """
-            SELECT ie.* FROM index_entries ie
+            SELECT ie.* FROM registry.index_entries ie
             LEFT JOIN documents d ON ie.doc_id = d.doc_id AND ie.tenant_id = d.tenant_id
             WHERE ie.tenant_id = %s AND d.doc_id IS NULL
         """
 
-        rows = self.db.fetch_all(query, (uuid.UUID(self.tenant_id),))
+        rows = self.db.fetch_all(query, (self.tenant_id,))
 
         return [
             IndexRecord(
@@ -532,7 +537,7 @@ class PostgreSQLDocumentRegistry:
                 DocumentState.INDEXED.value,
                 DocumentState.STALE.value,
                 DocumentState.CORRUPTED.value,
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
             ),
         )
 
@@ -541,12 +546,12 @@ class PostgreSQLDocumentRegistry:
             SELECT
                 index_type,
                 COUNT(*) as count
-            FROM index_entries
+            FROM registry.index_entries
             WHERE tenant_id = %s
             GROUP BY index_type
         """
 
-        index_rows = self.db.fetch_all(index_query, (uuid.UUID(self.tenant_id),))
+        index_rows = self.db.fetch_all(index_query, (self.tenant_id,))
         index_stats = {row["index_type"]: row["count"] for row in index_rows}
 
         return {
@@ -570,7 +575,7 @@ class PostgreSQLDocumentRegistry:
     def cleanup_orphaned_entries(self) -> int:
         """Remove orphaned index entries."""
         query = """
-            DELETE FROM index_entries ie
+            DELETE FROM registry.index_entries ie
             WHERE ie.tenant_id = %s
             AND NOT EXISTS (
                 SELECT 1 FROM documents d
@@ -579,7 +584,7 @@ class PostgreSQLDocumentRegistry:
             )
         """
 
-        result = self.db.execute(query, (uuid.UUID(self.tenant_id),))
+        result = self.db.execute(query, (self.tenant_id,))
 
         if result > 0:
             logger.info(f"Cleaned up {result} orphaned index entries")

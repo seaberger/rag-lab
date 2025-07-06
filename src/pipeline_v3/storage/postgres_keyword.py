@@ -6,11 +6,10 @@ SQLite FTS5 with PostgreSQL's native tsvector/tsquery functionality.
 """
 
 import re
-import uuid
 from typing import Any, Dict, List
 
+from core.data_structures import TextChunk
 from core.postgres_base import PostgreSQLBase
-from llama_index.core.schema import TextNode
 
 from utils.common_utils import logger
 from utils.config import PipelineConfig
@@ -66,7 +65,7 @@ class PostgreSQLKeywordIndex:
         try:
             self.db.execute(
                 "SELECT tenants.set_current_tenant(%s)",
-                (uuid.UUID(self.tenant_id),),
+                (self.tenant_id,),
             )
             logger.debug(f"Set tenant context to: {self.tenant_id}")
         except Exception as e:
@@ -75,7 +74,7 @@ class PostgreSQLKeywordIndex:
 
     def index_nodes(
         self,
-        nodes: List[TextNode],
+        nodes: List[TextChunk],
         doc_id: str,
         source: str,
         pairs: List[tuple[str, str]],
@@ -98,8 +97,8 @@ class PostgreSQLKeywordIndex:
         self.db.execute(
             metadata_query,
             (
-                uuid.UUID(doc_id),
-                uuid.UUID(self.tenant_id),
+                doc_id,
+                self.tenant_id,
                 source,
                 self.db.json_to_jsonb(metadata),
                 len(nodes),
@@ -108,41 +107,44 @@ class PostgreSQLKeywordIndex:
 
         # Delete existing chunks for this document
         delete_query = """
-            DELETE FROM documents
+            DELETE FROM keyword_search
             WHERE doc_id = %s AND tenant_id = %s
         """
-        self.db.execute(delete_query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+        self.db.execute(delete_query, (doc_id, self.tenant_id))
 
         # Index each chunk
         for node in nodes:
-            # Extract keywords if present
-            keywords = ""
-            if "Context:" in node.text:
-                # Extract keyword line
-                parts = node.text.split("Context:", 1)
-                if len(parts) > 1:
-                    keywords = parts[1].strip().split("\n")[0]
+            # Extract keywords if present (for future use)
+            # keywords = ""
+            # if "Context:" in node.text:
+            #     # Extract keyword line
+            #     parts = node.text.split("Context:", 1)
+            #     if len(parts) > 1:
+            #         keywords = parts[1].strip().split("\n")[0]
 
             # Clean text for indexing
             clean_text = self._clean_text(node.text)
 
             # Insert chunk
             chunk_query = """
-                INSERT INTO documents (
-                    doc_id, chunk_id, tenant_id, text, keywords, metadata
+                INSERT INTO keyword_search (
+                    doc_id, node_id, tenant_id, chunk_index, content, metadata
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s
                 )
+                ON CONFLICT (tenant_id, node_id) DO UPDATE SET
+                    content = EXCLUDED.content,
+                    metadata = EXCLUDED.metadata
             """
 
             self.db.execute(
                 chunk_query,
                 (
-                    uuid.UUID(doc_id),
-                    node.id_,
-                    uuid.UUID(self.tenant_id),
+                    doc_id,
+                    node.node_id,
+                    self.tenant_id,
+                    node.metadata.get("chunk_index", 0),
                     clean_text,
-                    keywords,
                     self.db.json_to_jsonb(node.metadata),
                 ),
             )
@@ -220,30 +222,30 @@ class PostgreSQLKeywordIndex:
         search_query = """
             SELECT
                 doc_id,
-                chunk_id,
-                text,
-                keywords,
+                node_id,
+                chunk_index,
+                content as text,
                 metadata,
-                ts_rank(search_vector, query) AS score
+                ts_rank(content_tsvector, query) AS score
             FROM
-                documents,
+                keyword_search,
                 plainto_tsquery('english', %s) query
             WHERE
                 tenant_id = %s AND
-                search_vector @@ query
+                content_tsvector @@ query
             ORDER BY score DESC
             LIMIT %s
         """
 
         try:
-            rows = self.db.fetch_all(search_query, (clean_query, uuid.UUID(self.tenant_id), limit))
+            rows = self.db.fetch_all(search_query, (clean_query, self.tenant_id, limit))
 
             return [
                 {
                     "doc_id": str(row["doc_id"]),
-                    "chunk_id": row["chunk_id"],
+                    "node_id": row["node_id"],
+                    "chunk_index": row["chunk_index"],
                     "text": row["text"],
-                    "keywords": row["keywords"],
                     "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
                     "score": float(row["score"]),
                 }
@@ -272,7 +274,7 @@ class PostgreSQLKeywordIndex:
 
         # Build filter conditions
         conditions = ["tenant_id = %s", "search_vector @@ query"]
-        params = [uuid.UUID(self.tenant_id)]
+        params = [self.tenant_id]
 
         # Add JSONB filters
         for key, value in filters.items():
@@ -343,9 +345,7 @@ class PostgreSQLKeywordIndex:
         # Search for part number in pairs array
         search_filter = {"pairs": [[part_number]]}  # Nested array structure
 
-        rows = self.db.fetch_all(
-            query, (uuid.UUID(self.tenant_id), self.db.json_to_jsonb(search_filter))
-        )
+        rows = self.db.fetch_all(query, (self.tenant_id, self.db.json_to_jsonb(search_filter)))
 
         results = []
         for row in rows:
@@ -399,7 +399,7 @@ class PostgreSQLKeywordIndex:
                 fuzzy_query,
                 (
                     clean_query,
-                    uuid.UUID(self.tenant_id),
+                    self.tenant_id,
                     clean_query,
                     clean_query,
                     similarity,
@@ -429,14 +429,14 @@ class PostgreSQLKeywordIndex:
             SELECT
                 COUNT(DISTINCT doc_id) as total_documents,
                 COUNT(*) as total_chunks,
-                COUNT(CASE WHEN keywords != '' THEN 1 END) as chunks_with_keywords,
-                pg_size_pretty(pg_relation_size('search.documents')) as table_size,
-                pg_size_pretty(pg_relation_size('search.idx_search_vector')) as index_size
-            FROM documents
+                COUNT(*) as chunks_with_keywords,
+                pg_size_pretty(pg_relation_size('keyword_search')) as table_size,
+                pg_size_pretty(pg_relation_size('idx_keyword_search_fts')) as index_size
+            FROM keyword_search
             WHERE tenant_id = %s
         """
 
-        stats = self.db.fetch_one(stats_query, (uuid.UUID(self.tenant_id),))
+        stats = self.db.fetch_one(stats_query, (self.tenant_id,))
 
         return {
             "total_documents": stats["total_documents"] or 0,
@@ -450,18 +450,18 @@ class PostgreSQLKeywordIndex:
     def delete_document(self, doc_id: str) -> int:
         """Delete all chunks for a document."""
         query = """
-            DELETE FROM documents
+            DELETE FROM keyword_search
             WHERE doc_id = %s AND tenant_id = %s
         """
 
-        result = self.db.execute(query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+        result = self.db.execute(query, (doc_id, self.tenant_id))
 
         # Also delete from metadata
         meta_query = """
             DELETE FROM doc_metadata
             WHERE doc_id = %s AND tenant_id = %s
         """
-        self.db.execute(meta_query, (uuid.UUID(doc_id), uuid.UUID(self.tenant_id)))
+        self.db.execute(meta_query, (doc_id, self.tenant_id))
 
         logger.info(f"Deleted {result} chunks for document: {doc_id[:8]}")
         return result
@@ -470,14 +470,12 @@ class PostgreSQLKeywordIndex:
         """Rebuild search vectors for all documents (maintenance operation)."""
         # This would be triggered if we change the text search configuration
         query = """
-            UPDATE documents
-            SET search_vector =
-                setweight(to_tsvector('english', COALESCE(keywords, '')), 'A') ||
-                setweight(to_tsvector('english', text), 'B')
+            UPDATE keyword_search
+            SET content_tsvector = to_tsvector('english', content)
             WHERE tenant_id = %s
         """
 
-        result = self.db.execute(query, (uuid.UUID(self.tenant_id),))
+        result = self.db.execute(query, (self.tenant_id,))
         logger.info(f"Rebuilt search vectors for {result} documents")
         return result
 

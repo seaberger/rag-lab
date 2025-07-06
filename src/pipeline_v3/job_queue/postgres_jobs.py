@@ -72,7 +72,7 @@ class PostgreSQLJobManager:
         try:
             self.db.execute(
                 "SELECT tenants.set_current_tenant(%s)",
-                (uuid.UUID(self.tenant_id),),
+                (self.tenant_id,),
             )
             logger.debug(f"Set tenant context to: {self.tenant_id}")
         except Exception as e:
@@ -102,7 +102,7 @@ class PostgreSQLJobManager:
             query,
             (
                 uuid.UUID(job_id),
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
                 source_key,
                 job_type.value,
                 priority,
@@ -120,7 +120,7 @@ class PostgreSQLJobManager:
             WHERE job_id = %s AND tenant_id = %s
         """
 
-        row = self.db.fetch_one(query, (uuid.UUID(job_id), uuid.UUID(self.tenant_id)))
+        row = self.db.fetch_one(query, (uuid.UUID(job_id), self.tenant_id))
 
         if row:
             return self._row_to_job(row)
@@ -183,7 +183,7 @@ class PostgreSQLJobManager:
             WHERE job_id = %s AND tenant_id = %s
         """
 
-        params.extend([uuid.UUID(job_id), uuid.UUID(self.tenant_id)])
+        params.extend([uuid.UUID(job_id), self.tenant_id])
 
         result = self.db.execute(query, tuple(params))
 
@@ -202,7 +202,7 @@ class PostgreSQLJobManager:
         # Use the stored function for atomic job claiming
         query = "SELECT * FROM jobs.claim_next_job(%s, %s)"
 
-        row = self.db.fetch_one(query, (worker_id, uuid.UUID(self.tenant_id)))
+        row = self.db.fetch_one(query, (worker_id, self.tenant_id))
 
         if row and row.get("job_id"):
             job = self._row_to_job(row)
@@ -221,7 +221,7 @@ class PostgreSQLJobManager:
         """
 
         result = self.db.execute(
-            query, (self.db.json_to_jsonb(state), uuid.UUID(job_id), uuid.UUID(self.tenant_id))
+            query, (self.db.json_to_jsonb(state), uuid.UUID(job_id), self.tenant_id)
         )
 
         return result > 0
@@ -236,7 +236,7 @@ class PostgreSQLJobManager:
             RETURNING retry_count, max_retries
         """
 
-        row = self.db.fetch_one(query, (uuid.UUID(job_id), uuid.UUID(self.tenant_id)))
+        row = self.db.fetch_one(query, (uuid.UUID(job_id), self.tenant_id))
 
         if row:
             retry_count = row["retry_count"]
@@ -260,7 +260,7 @@ class PostgreSQLJobManager:
     ) -> list[JobRecord]:
         """List jobs with optional filtering."""
         conditions = ["tenant_id = %s"]
-        params = [uuid.UUID(self.tenant_id)]
+        params = [self.tenant_id]
 
         if status:
             conditions.append("status = %s")
@@ -293,7 +293,7 @@ class PostgreSQLJobManager:
 
         self.db.execute(
             update_query,
-            (JobStatus.INTERRUPTED.value, uuid.UUID(self.tenant_id), JobStatus.PROCESSING.value),
+            (JobStatus.INTERRUPTED.value, self.tenant_id, JobStatus.PROCESSING.value),
         )
 
         # Get interrupted jobs
@@ -305,9 +305,7 @@ class PostgreSQLJobManager:
             ORDER BY priority DESC, created_at ASC
         """
 
-        rows = self.db.fetch_all(
-            select_query, (uuid.UUID(self.tenant_id), JobStatus.INTERRUPTED.value)
-        )
+        rows = self.db.fetch_all(select_query, (self.tenant_id, JobStatus.INTERRUPTED.value))
 
         jobs = [self._row_to_job(row) for row in rows]
 
@@ -336,7 +334,7 @@ class PostgreSQLJobManager:
             WHERE job_id = %s AND tenant_id = %s
         """
 
-        params.extend([uuid.UUID(job_id), uuid.UUID(self.tenant_id)])
+        params.extend([uuid.UUID(job_id), self.tenant_id])
 
         result = self.db.execute(query, tuple(params))
 
@@ -375,7 +373,7 @@ class PostgreSQLJobManager:
                 JobStatus.FAILED.value,
                 JobStatus.CANCELLED.value,
                 JobStatus.INTERRUPTED.value,
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
             ),
         )
 
@@ -387,7 +385,7 @@ class PostgreSQLJobManager:
             GROUP BY job_type
         """
 
-        type_rows = self.db.fetch_all(type_query, (uuid.UUID(self.tenant_id),))
+        type_rows = self.db.fetch_all(type_query, (self.tenant_id,))
         jobs_by_type = {row["job_type"]: row["count"] for row in type_rows}
 
         # Recent performance
@@ -401,9 +399,7 @@ class PostgreSQLJobManager:
             AND completed_at > NOW() - INTERVAL '1 hour'
         """
 
-        recent = self.db.fetch_one(
-            recent_query, (uuid.UUID(self.tenant_id), JobStatus.COMPLETED.value)
-        )
+        recent = self.db.fetch_one(recent_query, (self.tenant_id, JobStatus.COMPLETED.value))
 
         return {
             "total_jobs": stats["total_jobs"] or 0,
@@ -439,7 +435,7 @@ class PostgreSQLJobManager:
         result = self.db.execute(
             query,
             (
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
                 JobStatus.COMPLETED.value,
                 JobStatus.FAILED.value,
                 JobStatus.CANCELLED.value,
@@ -469,7 +465,7 @@ class PostgreSQLJobManager:
             (
                 JobStatus.CANCELLED.value,
                 uuid.UUID(job_id),
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
                 JobStatus.PENDING.value,
                 JobStatus.PROCESSING.value,
             ),
@@ -494,14 +490,14 @@ class PostgreSQLJobManager:
         health = self.db.fetch_one(
             query,
             (
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
                 JobStatus.PENDING.value,
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
                 JobStatus.PENDING.value,
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
                 JobStatus.PROCESSING.value,
-                uuid.UUID(self.tenant_id),
-                uuid.UUID(self.tenant_id),
+                self.tenant_id,
+                self.tenant_id,
                 JobStatus.PENDING.value,
             ),
         )

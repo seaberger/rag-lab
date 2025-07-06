@@ -38,6 +38,14 @@ from ..utils.common_utils import (
 
 # Import with graceful degradation
 try:
+    import sys
+    from pathlib import Path
+
+    # Add the pipeline_v3 root to Python path
+    pipeline_root = Path(__file__).parent.parent
+    if str(pipeline_root) not in sys.path:
+        sys.path.insert(0, str(pipeline_root))
+
     from pipeline.enhanced_core import EnhancedPipeline
 
     PIPELINE_AVAILABLE = True
@@ -47,14 +55,6 @@ except ImportError as e:
     EnhancedPipeline = None
 
 try:
-    import sys
-    from pathlib import Path
-
-    # Add the pipeline_v3 root to Python path
-    pipeline_root = Path(__file__).parent.parent
-    if str(pipeline_root) not in sys.path:
-        sys.path.insert(0, str(pipeline_root))
-
     from core.database_factory import DatabaseContext, DatabaseFactory
     from core.index_manager import IndexManager
     from core.registry import DocumentRegistry, IndexType

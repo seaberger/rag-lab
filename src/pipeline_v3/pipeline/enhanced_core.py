@@ -14,7 +14,7 @@ from typing import Any
 
 from core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
 from core.fingerprint import FingerprintManager
-from core.index_manager import IndexManager, IndexType
+from core.index_manager import IndexManager
 from core.parsers import parse_document
 from core.pipeline import DatasheetArtefact, DocumentClassifier, fetch_document
 from core.registry import DocumentRegistry, DocumentState
@@ -22,6 +22,7 @@ from job_queue.job import JobManager
 from job_queue.manager import DocumentQueue, JobPriority
 from storage.cache import CacheManager
 
+from src.pipeline_v3.core.registry import IndexType
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 from utils.monitoring import ProgressMonitor
@@ -252,6 +253,7 @@ class EnhancedPipeline:
                 change_analysis.update_strategy,
                 index_types,
                 with_keywords,
+                pairs,  # Pass the extracted pairs
             )
 
             # Create storage artifact after processing (with enhanced content if available)
@@ -526,6 +528,7 @@ class EnhancedPipeline:
         strategy: UpdateStrategy,
         index_types: IndexType,
         with_keywords: bool = False,
+        pairs: list[tuple[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Execute the determined update strategy."""
         try:
@@ -544,12 +547,12 @@ class EnhancedPipeline:
                 # For now, incremental updates are treated as full reindex
                 # In a more sophisticated implementation, this would update only changed chunks
                 return await self._full_reindex(
-                    doc_id, content, metadata, index_types, source, with_keywords
+                    doc_id, content, metadata, index_types, source, with_keywords, pairs
                 )
 
             if strategy == UpdateStrategy.FULL_REINDEX:
                 return await self._full_reindex(
-                    doc_id, content, metadata, index_types, source, with_keywords
+                    doc_id, content, metadata, index_types, source, with_keywords, pairs
                 )
 
             raise ValueError(f"Unknown update strategy: {strategy}")
@@ -567,6 +570,7 @@ class EnhancedPipeline:
         index_types: IndexType,
         source: str | Path | None = None,
         with_keywords: bool = False,
+        pairs: list[tuple[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Perform full reindexing of document."""
         try:
@@ -583,15 +587,15 @@ class EnhancedPipeline:
                 # Import chunking_metadata here to avoid circular imports
                 from src.pipeline_v3.utils.chunking_metadata import process_and_index_document
 
-                # Extract pairs from metadata for enhanced processing
-                pairs = metadata.get("pairs", []) if metadata else []
+                # Use passed pairs parameter or extract from metadata as fallback
+                pairs_to_use = pairs or (metadata.get("pairs", []) if metadata else [])
 
                 # Process with keyword enhancement
                 nodes = await process_and_index_document(
                     doc_id=doc_id,
                     source=source or "unknown",
                     markdown=content,
-                    pairs=pairs,
+                    pairs=pairs_to_use,
                     metadata=metadata or {},
                     with_keywords=with_keywords,
                     progress=None,  # Progress monitoring handled at higher level
@@ -599,7 +603,7 @@ class EnhancedPipeline:
                 )
 
                 # Add enhanced nodes to indexes
-                success = self.index_manager.add_nodes(doc_id, nodes, index_types)
+                success = self.index_manager.add_chunks(doc_id, nodes, index_types)
                 logger.info(
                     f"Added document {doc_id[:8]} with keyword enhancement ({len(nodes)} chunks)"
                 )

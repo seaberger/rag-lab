@@ -22,7 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from utils.config import PostgreSQLSettings
+from ..utils.config import PostgreSQLSettings
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class PostgreSQLBase:
         base_params = {
             "host": self.settings.host,
             "port": self.settings.port,
-            "database": self.settings.database,
+            "dbname": self.settings.database,  # psycopg uses 'dbname' not 'database'
             "user": self.settings.user,
             "password": self.settings.password,
         }

@@ -5,49 +5,24 @@ Enhanced pipeline with queue management, document lifecycle operations,
 and enterprise-grade reliability features.
 """
 
-import time
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-# Third-party
-try:
-    from llama_index.core import StorageContext, VectorStoreIndex
-    from llama_index.vector_stores.qdrant import QdrantVectorStore
-except ImportError as e:
-    raise ImportError(
-        f"LlamaIndex imports failed: {e}. "
-        "Please install with: uv add llama-index llama-index-vector-stores-qdrant"
-    )
+# Third-party imports
 
-from qdrant_client import QdrantClient
-from tqdm import tqdm
 
 # Project-specific imports - using absolute imports to avoid relative import issues
 try:
-    from core.parsers import DocumentClassifier, parse_document
-    from storage.cache import CacheManager
-    from storage.keyword_index import BM25Index
-
-    from utils.chunking_metadata import process_and_index_document
     from utils.cleanup import get_resource_manager
     from utils.common_utils import logger
-    from utils.config import PipelineConfig
-    from utils.monitoring import ProgressMonitor
 except ImportError:
     # Fallback for when running from different directory
     import sys
 
     sys.path.append(str(Path(__file__).parent.parent))
-    from core.parsers import DocumentClassifier, parse_document
-    from storage.cache import CacheManager
-    from storage.keyword_index import BM25Index
 
-    from utils.chunking_metadata import process_and_index_document
     from utils.cleanup import get_resource_manager
     from utils.common_utils import logger
-    from utils.config import PipelineConfig
-    from utils.monitoring import ProgressMonitor
 
 # Note: Key components like fetch_document and DatasheetArtefact are defined in this module.
 # Storage paths and constants are handled via PipelineConfig.
@@ -268,176 +243,3 @@ Format tables properly with all cells filled."""
 
     logger.info("Using built-in default prompt")
     return default_prompt
-
-
-async def ingest_sources(
-    sources: Iterable[str | Path],
-    *,
-    prompt_file: str | None = None,
-    with_keywords: bool = False,
-    keyword_model: str = "gpt-4o-mini",
-    is_datasheet_mode: bool = True,
-    config_file: str = "config.yaml",
-):
-    """Main ingestion pipeline preserving all three parsing paths."""
-
-    config = PipelineConfig.from_yaml(config_file)
-    cache = CacheManager(config=config) if config.cache.enabled else None
-    progress = ProgressMonitor()
-
-    # Initialize embedding model with config
-    from llama_index.core import Settings
-    from llama_index.embeddings.openai import OpenAIEmbedding
-
-    embed_model = OpenAIEmbedding(
-        model=config.openai.embedding_model,
-        dimensions=config.openai.dimensions,
-    )
-    Settings.embed_model = embed_model
-
-    # Initialize storage based on mode
-    if config.qdrant.mode == "server":
-        import os
-
-        api_key = config.qdrant.server.api_key or os.getenv("QDRANT_API_KEY")
-        qclient = QdrantClient(
-            host=config.qdrant.server.host,
-            port=config.qdrant.server.port,
-            grpc_port=config.qdrant.server.grpc_port,
-            api_key=api_key,
-            https=config.qdrant.server.https,
-            timeout=config.qdrant.server.timeout,
-        )
-    else:
-        # Local mode
-        qclient = QdrantClient(path=config.qdrant.path)
-
-    vstore = QdrantVectorStore(client=qclient, collection_name=config.qdrant.collection_name)
-    storage = StorageContext.from_defaults(vector_store=vstore)
-
-    # Initialize BM25 keyword index
-    keyword_index = BM25Index(config=config)
-
-    prompt_text = _resolve_prompt(prompt_file or config.parser.datasheet_prompt_path)
-
-    for src in tqdm(sources, desc="Processing documents"):
-        doc_id = None
-        try:
-            # Classify document type
-            try:
-                stage_start = time.time()
-                doc_type = DocumentClassifier.classify(src, is_datasheet_mode)
-                logger.info(f"Classified {src} as {doc_type.value}")
-            except Exception as e:
-                logger.error(f"Classification failed for {src}: {e}")
-                continue
-
-            # Fetch document
-            try:
-                pdf_path, doc_id, raw_bytes = await fetch_document(src)
-                progress.start_document(doc_id, str(src), len(raw_bytes))
-                progress.update_stage(doc_id, "classification", time.time() - stage_start)
-                logger.info(f"Fetched document {doc_id} ({len(raw_bytes)} bytes)")
-                progress.update_stage(doc_id, "fetch", time.time() - stage_start)
-            except Exception as e:
-                logger.error(f"Document fetch failed for {src}: {e}")
-                if doc_id:
-                    progress.fail_document(doc_id, f"Fetch failed: {e}")
-                continue
-
-            # Skip if already processed
-            artefact_dir = Path(config.storage.base_dir)
-            artefact_dir.mkdir(exist_ok=True)
-            artefact_path = artefact_dir / f"{doc_id}.jsonl"
-
-            if artefact_path.exists():
-                logger.info(f"Document {doc_id} already processed, skipping")
-                progress.complete_document(doc_id, cached=True)
-                continue
-
-            # Parse based on document type
-            try:
-                parse_start = time.time()
-                markdown, pairs, metadata = await parse_document(
-                    pdf_path, doc_type, prompt_text, cache, config
-                )
-                progress.update_stage(doc_id, "parsing", time.time() - parse_start)
-                logger.info(f"Parsed {doc_id}: {len(markdown)} chars, {len(pairs)} pairs")
-            except Exception as e:
-                logger.error(f"Parsing failed for {doc_id}: {e}")
-                progress.fail_document(doc_id, f"Parse failed: {e}")
-                continue
-
-            # Save artefact with all metadata
-            try:
-                save_start = time.time()
-                artefact = DatasheetArtefact(
-                    doc_id=doc_id,
-                    source=str(src),
-                    pairs=pairs,
-                    markdown=markdown,
-                    parse_version=2,
-                    metadata=metadata,
-                )
-                artefact_path.write_text(artefact.to_jsonl())
-                progress.update_stage(doc_id, "save_artifact", time.time() - save_start)
-                logger.info(f"Saved artefact for {doc_id}")
-            except Exception as e:
-                logger.error(f"Artefact save failed for {doc_id}: {e}")
-                progress.fail_document(doc_id, f"Save failed: {e}")
-                continue
-
-            # Process and index
-            try:
-                chunking_start = time.time()
-                nodes = await process_and_index_document(
-                    doc_id=doc_id,
-                    source=str(src),
-                    markdown=markdown,
-                    pairs=pairs,
-                    metadata=metadata,
-                    with_keywords=with_keywords,
-                    progress=progress,
-                    config=config,
-                )
-                progress.update_stage(doc_id, "chunking", time.time() - chunking_start)
-                logger.info(f"Created {len(nodes)} nodes for {doc_id}")
-            except Exception as e:
-                logger.error(f"Node processing failed for {doc_id}: {e}")
-                progress.fail_document(doc_id, f"Node processing failed: {e}")
-                continue
-
-            # Index nodes in vector store
-            try:
-                index_start = time.time()
-                VectorStoreIndex(nodes, storage_context=storage)
-                progress.update_stage(doc_id, "vector_indexing", time.time() - index_start)
-                logger.info(f"Vector indexed {len(nodes)} nodes for {doc_id}")
-            except Exception as e:
-                logger.error(f"Vector indexing failed for {doc_id}: {e}")
-                progress.fail_document(doc_id, f"Vector indexing failed: {e}")
-                continue
-
-            # Index nodes in keyword store (BM25)
-            try:
-                keyword_start = time.time()
-                keyword_index.index_nodes(nodes, doc_id, str(src), pairs)
-                progress.update_stage(doc_id, "keyword_indexing", time.time() - keyword_start)
-                logger.info(f"Keyword indexed {len(nodes)} nodes for {doc_id}")
-                progress.complete_document(doc_id, len(nodes))
-            except Exception as e:
-                logger.error(f"Keyword indexing failed for {doc_id}: {e}")
-                progress.fail_document(doc_id, f"Keyword indexing failed: {e}")
-                continue
-
-        except Exception as e:
-            logger.error(f"Unexpected error processing {src}: {e}")
-            if doc_id:
-                progress.fail_document(doc_id, f"Unexpected error: {e}")
-            # Continue processing other documents instead of raising
-
-    # Save final report
-    report_file = config.monitoring.report_file
-    progress.save_report(report_file)
-    logger.info(f"Ingestion complete: {progress.get_summary()}")
-    logger.info(f"Detailed report saved to: {report_file}")

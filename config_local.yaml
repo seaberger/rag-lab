@@ -1,0 +1,86 @@
+# Local Configuration for Pipeline v3
+# This configuration uses SQLite for all storage and Qdrant local mode
+
+database:
+  backend: sqlite
+
+qdrant:
+  mode: local
+  local:
+    path: ./qdrant_data_v3
+  collection_name: datasheets_v3
+
+# OpenAI settings
+openai:
+  vision_model: gpt-4.1
+  keyword_model: gpt-4.1-mini
+  embedding_model: text-embedding-3-small
+  dimensions: 1536
+  max_retries: 3
+  timeout_per_page: 30
+  timeout_base: 60
+
+# Storage settings
+storage:
+  keyword_db_path: ./keyword_index_v3.db
+  document_registry_path: ./document_registry_v3.db
+  base_dir: ./storage_data_v3
+
+# Job Queue settings
+job_queue:
+  max_concurrent: 10
+  job_persistence: true
+  job_storage_path: ./jobs_v3.db
+  job_retention_days: 30
+  chunk_size: 100
+  default_priority: 0
+  resume_interrupted: true
+
+# Fingerprint settings
+fingerprint:
+  enabled: true
+  storage_path: ./fingerprints_v3.db
+  retention_days: 90
+  include_metadata: true
+
+# Cache settings
+cache:
+  enabled: true
+  type: memory
+  ttl_seconds: 86400  # 24 hours
+  compression: lz4
+
+# PDF processing settings
+pdf:
+  dpi: 150
+  max_pages: 500
+  page_timeout: 60
+
+# Chunking settings
+chunking:
+  chunk_size: 1024
+  chunk_overlap: 128
+
+# Parser settings
+parser:
+  datasheet_prompt_path: datasheet_parsing_prompt.md
+  generic_prompt_path: generic_parsing_prompt.md
+
+# Logging settings
+logging:
+  level: INFO
+  file: pipeline_local.log
+
+# Monitoring settings
+monitoring:
+  progress_callback: true
+  save_report: true
+  report_file: processing_report.json
+
+# Index management settings
+index_management:
+  consistency_checks: true
+  auto_backup: false
+  backup_path: ./backups
+  backup_retention_days: 90
+  rebuild_on_corruption: true

@@ -21,6 +21,10 @@ env:
   UV_VERSION: '0.5.13'
   QDRANT_HOST: 'localhost'
   QDRANT_PORT: '6333'
+  POSTGRES_HOST: 'localhost'
+  POSTGRES_PORT: '5432'
+  POSTGRES_DB: 'rag_lab'
+  POSTGRES_USER: 'rag_user'
 
 jobs:
   test:
@@ -28,6 +32,20 @@ jobs:
     timeout-minutes: 45
 
     services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: rag_user
+          POSTGRES_DB: rag_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
       qdrant:
         image: qdrant/qdrant:latest
         ports:
@@ -134,11 +152,37 @@ jobs:
         docker logs --tail 20 $(docker ps -q --filter "ancestor=qdrant/qdrant:latest") 2>/dev/null || echo "No container logs available"
         echo "Will proceed with tests (some may be skipped without full Qdrant functionality)"
 
+    - name: Wait for PostgreSQL service
+      run: |
+        echo "🔄 Waiting for PostgreSQL service to be ready..."
+
+        # Wait for PostgreSQL to be ready
+        echo "Checking PostgreSQL connectivity..."
+        for i in {1..30}; do
+          if pg_isready -h localhost -p 5432 -U rag_user -d rag_lab; then
+            echo "✅ PostgreSQL is ready"
+            break
+          fi
+          echo "⏳ Attempt $i: PostgreSQL not ready, waiting 3 seconds..."
+          sleep 3
+        done
+
+        # Verify connection with actual query
+        echo "Testing PostgreSQL connection..."
+        PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} psql -h localhost -p 5432 -U rag_user -d rag_lab -c "SELECT version();" || echo "⚠️ Connection test failed but proceeding"
+
+        echo "🎉 PostgreSQL service verification complete!"
+
     - name: Create test environment
       run: |
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
         echo "QDRANT_HOST=localhost" >> .env
         echo "QDRANT_PORT=6333" >> .env
+        echo "POSTGRES_HOST=localhost" >> .env
+        echo "POSTGRES_PORT=5432" >> .env
+        echo "POSTGRES_DB=rag_lab" >> .env
+        echo "POSTGRES_USER=rag_user" >> .env
+        echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
         mkdir -p test_data
         mkdir -p test-results
         # Set PYTHONPATH for relative imports
@@ -151,6 +195,7 @@ jobs:
         echo "=== Environment Verification ==="
         echo "OPENAI_API_KEY: $(if [ -n "$OPENAI_API_KEY" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)"
         echo "Qdrant Health: $(curl -s http://localhost:6333/health | jq -r '.status // "Error"' || echo "Connection failed")"
+        echo "PostgreSQL Connection: $(PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} pg_isready -h localhost -p 5432 -U rag_user -d rag_lab && echo "✓ Ready" || echo "✗ Failed")"
         echo "Python: $(python --version)"
         echo "UV: $(uv --version)"
         echo "Working Directory: $(pwd)"
@@ -159,6 +204,7 @@ jobs:
         # Test basic imports
         uv run python -c "from src.pipeline_v3.core.registry import DocumentRegistry; print('✓ Core imports work')"
         uv run python -c "from src.pipeline_v3.storage.vector_store import EmbeddingManager; print('✓ Vector store imports work')"
+        uv run python -c "from src.pipeline_v3.core.postgres_registry import PostgreSQLDocumentRegistry; print('✓ PostgreSQL imports work')"
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
@@ -184,6 +230,11 @@ jobs:
         exit $TEST_EXIT_CODE
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run security tests
       run: |
@@ -193,6 +244,11 @@ jobs:
           --junit-xml=test-results/security-results.xml
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run smoke integration tests
       run: |
@@ -204,6 +260,11 @@ jobs:
           -m "smoke"
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run lightweight integration tests
       run: |
@@ -215,6 +276,11 @@ jobs:
           -m "integration and not heavy and not e2e"
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run server-specific tests
       run: |
@@ -226,6 +292,11 @@ jobs:
           -m "server"
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run E2E tests (critical path)
       run: |
@@ -237,6 +308,11 @@ jobs:
           -m "e2e"
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run heavy resource tests (optional)
       run: |
@@ -249,6 +325,11 @@ jobs:
       continue-on-error: true  # Allow failures for heavy tests
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Run regression tests
       run: |
@@ -259,6 +340,11 @@ jobs:
       continue-on-error: true  # Allow some failures
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: rag_lab
+        POSTGRES_USER: rag_user
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
     - name: Generate coverage report
       run: |
@@ -445,6 +531,7 @@ jobs:
     - name: Run quick smoke test
       env:
         SKIP_QDRANT_CHECK: "true"
+        SKIP_POSTGRES_CHECK: "true"  # Skip PostgreSQL for compatibility tests
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         PYTHONPATH: ${{ github.workspace }}/src/pipeline_v3
       run: |

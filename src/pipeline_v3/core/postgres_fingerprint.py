@@ -78,7 +78,7 @@ class PostgreSQLFingerprintManager:
         try:
             self.db.execute(
                 "SELECT tenants.set_current_tenant(%s)",
-                (uuid.UUID(self.tenant_id),),
+                (self.tenant_id,),
             )
             logger.debug(f"Set tenant context to: {self.tenant_id}")
         except Exception as e:
@@ -131,10 +131,10 @@ class PostgreSQLFingerprintManager:
 
         query = """
             SELECT * FROM fingerprints
-            WHERE source = %s AND tenant_id = %s
+            WHERE file_path = %s AND tenant_id = %s
         """
 
-        row = self.db.fetch_one(query, (source_key, uuid.UUID(self.tenant_id)))
+        row = self.db.fetch_one(query, (source_key, self.tenant_id))
 
         if row:
             return self._row_to_fingerprint(row)
@@ -142,53 +142,58 @@ class PostgreSQLFingerprintManager:
 
     def _row_to_fingerprint(self, row: Dict[str, Any]) -> DocumentFingerprint:
         """Convert database row to DocumentFingerprint."""
+        # Extract metadata fields from JSON
+        metadata = self.db.jsonb_to_dict(row.get("metadata", {})) or {}
+
         return DocumentFingerprint(
-            source=row["source"],
+            source=row["file_path"],
             content_hash=row["content_hash"],
-            size=row["size"],
-            modified_time=row["modified_time"].timestamp(),
-            metadata_hash=row["metadata_hash"] or "",
-            created_at=row["created_at"].timestamp(),
-            last_seen=row["last_seen"].timestamp(),
-            doc_id=str(row["doc_id"]) if row["doc_id"] else None,
-            processing_status=row["processing_status"] or "unknown",
+            size=row["file_size"],
+            modified_time=row["last_modified"].timestamp() if row["last_modified"] else time.time(),
+            metadata_hash=metadata.get("metadata_hash", ""),
+            created_at=row["created_at"].timestamp() if row["created_at"] else time.time(),
+            last_seen=time.time(),  # No last_seen column in current schema
+            doc_id=metadata.get("doc_id"),
+            processing_status=metadata.get("processing_status", "unknown"),
         )
 
     def update_fingerprint(
         self,
         fingerprint: DocumentFingerprint,
         doc_id: str | None = None,
+        processing_status: str = "processed",
     ) -> bool:
         """Update or create fingerprint record."""
         query = """
             INSERT INTO fingerprints (
-                source, tenant_id, content_hash, size, modified_time,
-                metadata_hash, doc_id, processing_status, last_seen
+                tenant_id, file_path, content_hash, file_size, last_modified, metadata
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, NOW()
+                %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT (tenant_id, source) DO UPDATE SET
+            ON CONFLICT (tenant_id, file_path) DO UPDATE SET
                 content_hash = EXCLUDED.content_hash,
-                size = EXCLUDED.size,
-                modified_time = EXCLUDED.modified_time,
-                metadata_hash = EXCLUDED.metadata_hash,
-                doc_id = COALESCE(EXCLUDED.doc_id, fingerprints.doc_id),
-                processing_status = COALESCE(EXCLUDED.processing_status, fingerprints.processing_status),
-                last_seen = EXCLUDED.last_seen
+                file_size = EXCLUDED.file_size,
+                last_modified = EXCLUDED.last_modified,
+                metadata = EXCLUDED.metadata
         """
 
         try:
+            # Build metadata dict
+            metadata = {
+                "metadata_hash": fingerprint.metadata_hash,
+                "doc_id": doc_id,
+                "processing_status": processing_status,
+            }
+
             self.db.execute(
                 query,
                 (
+                    self.tenant_id,
                     fingerprint.source,
-                    uuid.UUID(self.tenant_id),
                     fingerprint.content_hash,
                     fingerprint.size,
                     datetime.fromtimestamp(fingerprint.modified_time),
-                    fingerprint.metadata_hash,
-                    uuid.UUID(doc_id) if doc_id else None,
-                    fingerprint.processing_status,
+                    self.db.json_to_jsonb(metadata),
                 ),
             )
 
@@ -242,12 +247,12 @@ class PostgreSQLFingerprintManager:
             SET processing_status = %s,
                 doc_id = COALESCE(%s, doc_id),
                 last_seen = NOW()
-            WHERE source = %s AND tenant_id = %s
+            WHERE file_path = %s AND tenant_id = %s
         """
 
         result = self.db.execute(
             query,
-            (status, uuid.UUID(doc_id) if doc_id else None, source_key, uuid.UUID(self.tenant_id)),
+            (status, uuid.UUID(doc_id) if doc_id else None, source_key, self.tenant_id),
         )
 
         return result > 0
@@ -282,7 +287,7 @@ class PostgreSQLFingerprintManager:
     ) -> list[DocumentFingerprint]:
         """List tracked documents with optional filtering."""
         conditions = ["tenant_id = %s"]
-        params = [uuid.UUID(self.tenant_id)]
+        params = [self.tenant_id]
 
         if status:
             conditions.append("processing_status = %s")
@@ -311,7 +316,7 @@ class PostgreSQLFingerprintManager:
             AND last_seen < NOW() - INTERVAL '%s days'
         """
 
-        result = self.db.execute(query, (uuid.UUID(self.tenant_id), days))
+        result = self.db.execute(query, (self.tenant_id, days))
 
         if result > 0:
             logger.info(f"Cleaned up {result} old fingerprints")
@@ -333,7 +338,7 @@ class PostgreSQLFingerprintManager:
             WHERE tenant_id = %s
         """
 
-        stats = self.db.fetch_one(stats_query, (uuid.UUID(self.tenant_id),))
+        stats = self.db.fetch_one(stats_query, (self.tenant_id,))
 
         # Size statistics
         size_query = """
@@ -346,7 +351,7 @@ class PostgreSQLFingerprintManager:
             WHERE tenant_id = %s
         """
 
-        size_stats = self.db.fetch_one(size_query, (uuid.UUID(self.tenant_id),))
+        size_stats = self.db.fetch_one(size_query, (self.tenant_id,))
 
         return {
             "total_documents": stats["total_documents"] or 0,
@@ -381,7 +386,7 @@ class PostgreSQLFingerprintManager:
             HAVING COUNT(*) > 1
         """
 
-        rows = self.db.fetch_all(query, (uuid.UUID(self.tenant_id),))
+        rows = self.db.fetch_all(query, (self.tenant_id,))
 
         duplicates = {}
         for row in rows:
