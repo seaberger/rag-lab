@@ -274,6 +274,9 @@ search_capabilities.md
 # Old storage directory
 storage_data/
 
-# Test results
+# Test results and artifacts
 test_results.json
 test-results/
+test-report.html
+bandit-report.json
+processing_report.json
