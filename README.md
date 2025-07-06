@@ -45,9 +45,9 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 ### Current Architecture (v3)
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Enterprise Application Layer                  │
+│                        Interface Layer                           │
 ├─────────────────────────────────────────────────────────────────┤
-│   Web UI   │   REST API   │   CLI Tools   │   Integrations     │
+│              CLI Tools (Management & Operations)                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                  Document Intelligence Engine                    │
 ├─────────────────────────────────────────────────────────────────┤
@@ -60,10 +60,12 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 │                      Storage Layer                               │
 ├─────────────────────────────────────────────────────────────────┤
 │  Vector Store  │  Keyword Index  │  Document Registry  │  Cache │
+│   (Qdrant)     │  (SQLite FTS5) │    (SQLite)       │  (LZ4)  │
 ├─────────────────────────────────────────────────────────────────┤
 │                    External Services                             │
 ├─────────────────────────────────────────────────────────────────┤
-│        OpenAI APIs       │        Qdrant        │      S3       │
+│            OpenAI APIs           │        Qdrant Server          │
+│    (Vision, Embeddings, LLM)     │    (localhost:6333)          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -110,6 +112,13 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 - **Job Persistence**: SQLite-based job storage survives system restarts
 - **Registry System**: Central source of truth for document state and metadata
 - **Migration Framework**: Safe database schema evolution and rollback
+
+#### **Security Components**
+- **Input Validation**: Path traversal protection and input sanitization
+- **URL Security**: SSRF protection with private IP blocking and protocol restrictions
+- **API Key Management**: Secure handling with masked logging and environment validation
+- **SQL Protection**: Parameterized queries and FTS5 query sanitization
+- **Security Testing**: Comprehensive test suite with 33 security-focused tests
 
 ## 🚀 Quick Start
 

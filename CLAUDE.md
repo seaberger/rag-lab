@@ -149,6 +149,61 @@ uv run python -m src.pipeline_v3.cli_main --help
 2. Check `src/parsing/refactored_2_1/CLAUDE.md` for v2.1 approach
 3. Compare architectures and lessons learned
 
+## 🧪 Testing & CI/CD
+
+### **Local CI Testing Scripts**
+
+We have two local CI scripts that mirror our GitHub Actions pipelines:
+
+#### **Quick CI** (`./run_local_quickci.sh`)
+- **Purpose**: Fast feedback during development
+- **Runtime**: ~5-10 minutes typically
+- **Features**:
+  - Runs all tests in single pytest command
+  - Includes security tests (fast, <1 second)
+  - Code quality checks (ruff linting/formatting)
+  - Stops early on failures (`--maxfail=5`)
+- **Use when**: Making quick changes, pre-commit checks
+
+#### **Comprehensive CI** (`./run_local_ci.sh`)
+- **Purpose**: Thorough testing with detailed stages
+- **Runtime**: ~15-30 minutes typically
+- **Features**:
+  - 9 separate test stages (unit → security → integration → e2e)
+  - Detailed coverage reports
+  - Better error isolation
+  - Continues through all stages
+- **Use when**: Before creating PRs, major changes
+
+### **⚠️ IMPORTANT: Timeout Configuration for Claude Code**
+
+When running these scripts in Claude Code, you MUST override the default 2-minute bash timeout:
+
+```
+# For Quick CI (set 10 minute timeout = 600000ms)
+Bash command: ./run_local_quickci.sh
+Timeout: 600000
+
+# For Comprehensive CI (set 30 minute timeout = 1800000ms)
+Bash command: ./run_local_ci.sh
+Timeout: 1800000
+```
+
+**Why this matters:**
+- Claude Code's default bash timeout is 120 seconds (2 minutes)
+- Quick CI typically needs 5-10 minutes
+- Comprehensive CI needs 15-30 minutes
+- Without timeout override, tests will be killed mid-execution
+
+### **Test Coverage**
+
+Both scripts include:
+- **Unit Tests**: 289 tests for core components
+- **Security Tests**: 33 tests (29 comprehensive + 4 SQL injection)
+- **Integration Tests**: Multiple categories (smoke, lightweight, server, e2e)
+- **Code Quality**: Ruff linting and formatting
+- **Coverage Reports**: HTML and XML formats
+
 ## 🔗 External Links
 
 - **GitHub Repository**: [rag-lab](https://github.com/seaberger/rag-lab)

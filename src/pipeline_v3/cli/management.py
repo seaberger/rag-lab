@@ -674,7 +674,9 @@ Examples:
         return unique_resolved
 
     def _parse_metadata(self, metadata_list: list[str] | None) -> dict[str, Any]:
-        """Parse metadata key=value pairs."""
+        """Parse metadata key=value pairs with input sanitization."""
+        from utils.security import InputSanitizer
+
         metadata = {}
         if metadata_list:
             for item in metadata_list:
@@ -682,7 +684,17 @@ Examples:
                     print(f"Warning: Invalid metadata format '{item}', expected key=value")
                     continue
                 key, value = item.split("=", 1)
-                metadata[key] = value
+
+                # Sanitize key and value to prevent injection attacks
+                safe_key = InputSanitizer.sanitize_metadata_value(key.strip())
+                safe_value = InputSanitizer.sanitize_metadata_value(value.strip())
+
+                # Additional validation for key names
+                if not safe_key or len(safe_key) > 100:
+                    print(f"Warning: Invalid metadata key '{key}' (empty or too long)")
+                    continue
+
+                metadata[safe_key] = safe_value
         return metadata
 
     def _parse_index_type(self, index_type_str: str) -> IndexType:
@@ -991,10 +1003,36 @@ Examples:
 
     async def handle_search(self, args):
         """Handle search operations."""
+        from utils.security import InputSanitizer
+
         try:
+            # Sanitize search query to prevent injection
+            safe_query = InputSanitizer.sanitize_search_query(args.query)
+
             filter_dict = None
             if args.filter:
-                filter_dict = json.loads(args.filter)
+                try:
+                    # Parse and validate filter JSON
+                    filter_dict = json.loads(args.filter)
+
+                    # Sanitize filter values recursively
+                    def sanitize_filter_dict(d):
+                        if isinstance(d, dict):
+                            return {
+                                InputSanitizer.sanitize_metadata_value(k): sanitize_filter_dict(v)
+                                for k, v in d.items()
+                            }
+                        elif isinstance(d, list):
+                            return [sanitize_filter_dict(item) for item in d]
+                        elif isinstance(d, str):
+                            return InputSanitizer.sanitize_metadata_value(d)
+                        else:
+                            return d
+
+                    filter_dict = sanitize_filter_dict(filter_dict)
+                except json.JSONDecodeError as e:
+                    print(f"Error: Invalid filter JSON format: {e}")
+                    return
 
             # Pass fusion method for hybrid search
             search_kwargs = {}
@@ -1004,7 +1042,7 @@ Examples:
                 )  # Convert kebab-case to snake_case
 
             results = self.pipeline.search(
-                args.query,
+                safe_query,
                 search_type=args.type,
                 top_k=args.top_k,
                 filters=filter_dict,
@@ -1123,9 +1161,23 @@ Examples:
                 print(f"{args.key}: {value}")
 
         elif args.config_action == "set":
-            self.config.set(args.key, args.value)
+            from utils.security import InputSanitizer
+
+            # Sanitize config key and value to prevent injection
+            safe_key = InputSanitizer.sanitize_metadata_value(args.key)
+            safe_value = InputSanitizer.sanitize_metadata_value(args.value)
+
+            # Validate key format
+            if (
+                not safe_key
+                or not safe_key.replace(".", "").replace("_", "").replace("-", "").isalnum()
+            ):
+                print(f"Error: Invalid configuration key format: {args.key}")
+                return
+
+            self.config.set(safe_key, safe_value)
             self.config.save()
-            print(f"Set {args.key} = {args.value}")
+            print(f"Set {safe_key} = {safe_value}")
 
         elif args.config_action == "reset":
             if not args.confirm:
