@@ -5,11 +5,11 @@ This document provides the current development priorities and active issues for 
 > **🚀 NEW: Enterprise Multi-Tenant Focus** - RAG Lab is evolving from a single-user system to a full enterprise platform with PostgreSQL, API authentication, per-tenant MCP servers, and advanced search capabilities. See the new [Enterprise Implementation Guide](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision.
 
 **Last Updated:** July 5, 2025
-**Active GitHub Issues:** 22 open (including 9 new enterprise features)
+**Active GitHub Issues:** 26 open (including 9 new enterprise features)
 **Critical Architecture Gaps:** 9 (see [ISSUES.md](ISSUES.md))
 **Enterprise Implementation Guide:** [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)
 
-## 🚨 Immediate Priorities (Security & Stability)
+## ✅ All Critical Security & Infrastructure Issues Resolved!
 
 ### ~~Security Vulnerabilities (CRITICAL)~~ ✅ **COMPLETED**
 ~~Must be addressed before any production deployment:~~
@@ -148,6 +148,9 @@ Improve how documents are parsed and chunked:
 
 ### Observability (LOW)
 - **[Issue #66](https://github.com/seaberger/rag-lab/issues/66)**: Implement Structured JSON Logging with Operation Tracking
+
+### Code Quality (LOW)
+- **[Issue #68](https://github.com/seaberger/rag-lab/issues/68)**: Clean up lazy imports (PLC0415) - 101 instances of imports inside functions
 
 ### ~~Performance (LOW)~~ ✅ **COMPLETED**
 - ~~**[Issue #5](https://github.com/seaberger/rag-lab/issues/5)**: Upgrade to Qdrant server~~ ✅ **COMPLETED via Issue #71**
