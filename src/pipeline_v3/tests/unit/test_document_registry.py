@@ -15,6 +15,11 @@ from core.registry import DocumentRegistry, DocumentState, IndexType
 
 from utils.config import PipelineConfig
 
+try:
+    from core.database_factory import DatabaseFactory
+except ImportError:
+    DatabaseFactory = None
+
 
 class TestDocumentRegistry:
     """Test suite for DocumentRegistry."""
@@ -22,7 +27,30 @@ class TestDocumentRegistry:
     @pytest.fixture
     def registry(self, test_config):
         """Create a test document registry."""
+        # Try to use DatabaseFactory if available
+        if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
+            try:
+                factory = DatabaseFactory(test_config)
+                if factory.validate_backend_configuration():
+                    adapters = factory.create_all()
+                    registry = adapters["registry"]
+                    # Store factory and adapters for cleanup
+                    registry._test_factory = factory
+                    registry._test_adapters = adapters
+                    return registry
+            except Exception:
+                pass  # Fall back to direct initialization
+
+        # Direct initialization as fallback
         return DocumentRegistry(config=test_config)
+
+    @pytest.fixture(autouse=True)
+    def cleanup_registry(self, registry):
+        """Ensure proper cleanup after tests."""
+        yield
+        # Clean up DatabaseFactory resources if used
+        if hasattr(registry, '_test_factory') and hasattr(registry, '_test_adapters'):
+            registry._test_factory.close_all(registry._test_adapters)
 
     def test_register_document(self, registry):
         """Test basic document registration."""

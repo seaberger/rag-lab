@@ -19,6 +19,11 @@ from core.fingerprint import FingerprintManager
 
 from utils.config import PipelineConfig
 
+try:
+    from core.database_factory import DatabaseFactory
+except ImportError:
+    DatabaseFactory = None
+
 
 class TestFingerprintManager:
     """Test suite for FingerprintManager."""
@@ -26,7 +31,30 @@ class TestFingerprintManager:
     @pytest.fixture
     def fingerprint_manager(self, test_config):
         """Create a test fingerprint manager."""
+        # Try to use DatabaseFactory if available
+        if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
+            try:
+                factory = DatabaseFactory(test_config)
+                if factory.validate_backend_configuration():
+                    adapters = factory.create_all()
+                    fingerprint_manager = adapters["fingerprint_manager"]
+                    # Store factory and adapters for cleanup
+                    fingerprint_manager._test_factory = factory
+                    fingerprint_manager._test_adapters = adapters
+                    return fingerprint_manager
+            except Exception:
+                pass  # Fall back to direct initialization
+
+        # Direct initialization as fallback
         return FingerprintManager(config=test_config)
+
+    @pytest.fixture(autouse=True)
+    def cleanup_fingerprint_manager(self, fingerprint_manager):
+        """Ensure proper cleanup after tests."""
+        yield
+        # Clean up DatabaseFactory resources if used
+        if hasattr(fingerprint_manager, '_test_factory') and hasattr(fingerprint_manager, '_test_adapters'):
+            fingerprint_manager._test_factory.close_all(fingerprint_manager._test_adapters)
 
     def test_compute_fingerprint(self, test_base_dir):
         """Test fingerprint computation."""
@@ -247,11 +275,37 @@ class TestChangeDetector:
     """Test suite for ChangeDetector."""
 
     @pytest.fixture
-    def change_detector(self, test_base_dir):
+    def change_detector(self, test_config):
         """Create a test change detector."""
-        config = PipelineConfig()
-        config.fingerprint.storage_path = str(test_base_dir / "test_fingerprints.db")
-        return ChangeDetector(config=config)
+        # Try to use DatabaseFactory if available
+        if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
+            try:
+                factory = DatabaseFactory(test_config)
+                if factory.validate_backend_configuration():
+                    adapters = factory.create_all()
+                    # ChangeDetector needs registry and fingerprint_manager
+                    change_detector = ChangeDetector(
+                        config=test_config,
+                        registry=adapters["registry"],
+                        fingerprint_manager=adapters["fingerprint_manager"]
+                    )
+                    # Store factory and adapters for cleanup
+                    change_detector._test_factory = factory
+                    change_detector._test_adapters = adapters
+                    return change_detector
+            except Exception:
+                pass  # Fall back to direct initialization
+
+        # Direct initialization as fallback
+        return ChangeDetector(config=test_config)
+
+    @pytest.fixture(autouse=True)
+    def cleanup_change_detector(self, change_detector):
+        """Ensure proper cleanup after tests."""
+        yield
+        # Clean up DatabaseFactory resources if used
+        if hasattr(change_detector, '_test_factory') and hasattr(change_detector, '_test_adapters'):
+            change_detector._test_factory.close_all(change_detector._test_adapters)
 
     def test_detect_new_file(self, change_detector, test_base_dir):
         """Test detection of new files."""

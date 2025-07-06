@@ -5,6 +5,7 @@ Tests cover job creation, state management, and queue operations.
 """
 
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -18,6 +19,11 @@ from job_queue.job import JobType
 from job_queue.manager import DocumentQueue, JobPriority, JobStatus, QueueJob
 
 from utils.config import PipelineConfig
+
+try:
+    from core.database_factory import DatabaseFactory
+except ImportError:
+    DatabaseFactory = None
 
 
 class TestQueueJob:
@@ -212,7 +218,30 @@ class TestJobManager:
     @pytest.fixture
     def job_manager(self, test_config):
         """Create a test job manager."""
+        # Try to use DatabaseFactory if available
+        if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
+            try:
+                factory = DatabaseFactory(test_config)
+                if factory.validate_backend_configuration():
+                    adapters = factory.create_all()
+                    job_manager = adapters["job_manager"]
+                    # Store factory and adapters for cleanup
+                    job_manager._test_factory = factory
+                    job_manager._test_adapters = adapters
+                    return job_manager
+            except Exception:
+                pass  # Fall back to direct initialization
+
+        # Direct initialization as fallback
         return JobManager(config=test_config)
+
+    @pytest.fixture(autouse=True)
+    def cleanup_job_manager(self, job_manager):
+        """Ensure proper cleanup after tests."""
+        yield
+        # Clean up DatabaseFactory resources if used
+        if hasattr(job_manager, '_test_factory') and hasattr(job_manager, '_test_adapters'):
+            job_manager._test_factory.close_all(job_manager._test_adapters)
 
     def test_create_job(self, job_manager):
         """Test creating a persistent job."""

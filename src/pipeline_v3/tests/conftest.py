@@ -333,12 +333,52 @@ def test_config(test_base_dir):
     # clear_test_databases(config)
 
 
+@pytest.fixture
+def database_factory(test_config):
+    """Create DatabaseFactory for test configuration."""
+    if DatabaseFactory is None:
+        pytest.skip("DatabaseFactory not available")
+
+    factory = DatabaseFactory(test_config)
+
+    # Validate configuration
+    if not factory.validate_backend_configuration():
+        pytest.skip(f"Database backend not properly configured: {factory.backend}")
+
+    yield factory
+
+    # Factory cleanup is handled by individual adapter cleanup
+
+
+@pytest.fixture
+def database_adapters(database_factory):
+    """Create database adapters for testing."""
+    adapters = None
+    try:
+        adapters = database_factory.create_all()
+        yield adapters
+    finally:
+        if adapters:
+            database_factory.close_all(adapters)
+
+
 @pytest_asyncio.fixture
 async def test_pipeline(test_config):
     """Provide an initialized test pipeline with proper cleanup."""
     pipeline = None
     try:
-        pipeline = EnhancedPipeline(test_config)
+        # Create DatabaseFactory and adapters for proper component initialization
+        if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
+            factory = DatabaseFactory(test_config)
+            if factory.validate_backend_configuration():
+                adapters = factory.create_all()
+                pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
+            else:
+                # Fall back to direct initialization
+                pipeline = EnhancedPipeline(test_config)
+        else:
+            # Direct initialization for compatibility
+            pipeline = EnhancedPipeline(test_config)
 
         # Wait for Qdrant to be ready
         import time
@@ -360,8 +400,18 @@ async def test_pipeline(test_config):
         yield pipeline
 
     finally:
-        # Proper cleanup of Qdrant resources
+        # Proper cleanup of all resources
         if pipeline:
+            # Close DatabaseFactory adapters if they exist
+            if hasattr(pipeline, "database_adapters") and pipeline.database_adapters:
+                try:
+                    # Close all adapters through their close methods
+                    for _adapter_name, adapter in pipeline.database_adapters.items():
+                        if hasattr(adapter, "close"):
+                            adapter.close()
+                except Exception as e:
+                    print(f"Warning: Error closing database adapters: {e}")
+
             cleanup_qdrant_resources(pipeline, test_config)
 
         # Optional: Clear databases if needed for this specific test
