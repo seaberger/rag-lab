@@ -4,17 +4,20 @@ This document provides the current development priorities and active issues for 
 
 > **🚀 NEW: Enterprise Multi-Tenant Focus** - RAG Lab is evolving from a single-user system to a full enterprise platform with PostgreSQL, API authentication, per-tenant MCP servers, and advanced search capabilities. See the new [Enterprise Implementation Guide](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision.
 
-**Last Updated:** January 5, 2025
-**Active GitHub Issues:** 24 open (including 9 new enterprise features)
+**Last Updated:** July 5, 2025
+**Active GitHub Issues:** 22 open (including 9 new enterprise features)
 **Critical Architecture Gaps:** 9 (see [ISSUES.md](ISSUES.md))
 **Enterprise Implementation Guide:** [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)
 
 ## 🚨 Immediate Priorities (Security & Stability)
 
-### Security Vulnerabilities (CRITICAL)
-Must be addressed before any production deployment:
-- **[Issue #61](https://github.com/seaberger/rag-lab/issues/61)**: Security Audit & Fixes: SQL Injection, Path Traversal, and SSRF Protection
-- **[Issue #62](https://github.com/seaberger/rag-lab/issues/62)**: Input Validation Framework and Secrets Management
+### ~~Security Vulnerabilities (CRITICAL)~~ ✅ **COMPLETED**
+~~Must be addressed before any production deployment:~~
+- ~~**[Issue #61](https://github.com/seaberger/rag-lab/issues/61)**: Security Audit & Fixes: SQL Injection, Path Traversal, and SSRF Protection~~ ✅ **COMPLETED (July 5, 2025)**
+- ~~**[Issue #62](https://github.com/seaberger/rag-lab/issues/62)**: Input Validation Framework and Secrets Management~~ ✅ **COMPLETED (July 5, 2025)**
+  - **Resolution:** Implemented comprehensive security utilities module with path traversal protection, SSRF prevention, input sanitization, and secrets masking
+  - Added 40 security tests integrated into CI pipeline
+  - JSON metadata preserved while maintaining security
 
 ### ~~Infrastructure Issues (HIGH)~~ ✅ **COMPLETED**
 ~~Blocking automated CI/CD validation:~~
@@ -151,6 +154,20 @@ Improve how documents are parsed and chunked:
 
 ## ✅ Recently Completed (Last 30 Days)
 
+### Security & Reliability (July 2025)
+- **[Issue #61](https://github.com/seaberger/rag-lab/issues/61)**: Security Audit & Fixes ✅ (July 5)
+  - Implemented comprehensive security utilities module (`utils/security.py`)
+  - Path traversal protection with validation and allowed directories
+  - SSRF prevention with URL validation and private IP blocking
+  - Input sanitization for metadata and search queries
+  - API key masking in logs and outputs
+- **[Issue #62](https://github.com/seaberger/rag-lab/issues/62)**: Input Validation Framework ✅ (July 5)
+  - Enhanced input validation across CLI and management interfaces
+  - JSON metadata preservation for model names and part numbers
+  - SQL injection protection with query sanitization
+  - 40 comprehensive security tests integrated into CI
+  - Fixed critical issue where JSON metadata was being broken by over-aggressive sanitization
+
 ### Infrastructure & Scalability (July 2025)
 - **[Issue #71](https://github.com/seaberger/rag-lab/issues/71)**: Implement Qdrant Server Mode for Production Scalability ✅ (July 4)
   - Server mode is now the DEFAULT configuration
@@ -177,18 +194,18 @@ Improve how documents are parsed and chunked:
   - Removed debugging artifacts from CI workflows
   - Both CI workflows now pass consistently on main branch
 
-### Infrastructure & Reliability (December 2024)
+### Infrastructure & Reliability (June 2025)
 - **[Issue #27](https://github.com/seaberger/rag-lab/issues/27)**: Cross-System Consistency Guarantees ✅
 - **[Issue #26](https://github.com/seaberger/rag-lab/issues/26)**: Database Schema Versioning ✅
 - **[Issue #25](https://github.com/seaberger/rag-lab/issues/25)**: Top-Level Error Handling ✅
 - **[Issues #28-29](https://github.com/seaberger/rag-lab/issues/28)**: OpenAI API hardening ✅
 
-### Features (December 2024)
+### Features (June 2025)
 - **[Issue #31](https://github.com/seaberger/rag-lab/issues/31)**: Word & PowerPoint support ✅
 - **[Issue #33](https://github.com/seaberger/rag-lab/issues/33)**: Directory parsing with filtering ✅
 - **[Issue #45](https://github.com/seaberger/rag-lab/issues/45)**: URL batch processing ✅
 
-### UX Improvements (December 2024)
+### UX Improvements (June 2025)
 - **[Issue #36](https://github.com/seaberger/rag-lab/issues/36)**: CLI parameter consistency ✅
 - **[Issue #46](https://github.com/seaberger/rag-lab/issues/46)**: Large document timeout workaround ✅
 - **[PR #60](https://github.com/seaberger/rag-lab/pull/60)**: README improvements ✅
@@ -208,7 +225,6 @@ Improve how documents are parsed and chunked:
 - **Docker-based deployment** for vector database
 
 ### What Needs Work 🔧
-- **Security vulnerabilities** (SQL injection, path traversal, SSRF)
 - **Database migration** to PostgreSQL for true multi-tenancy
 - **Authentication system** for secure API access
 - **Search filtering** could be more powerful
@@ -225,14 +241,13 @@ Improve how documents are parsed and chunked:
 
 For developers looking to contribute:
 
-1. **Security First**: Review and help fix security vulnerabilities (#61, #62)
-2. **Database Migration**: Help with PostgreSQL migration (#77) - CRITICAL PATH
-3. **Authentication**: Implement API key system (#78)
-4. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
-5. **Type Safety**: Help fix mypy errors (247 issues)
-6. Check [CLAUDE.md](CLAUDE.md) for project setup
-7. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
-8. Review [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision
+1. **Database Migration**: Help with PostgreSQL migration (#77) - CRITICAL PATH
+2. **Authentication**: Implement API key system (#78)
+3. **Improve Search**: Work on metadata filtering improvements (#53, #54, #23)
+4. **Type Safety**: Help fix mypy errors (247 issues)
+5. Check [CLAUDE.md](CLAUDE.md) for project setup
+6. See [ISSUES.md](ISSUES.md) for detailed architecture gaps
+7. Review [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision
 
 ### Development Workflow
 - Pre-commit hooks run automatically on commit
