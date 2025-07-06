@@ -199,17 +199,21 @@ class PipelineCLI:
             self.job_manager = self.database_adapters["job_manager"]
             self.fingerprint_manager = self.database_adapters["fingerprint_manager"]
 
-            # Create index manager with factory-created registry
-            # Note: IndexManager has its own internal dependencies that will be updated in Phase 4.2.1c
-            self.index_manager = IndexManager(self.config, registry=self.registry)
+            # Create index manager with factory-created registry and keyword index adapter (Phase 4.2.1c)
+            self.index_manager = IndexManager(
+                self.config,
+                registry=self.registry,
+                keyword_index=self.database_adapters["keyword_index"],
+            )
 
             # Create enhanced pipeline with factory-created adapters
             if PIPELINE_AVAILABLE:
-                # Note: EnhancedPipeline will be updated in Phase 4.2.1b to use factory adapters
+                # Pass DatabaseFactory adapters to EnhancedPipeline (Phase 4.2.1b)
                 self.pipeline = EnhancedPipeline(
                     self.config,
                     registry=self.registry,
                     index_manager=self.index_manager,
+                    database_adapters=self.database_adapters,
                 )
 
             # Create document queue

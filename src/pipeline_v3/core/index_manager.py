@@ -55,8 +55,15 @@ class IndexManager:
         self,
         config: PipelineConfig | None = None,
         registry: DocumentRegistry | None = None,
+        keyword_index: Any | None = None,
     ):
-        """Initialize index manager with configuration."""
+        """Initialize index manager with configuration.
+
+        Args:
+            config: Pipeline configuration
+            registry: Optional DocumentRegistry (for backwards compatibility)
+            keyword_index: Optional keyword index adapter from DatabaseFactory
+        """
         self.config = config or PipelineConfig()
 
         # Use provided registry or create new one
@@ -68,14 +75,27 @@ class IndexManager:
 
         # Initialize components
         self._init_qdrant()
-        self._init_keyword_index()
+
+        # Use provided keyword index adapter or create legacy SQLite connection
+        if keyword_index:
+            self.keyword_index = keyword_index
+            self.keyword_conn = None  # Not used when using adapter
+            logger.info("IndexManager using DatabaseFactory keyword index adapter")
+        else:
+            self.keyword_index = None
+            self._init_keyword_index()  # Legacy SQLite initialization
+            logger.info("IndexManager using legacy SQLite keyword index")
+
         self._init_embeddings()
         self._init_text_splitter()
 
         # Cache for document sources
         self._doc_source_cache = {}
 
-        logger.info(f"IndexManager initialized with Qdrant: {self.qdrant_path}")
+        adapter_info = "with adapter" if keyword_index else "with legacy SQLite"
+        logger.info(
+            f"IndexManager initialized with Qdrant: {self.qdrant_path} and keyword index {adapter_info}"
+        )
 
     def _init_qdrant(self) -> None:
         """Initialize Qdrant vector store (supports both local and server modes)."""
@@ -158,7 +178,7 @@ class IndexManager:
             raise
 
     def _init_keyword_index(self) -> None:
-        """Initialize SQLite-based keyword index."""
+        """Initialize SQLite-based keyword index (legacy mode)."""
         try:
             Path(self.keyword_db_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -180,10 +200,10 @@ class IndexManager:
             )
 
             self.keyword_conn.commit()
-            logger.info(f"Keyword index initialized: {self.keyword_db_path}")
+            logger.info(f"Legacy SQLite keyword index initialized: {self.keyword_db_path}")
 
         except Exception as e:
-            logger.error(f"Failed to initialize keyword index: {e}")
+            logger.error(f"Failed to initialize legacy keyword index: {e}")
             self.keyword_conn = None
 
     def _init_embeddings(self) -> None:
@@ -223,6 +243,202 @@ class IndexManager:
         except Exception as e:
             logger.error(f"Failed to initialize text splitter: {e}")
             self.text_splitter = None
+
+    # DatabaseFactory adapter helper methods
+    def _keyword_index_nodes(self, nodes: list[TextNode]) -> bool:
+        """Add nodes to keyword index using either adapter or legacy SQLite."""
+        if self.keyword_index:
+            # Use DatabaseFactory adapter
+            try:
+                self.keyword_index.index_nodes(nodes)
+                return True
+            except Exception as e:
+                logger.error(f"Failed to index nodes with adapter: {e}")
+                return False
+        elif self.keyword_conn:
+            # Use legacy SQLite
+            try:
+                for i, node in enumerate(nodes):
+                    self.keyword_conn.execute(
+                        """
+                        INSERT INTO keyword_index
+                        (doc_id, node_id, chunk_index, content, metadata, content_hash)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            node.metadata.get("doc_id", ""),
+                            node.node_id,
+                            i,
+                            node.text,
+                            str(node.metadata),
+                            node.metadata.get("content_hash", ""),
+                        ),
+                    )
+                self.keyword_conn.commit()
+                return True
+            except Exception as e:
+                logger.error(f"Failed to index nodes with legacy SQLite: {e}")
+                return False
+        else:
+            logger.warning("No keyword index available (neither adapter nor legacy SQLite)")
+            return False
+
+    def _keyword_search(
+        self, query: str, top_k: int, filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """Search keyword index using either adapter or legacy SQLite."""
+        if self.keyword_index:
+            # Use DatabaseFactory adapter
+            try:
+                return self.keyword_index.search(query, top_k, filters=filters)
+            except Exception as e:
+                logger.error(f"Failed to search with adapter: {e}")
+                return []
+        elif self.keyword_conn:
+            # Use legacy SQLite FTS5 search
+            try:
+                # Build FTS5 query
+                sql_query = """
+                    SELECT node_id, chunk_index, content, metadata, content_hash
+                    FROM keyword_index
+                    WHERE keyword_index MATCH ?
+                """
+                params = [query]
+
+                # Add filters if provided
+                if filters:
+                    filter_conditions = []
+                    for key, value in filters.items():
+                        if key == "doc_id":
+                            filter_conditions.append("doc_id = ?")
+                            params.append(value)
+                        # Add other filter support as needed
+
+                    if filter_conditions:
+                        sql_query += " AND " + " AND ".join(filter_conditions)
+
+                sql_query += " ORDER BY rank LIMIT ?"
+                params.append(top_k)
+
+                cursor = self.keyword_conn.execute(sql_query, params)
+                results = []
+                for row in cursor.fetchall():
+                    node_id, chunk_index, content, metadata_str, content_hash = row
+                    try:
+                        import ast
+
+                        metadata = ast.literal_eval(metadata_str) if metadata_str else {}
+                    except Exception:
+                        metadata = {}
+
+                    results.append(
+                        {
+                            "node_id": node_id,
+                            "text": content,
+                            "score": 1.0,  # FTS5 doesn't provide normalized scores
+                            "metadata": metadata,
+                        }
+                    )
+                return results
+            except Exception as e:
+                logger.error(f"Failed to search with legacy SQLite: {e}")
+                return []
+        else:
+            logger.warning("No keyword index available for search")
+            return []
+
+    def _keyword_remove_document(self, doc_id: str) -> int:
+        """Remove document from keyword index using either adapter or legacy SQLite."""
+        if self.keyword_index:
+            # Use DatabaseFactory adapter
+            try:
+                # Assuming adapter has a remove_document method
+                if hasattr(self.keyword_index, "remove_document"):
+                    return self.keyword_index.remove_document(doc_id)
+                else:
+                    logger.warning("Keyword index adapter does not support remove_document")
+                    return 0
+            except Exception as e:
+                logger.error(f"Failed to remove document with adapter: {e}")
+                return 0
+        elif self.keyword_conn:
+            # Use legacy SQLite
+            try:
+                cursor = self.keyword_conn.execute(
+                    "DELETE FROM keyword_index WHERE doc_id = ?", (doc_id,)
+                )
+                deleted_count = cursor.rowcount
+                self.keyword_conn.commit()
+                return deleted_count
+            except Exception as e:
+                logger.error(f"Failed to remove document with legacy SQLite: {e}")
+                return 0
+        else:
+            return 0
+
+    def _keyword_get_stats(self) -> dict[str, Any]:
+        """Get keyword index statistics using either adapter or legacy SQLite."""
+        if self.keyword_index:
+            # Use DatabaseFactory adapter
+            try:
+                return self.keyword_index.get_stats()
+            except Exception as e:
+                logger.error(f"Failed to get stats with adapter: {e}")
+                return {"total_entries": 0, "unique_documents": 0}
+        elif self.keyword_conn:
+            # Use legacy SQLite
+            try:
+                cursor = self.keyword_conn.execute("SELECT COUNT(*) FROM keyword_index")
+                entry_count = cursor.fetchone()[0]
+
+                cursor = self.keyword_conn.execute(
+                    "SELECT COUNT(DISTINCT doc_id) FROM keyword_index"
+                )
+                doc_count = cursor.fetchone()[0]
+
+                return {
+                    "total_entries": entry_count,
+                    "unique_documents": doc_count,
+                }
+            except Exception as e:
+                logger.error(f"Failed to get stats with legacy SQLite: {e}")
+                return {"total_entries": 0, "unique_documents": 0}
+        else:
+            return {"total_entries": 0, "unique_documents": 0}
+
+    def _keyword_check_document_exists(self, doc_id: str) -> dict[str, Any]:
+        """Check if document exists in keyword index using either adapter or legacy SQLite."""
+        if self.keyword_index:
+            # Use DatabaseFactory adapter
+            try:
+                # Most adapters don't have a specific exists method, so we search for the doc
+                if hasattr(self.keyword_index, "search"):
+                    results = self.keyword_index.search("*", top_k=1, filters={"doc_id": doc_id})
+                    count = len(results)
+                    return {"exists": count > 0, "count": count}
+                else:
+                    logger.warning("Keyword index adapter does not support search")
+                    return {"exists": False, "count": 0}
+            except Exception as e:
+                logger.error(f"Failed to check document exists with adapter: {e}")
+                return {"exists": False, "count": 0, "error": str(e)}
+        elif self.keyword_conn:
+            # Use legacy SQLite
+            try:
+                cursor = self.keyword_conn.execute(
+                    "SELECT COUNT(*) FROM keyword_index WHERE doc_id = ?", (doc_id,)
+                )
+                count = cursor.fetchone()[0]
+                return {"exists": count > 0, "count": count}
+            except Exception as e:
+                logger.error(f"Failed to check document exists with legacy SQLite: {e}")
+                return {"exists": False, "count": 0, "error": str(e)}
+        else:
+            return {
+                "exists": False,
+                "count": 0,
+                "error": "Keyword index not available",
+            }
 
     def add_document(
         self,
@@ -283,39 +499,35 @@ class IndexManager:
                     success = False
 
             # Add to keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and (
+                self.keyword_index or self.keyword_conn
+            ):
                 try:
-                    for i, node in enumerate(nodes):
-                        self.keyword_conn.execute(
-                            """
-                            INSERT INTO keyword_index
-                            (doc_id, node_id, chunk_index, content, metadata, content_hash)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                doc_id,
-                                node.node_id,
-                                i,
-                                node.text,
-                                str(node.metadata),
-                                node.hash,
-                            ),
-                        )
+                    # Add doc_id to node metadata for adapter compatibility
+                    for node in nodes:
+                        node.metadata["doc_id"] = doc_id
+                        node.metadata["content_hash"] = node.hash
 
-                        # Register index entry
-                        self.registry.register_index_entry(
-                            doc_id=doc_id,
-                            index_type=IndexType.KEYWORD,
-                            node_id=node.node_id,
-                            chunk_index=i,
-                            content_hash=node.hash,
-                            metadata=node.metadata,
-                        )
+                    # Use helper method for keyword indexing
+                    keyword_success = self._keyword_index_nodes(nodes)
 
-                    self.keyword_conn.commit()
-                    logger.info(
-                        f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)"
-                    )
+                    if keyword_success:
+                        # Register index entries
+                        for i, node in enumerate(nodes):
+                            self.registry.register_index_entry(
+                                doc_id=doc_id,
+                                index_type=IndexType.KEYWORD,
+                                node_id=node.node_id,
+                                chunk_index=i,
+                                content_hash=node.hash,
+                                metadata=node.metadata,
+                            )
+
+                        logger.info(
+                            f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)"
+                        )
+                    else:
+                        success = False
 
                 except Exception as e:
                     logger.error(f"Failed to add to keyword index: {e}")
@@ -398,39 +610,35 @@ class IndexManager:
                     success = False
 
             # Add to keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and (
+                self.keyword_index or self.keyword_conn
+            ):
                 try:
-                    for i, node in enumerate(nodes):
-                        self.keyword_conn.execute(
-                            """
-                            INSERT INTO keyword_index
-                            (doc_id, node_id, chunk_index, content, metadata, content_hash)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                doc_id,
-                                node.node_id,
-                                i,
-                                node.text,
-                                str(node.metadata),
-                                node.hash,
-                            ),
-                        )
+                    # Add doc_id to node metadata for adapter compatibility
+                    for node in nodes:
+                        node.metadata["doc_id"] = doc_id
+                        node.metadata["content_hash"] = node.hash
 
-                        # Register index entry
-                        self.registry.register_index_entry(
-                            doc_id=doc_id,
-                            index_type=IndexType.KEYWORD,
-                            node_id=node.node_id,
-                            chunk_index=i,
-                            content_hash=node.hash,
-                            metadata=node.metadata,
-                        )
+                    # Use helper method for keyword indexing
+                    keyword_success = self._keyword_index_nodes(nodes)
 
-                    self.keyword_conn.commit()
-                    logger.info(
-                        f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)"
-                    )
+                    if keyword_success:
+                        # Register index entries
+                        for i, node in enumerate(nodes):
+                            self.registry.register_index_entry(
+                                doc_id=doc_id,
+                                index_type=IndexType.KEYWORD,
+                                node_id=node.node_id,
+                                chunk_index=i,
+                                content_hash=node.hash,
+                                metadata=node.metadata,
+                            )
+
+                        logger.info(
+                            f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)"
+                        )
+                    else:
+                        success = False
 
                 except Exception as e:
                     logger.error(f"Failed to add nodes to keyword index: {e}")
@@ -515,17 +723,11 @@ class IndexManager:
                     success = False
 
             # Remove from keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and (
+                self.keyword_index or self.keyword_conn
+            ):
                 try:
-                    cursor = self.keyword_conn.execute(
-                        """
-                        DELETE FROM keyword_index WHERE doc_id = ?
-                    """,
-                        (doc_id,),
-                    )
-
-                    deleted_count = cursor.rowcount
-                    self.keyword_conn.commit()
+                    deleted_count = self._keyword_remove_document(doc_id)
 
                     if deleted_count > 0:
                         logger.info(
@@ -736,7 +938,7 @@ class IndexManager:
         doc_filter: list[str] | None = None,  # Backward compatibility
     ) -> list[dict[str, Any]]:
         """Search keyword index."""
-        if not self.keyword_conn:
+        if not (self.keyword_index or self.keyword_conn):
             logger.error("Keyword search not available")
             return []
 
@@ -748,45 +950,21 @@ class IndexManager:
             # Parse unified filters
             parsed_filters = FilterBuilder.parse_unified_filters(filters)
 
-            # Escape special characters in FTS5 query
-            # FTS5 special characters: " ( ) * - : ^
-            escaped_query = query
-            for char in ['"', "(", ")", "*", "-", ":", "^"]:
-                escaped_query = escaped_query.replace(char, f'"{char}"')
+            # Use helper method for keyword search
+            search_results = self._keyword_search(query, top_k, parsed_filters)
 
-            # Build basic query (simplified for initial implementation)
-            sql_query = """
-                SELECT doc_id, node_id, chunk_index, content, metadata,
-                       bm25(keyword_index) as score
-                FROM keyword_index
-                WHERE keyword_index MATCH ?
-            """
-            params = [escaped_query]
-
-            # Add basic doc_ids filter for now (simplified implementation)
-            if parsed_filters and "doc_ids" in parsed_filters:
-                doc_ids = parsed_filters["doc_ids"]
-                if doc_ids:
-                    placeholders = ",".join("?" * len(doc_ids))
-                    sql_query += f" AND doc_id IN ({placeholders})"
-                    params.extend(doc_ids)
-
-            sql_query += " ORDER BY score LIMIT ?"
-            params.append(top_k)
-
-            cursor = self.keyword_conn.execute(sql_query, params)
-
+            # Convert to expected format and add source information
             results = []
-            for row in cursor.fetchall():
-                doc_id = row[0]
+            for result in search_results:
+                doc_id = result.get("metadata", {}).get("doc_id", result.get("doc_id", "unknown"))
                 results.append(
                     {
                         "doc_id": doc_id,
-                        "node_id": row[1],
-                        "chunk_index": row[2],
-                        "content": row[3],
-                        "metadata": row[4],
-                        "score": row[5],
+                        "node_id": result.get("node_id", "unknown"),
+                        "chunk_index": result.get("chunk_index", 0),
+                        "content": result.get("text", result.get("content", "")),
+                        "metadata": result.get("metadata", {}),
+                        "score": result.get("score", 0.0),
                         "source": self._get_document_source(doc_id),
                     }
                 )
@@ -1117,12 +1295,12 @@ class IndexManager:
     def _check_keyword_consistency(self) -> dict[str, Any]:
         """Check keyword index consistency."""
         try:
-            if not self.keyword_conn:
+            if not (self.keyword_index or self.keyword_conn):
                 return {"error": "Keyword index not available"}
 
-            # Get keyword index count
-            cursor = self.keyword_conn.execute("SELECT COUNT(*) FROM keyword_index")
-            keyword_count = cursor.fetchone()[0]
+            # Get keyword index count using helper method
+            keyword_stats = self._keyword_get_stats()
+            keyword_count = keyword_stats.get("total_entries", 0)
 
             # Get registry keyword entries
             registry_entries = []
@@ -1202,20 +1380,14 @@ class IndexManager:
                 stats["vector_index"] = {"status": "unavailable"}
 
             # Keyword index stats
-            if self.keyword_conn:
+            if self.keyword_index or self.keyword_conn:
                 try:
-                    cursor = self.keyword_conn.execute("SELECT COUNT(*) FROM keyword_index")
-                    entry_count = cursor.fetchone()[0]
-
-                    cursor = self.keyword_conn.execute(
-                        "SELECT COUNT(DISTINCT doc_id) FROM keyword_index"
-                    )
-                    doc_count = cursor.fetchone()[0]
-
+                    keyword_stats = self._keyword_get_stats()
                     stats["keyword_index"] = {
-                        "entry_count": entry_count,
-                        "document_count": doc_count,
+                        "entry_count": keyword_stats.get("total_entries", 0),
+                        "document_count": keyword_stats.get("unique_documents", 0),
                         "status": "available",
+                        "backend": "adapter" if self.keyword_index else "legacy_sqlite",
                     }
                 except Exception as e:
                     stats["keyword_index"] = {"status": "error", "error": str(e)}
@@ -1289,20 +1461,7 @@ class IndexManager:
             - count: int - number of keyword entries
         """
         try:
-            if not self.keyword_conn:
-                return {
-                    "exists": False,
-                    "count": 0,
-                    "error": "Keyword index not available",
-                }
-
-            # Query keyword index for entries with this doc_id
-            cursor = self.keyword_conn.execute(
-                "SELECT COUNT(*) FROM keyword_index WHERE doc_id = ?", (doc_id,)
-            )
-            count = cursor.fetchone()[0]
-
-            return {"exists": count > 0, "count": count}
+            return self._keyword_check_document_exists(doc_id)
 
         except Exception as e:
             logger.error(f"Failed to verify keyword index state for {doc_id}: {e}")
@@ -1359,17 +1518,12 @@ class IndexManager:
             bool: Success status
         """
         try:
-            if not self.keyword_conn:
+            if not (self.keyword_index or self.keyword_conn):
                 logger.warning("Keyword index not available")
                 return False
 
-            # Delete from keyword index
-            cursor = self.keyword_conn.execute(
-                "DELETE FROM keyword_index WHERE doc_id = ?", (doc_id,)
-            )
-
-            deleted_count = cursor.rowcount
-            self.keyword_conn.commit()
+            # Delete from keyword index using helper method
+            deleted_count = self._keyword_remove_document(doc_id)
 
             if deleted_count > 0:
                 logger.info(
@@ -1490,9 +1644,16 @@ class IndexManager:
 
     def close(self) -> None:
         """Close database connections."""
+        # Close DatabaseFactory adapter if available
+        if hasattr(self, "keyword_index") and self.keyword_index:
+            if hasattr(self.keyword_index, "close"):
+                self.keyword_index.close()
+                logger.debug("Keyword index adapter closed")
+
+        # Close legacy SQLite connection if available
         if hasattr(self, "keyword_conn") and self.keyword_conn:
             self.keyword_conn.close()
-            logger.debug("Keyword index connection closed")
+            logger.debug("Legacy keyword index connection closed")
 
         if hasattr(self, "registry"):
             self.registry.close()

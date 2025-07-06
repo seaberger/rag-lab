@@ -221,9 +221,11 @@ class TestPhase42DatabaseFactoryIntegration:
     def test_database_factory_sqlite_backend(self):
         """Test database factory with SQLite backend (no connection manager)."""
         config = PipelineConfig()
+        # Explicitly set SQLite backend (PostgreSQL is now default)
+        config.database.backend = "sqlite"
         factory = DatabaseFactory(config, tenant_id="test-tenant")
 
-        # Should be SQLite backend by default
+        # Should be SQLite backend when explicitly configured
         assert factory.backend == "sqlite"
         assert factory.tenant_id == "test-tenant"
         assert factory._connection_manager is None

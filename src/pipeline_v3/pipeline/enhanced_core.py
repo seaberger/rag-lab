@@ -35,17 +35,33 @@ class EnhancedPipeline:
         config: PipelineConfig | None = None,
         registry: DocumentRegistry | None = None,
         index_manager: IndexManager | None = None,
+        database_adapters: dict[str, Any] | None = None,
     ):
-        """Initialize enhanced pipeline with all components."""
+        """Initialize enhanced pipeline with all components.
+
+        Args:
+            config: Pipeline configuration
+            registry: Optional DocumentRegistry (for backwards compatibility)
+            index_manager: Optional IndexManager (for backwards compatibility)
+            database_adapters: DatabaseFactory adapters (recommended)
+        """
         self.config = config or PipelineConfig()
 
-        # Initialize Phase 1 components
-        self.document_queue = DocumentQueue(self.config)
-        self.job_manager = JobManager(self.config)
-        self.fingerprint_manager = FingerprintManager(self.config)
+        # Use DatabaseFactory adapters if provided, otherwise create components directly
+        if database_adapters:
+            # Use DatabaseFactory adapters (recommended approach)
+            self.job_manager = database_adapters["job_manager"]
+            self.fingerprint_manager = database_adapters["fingerprint_manager"]
+            self.registry = registry or database_adapters["registry"]
+            # Note: keyword_index is handled by IndexManager, DocumentQueue doesn't use database adapters
+        else:
+            # Legacy approach: direct component instantiation
+            self.job_manager = JobManager(self.config)
+            self.fingerprint_manager = FingerprintManager(self.config)
+            self.registry = registry or DocumentRegistry(self.config)
 
-        # Initialize Phase 2 components
-        self.registry = registry or DocumentRegistry(self.config)
+        # Initialize components that don't use DatabaseFactory (yet)
+        self.document_queue = DocumentQueue(self.config)
         self.index_manager = index_manager or IndexManager(self.config, registry=self.registry)
         self.change_detector = ChangeDetector(self.config, registry=self.registry)
 
@@ -68,7 +84,11 @@ class EnhancedPipeline:
             "total_processing_time": 0.0,
         }
 
-        logger.info("EnhancedPipeline initialized with full lifecycle management")
+        # Log initialization approach
+        adapter_source = "DatabaseFactory adapters" if database_adapters else "direct instantiation"
+        logger.info(
+            f"EnhancedPipeline initialized with full lifecycle management using {adapter_source}"
+        )
 
     def save_processing_report(self, output_file: str = "processing_report_v3.json") -> bool:
         """Save detailed processing report from progress monitor."""
@@ -900,11 +920,18 @@ class EnhancedPipeline:
         await self.document_queue.shutdown()
 
         # Close all components
-        self.job_manager.close()
-        self.fingerprint_manager.close()
-        self.index_manager.close()
-        self.registry.close()
-        self.change_detector.close()
+        # Note: When using DatabaseFactory adapters, these may be closed by the factory
+        # However, it's safe to call close() multiple times on most adapters
+        if hasattr(self.job_manager, "close"):
+            self.job_manager.close()
+        if hasattr(self.fingerprint_manager, "close"):
+            self.fingerprint_manager.close()
+        if hasattr(self.index_manager, "close"):
+            self.index_manager.close()
+        if hasattr(self.registry, "close"):
+            self.registry.close()
+        if hasattr(self.change_detector, "close"):
+            self.change_detector.close()
 
         logger.info("Enhanced pipeline shutdown complete")
 
