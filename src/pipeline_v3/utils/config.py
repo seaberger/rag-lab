@@ -231,7 +231,7 @@ class PostgreSQLSettings:
 class DatabaseSettings:
     """Database backend configuration."""
 
-    backend: str = "sqlite"  # "sqlite" or "postgresql"
+    backend: str = "postgresql"  # "postgresql" or "sqlite" (legacy)
     postgresql: PostgreSQLSettings = field(default_factory=PostgreSQLSettings)
 
     # Migration settings

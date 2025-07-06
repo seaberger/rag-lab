@@ -193,9 +193,9 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL keyword index")
             return index
         else:
-            from storage.keyword_index import KeywordIndex
+            from storage.keyword_index import BM25Index
 
-            index = KeywordIndex(self.config)
+            index = BM25Index(config=self.config)
             logger.info("Created SQLite keyword index")
             return index
 
@@ -210,11 +210,11 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL job manager")
             return manager
         else:
-            from job_queue.storage import JobStorage
+            from job_queue.job import JobManager
 
-            storage = JobStorage(self.config)
+            manager = JobManager(self.config)
             logger.info("Created SQLite job manager")
-            return storage
+            return manager
 
     def create_fingerprint_manager(self) -> FingerprintManagerProtocol:
         """Create fingerprint manager adapter."""
@@ -227,11 +227,11 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL fingerprint manager")
             return manager
         else:
-            from core.fingerprint import FingerprintStore
+            from core.fingerprint import FingerprintManager
 
-            store = FingerprintStore(self.config)
-            logger.info("Created SQLite fingerprint store")
-            return store
+            manager = FingerprintManager(self.config)
+            logger.info("Created SQLite fingerprint manager")
+            return manager
 
     def create_all(self) -> dict[str, Any]:
         """Create all database adapters."""

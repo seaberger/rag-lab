@@ -55,6 +55,7 @@ try:
     if str(pipeline_root) not in sys.path:
         sys.path.insert(0, str(pipeline_root))
 
+    from core.database_factory import DatabaseContext, DatabaseFactory
     from core.index_manager import IndexManager
     from core.registry import DocumentRegistry, IndexType
     from job_queue.manager import DocumentQueue
@@ -72,6 +73,8 @@ try:
 except ImportError as e:
     print(f"Warning: Core components not available: {e}")
     CORE_AVAILABLE = False
+    DatabaseFactory = None
+    DatabaseContext = None
     DocumentQueue = None
     DocumentRegistry = None
     IndexManager = None
@@ -160,6 +163,10 @@ class PipelineCLI:
         self.queue = None
         self.registry = None
         self.index_manager = None
+        self.job_manager = None
+        self.fingerprint_manager = None
+        self.database_factory = None
+        self.database_adapters = None
         self.monitor = ProgressMonitor()
 
     def get_config_load_error(self) -> ConfigLoadError | None:
@@ -171,19 +178,45 @@ class PipelineCLI:
         return getattr(self, "_config_load_error", None)
 
     async def initialize(self):
-        """Initialize pipeline components."""
+        """Initialize pipeline components using DatabaseFactory pattern."""
         try:
-            self.registry = DocumentRegistry(self.config)
+            # Initialize database factory
+            self.database_factory = DatabaseFactory(self.config)
+
+            # Validate backend configuration
+            if not self.database_factory.validate_backend_configuration():
+                command_string = " ".join(sys.argv[1:])
+                raise ConfigLoadError(
+                    f"Invalid database backend configuration: {self.database_factory.backend}",
+                    command_string=command_string,
+                )
+
+            # Create all database adapters using factory pattern
+            self.database_adapters = self.database_factory.create_all()
+
+            # Extract adapters for compatibility
+            self.registry = self.database_adapters["registry"]
+            self.job_manager = self.database_adapters["job_manager"]
+            self.fingerprint_manager = self.database_adapters["fingerprint_manager"]
+
+            # Create index manager with factory-created registry
+            # Note: IndexManager has its own internal dependencies that will be updated in Phase 4.2.1c
             self.index_manager = IndexManager(self.config, registry=self.registry)
 
+            # Create enhanced pipeline with factory-created adapters
             if PIPELINE_AVAILABLE:
+                # Note: EnhancedPipeline will be updated in Phase 4.2.1b to use factory adapters
                 self.pipeline = EnhancedPipeline(
                     self.config,
                     registry=self.registry,
                     index_manager=self.index_manager,
                 )
 
+            # Create document queue
+            # Note: DocumentQueue will be updated in Phase 4.2.1e to use factory adapters
             self.queue = DocumentQueue(self.config)
+
+            logger.info(f"Initialized CLI with {self.database_factory.backend} backend")
 
         except ImportError as e:
             command_string = " ".join(sys.argv[1:])
@@ -1526,6 +1559,24 @@ Examples:
         except Exception as e:
             logger.error(f"Tenant command failed: {e}")
             print(f"❌ Error: {e}")
+
+    async def cleanup(self):
+        """Clean up database connections and resources."""
+        try:
+            if self.database_adapters and self.database_factory:
+                self.database_factory.close_all(self.database_adapters)
+                logger.debug("Database adapters closed successfully")
+        except Exception as e:
+            logger.warning(f"Error during database cleanup: {e}")
+
+    def __del__(self):
+        """Destructor to ensure cleanup on garbage collection."""
+        try:
+            if hasattr(self, "database_adapters") and hasattr(self, "database_factory"):
+                if self.database_adapters and self.database_factory:
+                    self.database_factory.close_all(self.database_adapters)
+        except Exception:
+            pass  # Suppress exceptions during garbage collection
 
 
 async def main():
