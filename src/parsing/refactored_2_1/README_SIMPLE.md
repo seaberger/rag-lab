@@ -20,7 +20,7 @@ uv sync
 source .venv/bin/activate
 
 # Set required environment variable
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."  # pragma: allowlist secret
 ```
 
 ### 2. Run the Pipeline

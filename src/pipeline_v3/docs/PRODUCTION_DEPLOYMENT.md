@@ -102,10 +102,10 @@ chmod 1777 temp
 # Create production environment file
 cat > .env.production << EOF
 # API Keys (use secure vault in production)
-OPENAI_API_KEY=your-production-key-here
+OPENAI_API_KEY=your-production-key-here  # pragma: allowlist secret
 
 # Database
-DATABASE_URL=postgresql://pipeline:password@localhost/pipeline_v3
+DATABASE_URL=postgresql://pipeline:password@localhost/pipeline_v3  # pragma: allowlist secret
 
 # Paths
 LOG_DIR=/var/log/pipeline_v3
@@ -542,8 +542,8 @@ echo "Backup completed: $BACKUP_DIR/$DATE"
 # Use HashiCorp Vault or AWS Secrets Manager
 # Example with Vault
 vault kv put secret/pipeline/prod \
-  openai_api_key="sk-..." \
-  database_password="..."
+  openai_api_key="sk-..." \  # pragma: allowlist secret
+  database_password="..."  # pragma: allowlist secret
 
 # Application retrieves secrets
 export OPENAI_API_KEY=$(vault kv get -field=openai_api_key secret/pipeline/prod)

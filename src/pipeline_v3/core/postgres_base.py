@@ -22,7 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from ..utils.config import PostgreSQLSettings
+from utils.config import PostgreSQLSettings
 
 logger = logging.getLogger(__name__)
 

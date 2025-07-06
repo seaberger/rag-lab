@@ -12,10 +12,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from ..utils.common_utils import logger
-from ..utils.config import PipelineConfig
-from .fingerprint import DocumentFingerprint
-from .postgres_base import PostgreSQLBase
+from core.fingerprint import DocumentFingerprint
+from core.postgres_base import PostgreSQLBase
+
+from utils.common_utils import logger
+from utils.config import PipelineConfig
 
 
 class PostgreSQLFingerprintManager:
@@ -55,7 +56,22 @@ class PostgreSQLFingerprintManager:
         # Initialize connection pool
         self.db.initialize()
 
+        # Set tenant context for RLS
+        self._set_tenant_context()
+
         logger.info(f"PostgreSQLFingerprintManager initialized for tenant: {self.tenant_id}")
+
+    def _set_tenant_context(self):
+        """Set the tenant context for Row Level Security."""
+        try:
+            self.db.execute(
+                "SELECT tenants.set_current_tenant(%s)",
+                (uuid.UUID(self.tenant_id),),
+            )
+            logger.debug(f"Set tenant context to: {self.tenant_id}")
+        except Exception as e:
+            # Fallback if tenant functions don't exist (single-tenant mode)
+            logger.warning(f"Could not set tenant context: {e}")
 
     @staticmethod
     def compute_fingerprint(

@@ -24,7 +24,13 @@ from pipeline.enhanced_core import EnhancedPipeline
 from qdrant_client import QdrantClient
 from qdrant_client.http import exceptions as qdrant_exceptions
 
-from utils.config import PipelineConfig
+from utils.config import DatabaseSettings, PipelineConfig, PostgreSQLSettings
+
+try:
+    from core.database_factory import DatabaseFactory
+except ImportError:
+    # Database factory may not be available in all test environments
+    DatabaseFactory = None
 
 # Test environment name
 TEST_ENVIRONMENT = "test_env"
@@ -518,3 +524,166 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "requires_api" in item.keywords:
                 item.add_marker(skip_api)
+
+    # Check PostgreSQL availability and skip if needed
+    pg_available = check_postgresql_available()
+    if not pg_available:
+        skip_pg = pytest.mark.skip(reason="PostgreSQL not available for testing")
+        for item in items:
+            if "postgresql" in item.keywords or "postgres" in item.keywords:
+                item.add_marker(skip_pg)
+
+
+# PostgreSQL-specific fixtures and functions
+def check_postgresql_available() -> bool:
+    """Check if PostgreSQL is available for testing."""
+    try:
+        # Check if DatabaseFactory is available
+        if DatabaseFactory is None:
+            print("DatabaseFactory not available")
+            return False
+
+        # Check if we have PostgreSQL environment variables
+        required_env_vars = [
+            "POSTGRES_HOST",
+            "POSTGRES_DATABASE",
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+        ]
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+
+        if missing_vars:
+            print(f"PostgreSQL test environment not configured. Missing: {missing_vars}")
+            return False
+
+        # Try to create a PostgreSQL configuration and validate it
+        test_config = PipelineConfig(
+            database=DatabaseSettings(
+                backend="postgresql",
+                postgresql=PostgreSQLSettings(
+                    host=os.getenv("POSTGRES_HOST", "localhost"),
+                    port=int(os.getenv("POSTGRES_PORT", "5432")),
+                    database=os.getenv("POSTGRES_DATABASE", "test_rag_lab"),
+                    user=os.getenv("POSTGRES_USER", "test_user"),
+                    password=os.getenv("POSTGRES_PASSWORD", ""),
+                ),
+            )
+        )
+
+        factory = DatabaseFactory(test_config)
+        return factory.validate_backend_configuration()
+    except Exception as e:
+        print(f"PostgreSQL availability check failed: {e}")
+        return False
+
+
+@pytest.fixture(scope="session")
+def postgresql_config():
+    """Create PostgreSQL test configuration."""
+    if not check_postgresql_available():
+        pytest.skip("PostgreSQL not available for testing")
+
+    return PipelineConfig(
+        database=DatabaseSettings(
+            backend="postgresql",
+            log_queries=False,
+            postgresql=PostgreSQLSettings(
+                host=os.getenv("POSTGRES_HOST", "localhost"),
+                port=int(os.getenv("POSTGRES_PORT", "5432")),
+                database=os.getenv("POSTGRES_DATABASE", "test_rag_lab"),
+                user=os.getenv("POSTGRES_USER", "test_user"),
+                password=os.getenv("POSTGRES_PASSWORD", ""),
+                ssl_mode=os.getenv("POSTGRES_SSL_MODE", "prefer"),
+                default_tenant_id=str(uuid.uuid4()),  # Unique tenant per test session
+            ),
+        )
+    )
+
+
+@pytest.fixture(params=["sqlite", "postgresql"])
+def database_backend(request):
+    """Parametrized fixture for testing both backends."""
+    backend = request.param
+
+    # Skip PostgreSQL tests if not available
+    if backend == "postgresql" and not check_postgresql_available():
+        pytest.skip("PostgreSQL not available for testing")
+
+    return backend
+
+
+@pytest.fixture
+def test_config_multi_backend(database_backend, test_config, postgresql_config):
+    """Get test configuration for the specified backend."""
+    if database_backend == "sqlite":
+        return test_config
+    elif database_backend == "postgresql":
+        return postgresql_config
+    else:
+        raise ValueError(f"Unknown backend: {database_backend}")
+
+
+@pytest.fixture
+def database_factory_multi(test_config_multi_backend):
+    """Create database factory for both backends."""
+    if DatabaseFactory is None:
+        pytest.skip("DatabaseFactory not available")
+
+    factory = DatabaseFactory(test_config_multi_backend)
+
+    # Validate configuration before use
+    if not factory.validate_backend_configuration():
+        pytest.skip(f"Database backend not properly configured: {factory.backend}")
+
+    return factory
+
+
+@pytest.fixture
+def test_tenant_id():
+    """Generate unique tenant ID for tests."""
+    return str(uuid.uuid4())
+
+
+@pytest.fixture
+def database_adapters_multi(database_factory_multi, test_tenant_id):
+    """Create database adapters for both backends."""
+    try:
+        adapters = database_factory_multi.create_all()
+        yield adapters
+    except Exception as e:
+        pytest.skip(f"Could not create database adapters: {e}")
+    finally:
+        if "adapters" in locals():
+            database_factory_multi.close_all(adapters)
+
+
+# Helper functions for multi-backend tests
+def create_test_document_info() -> dict:
+    """Create test document information."""
+    return {
+        "source": "/path/to/test.pdf",
+        "content_hash": "abc123def456",  # pragma: allowlist secret
+        "size": 1024,
+        "modified_time": 1234567890.0,
+        "metadata": {"type": "test", "category": "document"},
+    }
+
+
+def create_test_job_info() -> dict:
+    """Create test job information."""
+    return {
+        "job_type": "process_document",
+        "payload": {"source": "/path/to/test.pdf", "mode": "datasheet"},
+        "priority": 1,
+    }
+
+
+def create_test_search_data() -> dict:
+    """Create test search data."""
+    return {
+        "doc_id": str(uuid.uuid4()),
+        "chunk_id": "chunk_001",
+        "text": "This is test content about laser sensors and photodiodes.",
+        "keywords": ["laser", "sensor", "photodiode", "measurement"],
+        "metadata": {"page": 1, "section": "specifications"},
+    }

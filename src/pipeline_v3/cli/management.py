@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 # Import custom exceptions and logger
-from utils.common_utils import (
+from ..utils.common_utils import (
     CLIArgumentError,
     ConfigLoadError,
     DependencyError,
@@ -47,6 +47,14 @@ except ImportError as e:
     EnhancedPipeline = None
 
 try:
+    import sys
+    from pathlib import Path
+
+    # Add the pipeline_v3 root to Python path
+    pipeline_root = Path(__file__).parent.parent
+    if str(pipeline_root) not in sys.path:
+        sys.path.insert(0, str(pipeline_root))
+
     from core.index_manager import IndexManager
     from core.registry import DocumentRegistry, IndexType
     from job_queue.manager import DocumentQueue
@@ -67,6 +75,7 @@ except ImportError as e:
     DocumentQueue = None
     DocumentRegistry = None
     IndexManager = None
+    IndexType = None
     PipelineConfig = None
     ProgressMonitor = None
     extract_urls_from_file = None
@@ -225,11 +234,17 @@ Examples:
         # System operations
         self._add_system_commands(subparsers)
 
+        # Migration
+        self._add_migrate_commands(subparsers)
+
         # Configuration
         self._add_config_commands(subparsers)
 
         # Batch operations
         self._add_batch_commands(subparsers)
+
+        # Tenant management
+        self._add_tenant_commands(subparsers)
 
         return parser
 
@@ -403,6 +418,64 @@ Examples:
             "--consistency-check", action="store_true", help="Check index consistency"
         )
 
+    def _add_migrate_commands(self, subparsers):
+        """Add migration commands."""
+        migrate_parser = subparsers.add_parser("migrate", help="Database migration operations")
+        migrate_subparsers = migrate_parser.add_subparsers(dest="migrate_action")
+
+        # Migrate to PostgreSQL
+        to_pg_parser = migrate_subparsers.add_parser(
+            "to-postgres", help="Migrate from SQLite to PostgreSQL"
+        )
+        to_pg_parser.add_argument(
+            "--registry",
+            type=Path,
+            default=Path("./document_registry_v3.db"),
+            help="Path to SQLite registry database",
+        )
+        to_pg_parser.add_argument(
+            "--keyword",
+            type=Path,
+            default=Path("./keyword_index_v3.db"),
+            help="Path to SQLite keyword index database",
+        )
+        to_pg_parser.add_argument(
+            "--jobs",
+            type=Path,
+            default=Path("./jobs_v3.db"),
+            help="Path to SQLite jobs database",
+        )
+        to_pg_parser.add_argument(
+            "--fingerprints",
+            type=Path,
+            default=Path("./fingerprints_v3.db"),
+            help="Path to SQLite fingerprints database",
+        )
+        to_pg_parser.add_argument(
+            "--tenant-id",
+            type=str,
+            help="Target tenant ID (defaults to config)",
+        )
+        to_pg_parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=1000,
+            help="Number of records to process per batch",
+        )
+        to_pg_parser.add_argument(
+            "--skip-existing/--overwrite",
+            default=True,
+            help="Skip records that already exist in PostgreSQL",
+        )
+        to_pg_parser.add_argument(
+            "--verify/--no-verify",
+            default=True,
+            help="Verify migration after completion",
+        )
+
+        # Migration status
+        migrate_subparsers.add_parser("status", help="Check migration readiness")
+
     def _add_config_commands(self, subparsers):
         """Add configuration commands."""
         config_parser = subparsers.add_parser("config", help="Manage configuration")
@@ -463,6 +536,12 @@ Examples:
             help="Enable keyword generation during test",
         )
 
+    def _add_tenant_commands(self, subparsers):
+        """Add tenant management commands."""
+        from cli.commands.tenant import add_tenant_subcommands
+
+        add_tenant_subcommands(subparsers)
+
     async def run(self, args):
         """Run the CLI with parsed arguments."""
         if args.verbose:
@@ -482,10 +561,14 @@ Examples:
             await self.handle_status(args)
         elif args.command == "maintenance":
             await self.handle_maintenance(args)
+        elif args.command == "migrate":
+            await self.handle_migrate(args)
         elif args.command == "config":
             await self.handle_config(args)
         elif args.command == "batch":
             await self.handle_batch(args)
+        elif args.command == "tenant":
+            await self.handle_tenant(args)
         else:
             command_string = " ".join(sys.argv[1:])
             raise CLIArgumentError(
@@ -1147,6 +1230,92 @@ Examples:
             result = self.index_manager.verify_consistency()
             print(f"Consistency check: {result}")
 
+    async def handle_migrate(self, args):
+        """Handle migration operations."""
+        if args.migrate_action == "to-postgres":
+            # Import migration tool
+            from ..tools.sqlite_to_postgres import SQLiteToPostgresMigrator
+
+            # Check if PostgreSQL is configured
+            if self.config.database.backend != "postgresql":
+                print(
+                    "❌ PostgreSQL not configured. Set database.backend = 'postgresql' in config."
+                )
+                return
+
+            # Build paths dictionary
+            sqlite_paths = {}
+            if args.registry.exists():
+                sqlite_paths["registry"] = args.registry
+            if args.keyword.exists():
+                sqlite_paths["keyword"] = args.keyword
+            if args.jobs.exists():
+                sqlite_paths["jobs"] = args.jobs
+            if args.fingerprints.exists():
+                sqlite_paths["fingerprints"] = args.fingerprints
+
+            if not sqlite_paths:
+                print("❌ No SQLite databases found to migrate")
+                return
+
+            print(f"Found {len(sqlite_paths)} database(s) to migrate")
+            print(
+                f"Target tenant ID: {args.tenant_id or self.config.database.postgresql.default_tenant_id}"
+            )
+
+            # Create migrator
+            migrator = SQLiteToPostgresMigrator(
+                sqlite_paths,
+                self.config.database.postgresql,
+                tenant_id=args.tenant_id,
+            )
+
+            # Run migration
+            await migrator.migrate_all(
+                batch_size=args.batch_size,
+                skip_existing=args.skip_existing,
+            )
+
+            # Show results
+            stats = migrator.stats
+            print("\n✅ Migration complete:")
+            print(f"   Documents: {stats.documents_migrated}")
+            print(f"   Index entries: {stats.index_entries_migrated}")
+            print(f"   Jobs: {stats.jobs_migrated}")
+            print(f"   Fingerprints: {stats.fingerprints_migrated}")
+            if stats.errors:
+                print(f"   ⚠️  Errors: {len(stats.errors)}")
+
+            # Verify if requested
+            if args.verify:
+                print("\n🔍 Verifying migration...")
+                verification = await migrator.verify_migration()
+                all_match = all(verification["matches"].values())
+                print(f"   Verification: {'✅ Passed' if all_match else '❌ Failed'}")
+
+        elif args.migrate_action == "status":
+            # Show migration status
+            print(f"Current database backend: {self.config.database.backend}")
+
+            # Check SQLite databases
+            sqlite_dbs = [
+                ("Registry", Path("./document_registry_v3.db")),
+                ("Keyword Index", Path("./keyword_index_v3.db")),
+                ("Jobs", Path("./jobs_v3.db")),
+                ("Fingerprints", Path("./fingerprints_v3.db")),
+            ]
+
+            print("\nSQLite databases:")
+            for db_name, db_path in sqlite_dbs:
+                if db_path.exists():
+                    size = db_path.stat().st_size / 1024 / 1024
+                    print(f"  ✓ {db_name}: {size:.1f} MB")
+                else:
+                    print(f"  ✗ {db_name}: Not found")
+
+        else:
+            print(f"Unknown migrate action: {args.migrate_action}")
+
     async def handle_config(self, args):
         """Handle configuration operations."""
         if args.config_action == "list":
@@ -1336,6 +1505,27 @@ Examples:
 
         else:
             print(f"Unknown batch action: {args.batch_action}")
+
+    async def handle_tenant(self, args):
+        """Handle tenant management operations."""
+        # Only allow tenant operations with PostgreSQL backend
+        if self.config.database.backend != "postgresql":
+            print("❌ Error: Tenant management requires PostgreSQL backend")
+            print("   Current backend:", self.config.database.backend)
+            print("   Please configure PostgreSQL backend to use tenant features")
+            return
+
+        try:
+            from cli.commands.tenant import TenantCLI
+
+            tenant_cli = TenantCLI(self.config)
+            tenant_cli.handle_tenant_command(args)
+        except ImportError as e:
+            logger.error(f"Failed to import tenant CLI: {e}")
+            print(f"❌ Error: Tenant management not available: {e}")
+        except Exception as e:
+            logger.error(f"Tenant command failed: {e}")
+            print(f"❌ Error: {e}")
 
 
 async def main():

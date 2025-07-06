@@ -241,7 +241,7 @@ uv run python -m src.pipeline_v3.cli_main add test.pdf
 # Should show clear error message
 
 # Test with invalid API key
-export OPENAI_API_KEY="invalid-key"
+export OPENAI_API_KEY="invalid-key"  # pragma: allowlist secret
 uv run python -m src.pipeline_v3.cli_main add test.pdf
 # Should fail fast without retries
 ```

@@ -15,10 +15,9 @@ import logging
 import sys
 
 # Import using relative imports
-from cli.management import main
-
-from utils.cleanup import cleanup_temp_resources, get_resource_manager
-from utils.common_utils import (
+from .cli.management import main
+from .utils.cleanup import cleanup_temp_resources, get_resource_manager
+from .utils.common_utils import (
     CLIArgumentError,
     ConfigLoadError,
     DependencyError,

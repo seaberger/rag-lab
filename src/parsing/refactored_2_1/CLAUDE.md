@@ -43,7 +43,7 @@ uv sync
 source .venv/bin/activate
 
 # Set required environment variable
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."  # pragma: allowlist secret
 
 # Run main ingestion pipeline
 python cli_with_updated_doc_flow.py --src *.pdf --with_keywords --mode datasheet
