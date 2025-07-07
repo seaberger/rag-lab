@@ -21,7 +21,7 @@ from src.pipeline_v3.utils.common_utils import logger
 from .database_credentials import TestDatabaseCredentials
 
 
-class TestDatabaseManager:
+class DatabaseTestManager:
     """Manages test database lifecycle for e2e testing."""
 
     def __init__(self):
@@ -344,10 +344,10 @@ class TestDatabaseManager:
 
 
 # Global instance for test session
-_test_db_manager: Optional[TestDatabaseManager] = None
+_test_db_manager: Optional['TestDatabaseManager'] = None
 
 
-def get_test_database_manager() -> TestDatabaseManager:
+def get_test_database_manager() -> 'TestDatabaseManager':
     """Get or create the test database manager."""
     global _test_db_manager
     if _test_db_manager is None:

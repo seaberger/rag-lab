@@ -24,9 +24,7 @@ from job_queue.manager import DocumentQueue, JobPriority
 from storage.cache import CacheManager
 from utils.common_utils import logger
 from utils.env_utils import setup_environment
-from utils.environment import EnvironmentManager
 from utils.monitoring import ProgressMonitor
-from utils.validators import ValidationManager
 
 # Import database fixtures for multi-backend support
 try:
@@ -521,87 +519,17 @@ job_queue:
         # Test cleanup function
         cleanup_temp_resources()
 
+    @pytest.mark.skip(reason="SQLite is no longer supported - migrations are PostgreSQL only")
     def test_database_migrations(self, test_base_dir):
         """Test database migration framework."""
-        # Test migration sequence
-        db_path = os.path.join(test_base_dir, "test_migrations.db")
+        # This test was for SQLite migrations which are no longer supported
+        pass
 
-        # Remove existing database if it exists
-        if os.path.exists(db_path):
-            os.unlink(db_path)
-
-        manager = MigrationManager(db_path)
-
-        # Create test migrations
-        migrations = [
-            Migration(
-                version=1,
-                name="create_test_table",
-                up_sql="CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT);",
-                down_sql="DROP TABLE test_table;",
-            ),
-            Migration(
-                version=2,
-                name="add_column",
-                up_sql="ALTER TABLE test_table ADD COLUMN created_at TIMESTAMP;",
-                down_sql="ALTER TABLE test_table DROP COLUMN created_at;",
-            ),
-        ]
-
-        # Apply migrations
-        for migration in migrations:
-            manager.apply_migration(migration)
-
-        # Verify version
-        assert manager.get_current_version() == 2
-
-        # Verify table exists
-        cursor = manager.conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'"
-        )
-        assert cursor.fetchone() is not None
-
-        # Test rollback
-        manager.rollback_migration(1)
-        assert manager.get_current_version() == 1
-
-        manager.close()
-
+    @pytest.mark.skip(reason="SQLite is no longer supported - migrations are PostgreSQL only")
     def test_real_migration_files(self, test_base_dir):
         """Test loading and applying real migration files."""
-        # Get the real migrations directory
-        migrations_base = Path(__file__).parent.parent.parent / "migrations"
-
-        if not migrations_base.exists():
-            pytest.skip("Migrations directory not found")
-
-        # Test one database type (registry)
-        migrations_dir = migrations_base / "registry"
-        if migrations_dir.exists():
-            db_path = os.path.join(test_base_dir, "test_registry.db")
-
-            # Remove existing database if it exists
-            if os.path.exists(db_path):
-                os.unlink(db_path)
-
-            # Load migrations
-            migrations = load_migrations_from_sql_files(migrations_dir)
-            assert len(migrations) > 0
-
-            # Apply migrations
-            manager = MigrationManager(db_path)
-            result = manager.run_migrations(migrations)
-
-            assert result["applied_count"] > 0
-            assert result["current_version"] > 0
-
-            # Verify documents table was created
-            cursor = manager.conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
-            )
-            assert cursor.fetchone() is not None
-
-            manager.close()
+        # This test was for SQLite migrations which are no longer supported
+        pass
 
 
 if __name__ == "__main__":

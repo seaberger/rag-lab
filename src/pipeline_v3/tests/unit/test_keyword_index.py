@@ -4,7 +4,6 @@ Unit tests for BM25 Keyword Index component.
 Tests cover keyword indexing, search functionality, and SQL injection protection.
 """
 
-import sqlite3
 import sys
 from pathlib import Path
 

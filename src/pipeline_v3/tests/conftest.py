@@ -57,20 +57,12 @@ def qdrant_client_context(config):
 def ensure_database_connections_closed():
     """Force close any lingering database connections."""
     import gc
-    import sqlite3
 
     # Force garbage collection to close any lingering connections
     gc.collect()
 
-    # Try to close any open SQLite connections
-    try:
-        # This is a bit of a hack, but helps with SQLite connection cleanup
-        for obj in gc.get_objects():
-            if isinstance(obj, sqlite3.Connection):
-                with contextlib.suppress(Exception):
-                    obj.close()
-    except Exception:
-        pass  # Best effort cleanup
+    # PostgreSQL connections are managed by connection pools
+    # and will be cleaned up automatically
 
 
 @pytest.fixture(scope="session")
@@ -128,8 +120,9 @@ def create_test_config(
 
     # Override all database and storage paths
     config.storage.base_dir = str(env_path / "storage_data")
-    config.storage.keyword_db_path = str(env_path / "keyword_index.db")
-    config.storage.document_registry_path = str(env_path / "document_registry.db")
+    # PostgreSQL is used for keyword index and document registry - no file paths needed
+    config.storage.keyword_db_path = None
+    config.storage.document_registry_path = None
 
     config.cache.directory = str(env_path / "cache")
     # Configure Qdrant for server mode (baseline for all tests)
@@ -303,6 +296,8 @@ def clear_test_databases(config: PipelineConfig):
     ]
 
     for db_path in db_paths:
+        if db_path is None:  # Skip None paths (PostgreSQL-managed)
+            continue
         db_file = Path(db_path)
         if db_file.exists():
             for attempt in range(max_retries):

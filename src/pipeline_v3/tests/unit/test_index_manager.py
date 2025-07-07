@@ -25,14 +25,17 @@ class TestIndexManager:
         with patch("qdrant_client.QdrantClient"):
             with patch("llama_index.embeddings.openai.OpenAIEmbedding"):
                 with patch("llama_index.vector_stores.qdrant.QdrantVectorStore"):
-                    manager = IndexManager(config=test_config)
+                    # Create a mock keyword index adapter
+                    mock_keyword_index = Mock()
+                    mock_keyword_index.index_chunks = Mock(return_value=True)
+                    mock_keyword_index.search = Mock(return_value=[])
+                    mock_keyword_index.get_stats = Mock(return_value={"total_entries": 0})
+                    mock_keyword_index.remove_document = Mock(return_value=1)
+
+                    manager = IndexManager(config=test_config, keyword_index=mock_keyword_index)
                     # Mock the vector store methods
                     manager.vector_store = Mock()
-                    manager.keyword_index = Mock()
-                    # Mock keyword connection
-                    manager.keyword_conn = Mock()
-                    manager.keyword_conn.execute = Mock()
-                    manager.keyword_conn.commit = Mock()
+                    # No need to mock keyword_conn anymore since we use adapter
                     return manager
 
     def test_initialization(self, test_config):
@@ -40,9 +43,16 @@ class TestIndexManager:
         with patch("qdrant_client.QdrantClient"):
             with patch("llama_index.embeddings.openai.OpenAIEmbedding"):
                 with patch("llama_index.vector_stores.qdrant.QdrantVectorStore"):
-                    manager = IndexManager(config=test_config)
+                    # Create a mock keyword index adapter
+                    mock_keyword_index = Mock()
+                    mock_keyword_index.index_chunks = Mock(return_value=True)
+                    mock_keyword_index.search = Mock(return_value=[])
+                    mock_keyword_index.get_stats = Mock(return_value={"total_entries": 0})
+
+                    manager = IndexManager(config=test_config, keyword_index=mock_keyword_index)
                     assert manager.config == test_config
                     assert manager.registry is not None
+                    assert manager.keyword_index == mock_keyword_index
 
     def test_index_document(self, index_manager):
         """Test indexing a document."""

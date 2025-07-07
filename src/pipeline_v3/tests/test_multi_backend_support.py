@@ -2,7 +2,7 @@
 Multi-backend support tests for Pipeline v3.
 
 These tests verify that the database factory and adapters work correctly
-with both SQLite and PostgreSQL backends.
+with PostgreSQL backend. SQLite is no longer supported.
 """
 
 import pytest
@@ -18,12 +18,12 @@ from .conftest import (
 
 
 class TestMultiBackendSupport:
-    """Test database operations across both SQLite and PostgreSQL backends."""
+    """Test database operations for PostgreSQL backend."""
 
     def test_database_factory_creation(self, database_factory_multi):
         """Test that database factory can be created for both backends."""
         assert database_factory_multi is not None
-        assert database_factory_multi.backend in ["sqlite", "postgresql"]
+        assert database_factory_multi.backend == "postgresql"  # Only PostgreSQL supported now
         assert database_factory_multi.validate_backend_configuration()
 
     def test_database_adapters_creation(self, database_adapters_multi, database_factory_multi):
@@ -163,19 +163,13 @@ class TestMultiBackendSupport:
             print("✓ PostgreSQL-specific features verified")
 
         elif backend == "sqlite":
-            # Test SQLite-specific features
-            migration_info = database_factory_multi.get_migration_info()
-            assert migration_info["current_backend"] == "sqlite"
-            assert migration_info["target_backend"] == "postgresql"
-            assert migration_info["migration_available"] is True
-
-            print("✓ SQLite-specific features verified")
+            # SQLite is no longer supported - should not reach here
+            pytest.fail("SQLite backend is no longer supported")
 
     @pytest.mark.slow
     def test_cross_backend_compatibility(self, database_adapters_multi, database_factory_multi):
-        """Test that data structures are compatible across backends."""
-        # This test verifies that the same data can be handled by both backends
-        # (though not necessarily migrated between them without the migration tool)
+        """Test that data structures are compatible with PostgreSQL."""
+        # This test verifies that complex data structures work correctly
 
         registry = database_adapters_multi["registry"]
         doc_info = create_test_document_info()
@@ -201,28 +195,6 @@ class TestMultiBackendSupport:
         assert doc.metadata == complex_metadata
 
         print(f"✓ Complex data structures compatible with {database_factory_multi.backend}")
-
-
-@pytest.mark.sqlite
-class TestSQLiteSpecific:
-    """SQLite-specific tests."""
-
-    def test_sqlite_file_paths(self, test_config):
-        """Test SQLite file path configuration."""
-        from core.database_factory import DatabaseFactory
-
-        factory = DatabaseFactory(test_config)
-        assert factory.backend == "sqlite"
-
-        # SQLite should use file paths
-        adapters = factory.create_all()
-
-        # Registry should have a database file
-        registry = adapters["registry"]
-        # Check that it's using SQLite (has a connection to a file)
-        assert hasattr(registry, 'storage') or hasattr(registry, 'conn')
-
-        factory.close_all(adapters)
 
 
 @pytest.mark.postgresql
