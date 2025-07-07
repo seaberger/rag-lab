@@ -136,7 +136,7 @@ class PostgreSQLJobManager:
             updated_at=row["updated_at"].timestamp(),
             started_at=row["started_at"].timestamp() if row["started_at"] else None,
             completed_at=row["completed_at"].timestamp() if row["completed_at"] else None,
-            status=row["status"],
+            status=row["status"].lower(),  # Convert from DB uppercase to enum lowercase
             progress=float(row["progress"]),
             worker_id=row["worker_id"],
             error_message=row["error_message"],
@@ -156,7 +156,7 @@ class PostgreSQLJobManager:
     ) -> bool:
         """Update job status and related fields."""
         updates = ["status = %s", "updated_at = NOW()"]
-        params = [status.value]
+        params = [status.value.upper()]  # PostgreSQL expects uppercase status
 
         if worker_id is not None:
             updates.append("worker_id = %s")
@@ -263,7 +263,7 @@ class PostgreSQLJobManager:
 
         if status:
             conditions.append("status = %s")
-            params.append(status.value)
+            params.append(status.value.upper())  # PostgreSQL expects uppercase
 
         query = f"""
             SELECT * FROM queue
@@ -292,7 +292,11 @@ class PostgreSQLJobManager:
 
         self.db.execute(
             update_query,
-            (JobStatus.INTERRUPTED.value, self.tenant_id, JobStatus.PROCESSING.value),
+            (
+                JobStatus.INTERRUPTED.value.upper(),
+                self.tenant_id,
+                JobStatus.PROCESSING.value.upper(),
+            ),
         )
 
         # Get interrupted jobs
@@ -304,7 +308,9 @@ class PostgreSQLJobManager:
             ORDER BY priority DESC, created_at ASC
         """
 
-        rows = self.db.fetch_all(select_query, (self.tenant_id, JobStatus.INTERRUPTED.value))
+        rows = self.db.fetch_all(
+            select_query, (self.tenant_id, JobStatus.INTERRUPTED.value.upper())
+        )
 
         jobs = [self._row_to_job(row) for row in rows]
 
@@ -322,7 +328,7 @@ class PostgreSQLJobManager:
             "error_message = NULL",
             "updated_at = NOW()",
         ]
-        params = [JobStatus.PENDING.value]
+        params = [JobStatus.PENDING.value.upper()]  # PostgreSQL expects uppercase
 
         if reset_retries:
             updates.append("retry_count = 0")
@@ -366,12 +372,12 @@ class PostgreSQLJobManager:
         stats = self.db.fetch_one(
             stats_query,
             (
-                JobStatus.PENDING.value,
-                JobStatus.PROCESSING.value,
-                JobStatus.COMPLETED.value,
-                JobStatus.FAILED.value,
-                JobStatus.CANCELLED.value,
-                JobStatus.INTERRUPTED.value,
+                JobStatus.PENDING.value.upper(),
+                JobStatus.PROCESSING.value.upper(),
+                JobStatus.COMPLETED.value.upper(),
+                JobStatus.FAILED.value.upper(),
+                JobStatus.CANCELLED.value.upper(),
+                JobStatus.INTERRUPTED.value.upper(),
                 self.tenant_id,
             ),
         )
@@ -398,7 +404,9 @@ class PostgreSQLJobManager:
             AND completed_at > NOW() - INTERVAL '1 hour'
         """
 
-        recent = self.db.fetch_one(recent_query, (self.tenant_id, JobStatus.COMPLETED.value))
+        recent = self.db.fetch_one(
+            recent_query, (self.tenant_id, JobStatus.COMPLETED.value.upper())
+        )
 
         return {
             "total_jobs": stats["total_jobs"] or 0,
@@ -435,9 +443,9 @@ class PostgreSQLJobManager:
             query,
             (
                 self.tenant_id,
-                JobStatus.COMPLETED.value,
-                JobStatus.FAILED.value,
-                JobStatus.CANCELLED.value,
+                JobStatus.COMPLETED.value.upper(),
+                JobStatus.FAILED.value.upper(),
+                JobStatus.CANCELLED.value.upper(),
                 days,
             ),
         )
@@ -462,11 +470,11 @@ class PostgreSQLJobManager:
         result = self.db.execute(
             query,
             (
-                JobStatus.CANCELLED.value,
+                JobStatus.CANCELLED.value.upper(),
                 uuid.UUID(job_id),
                 self.tenant_id,
-                JobStatus.PENDING.value,
-                JobStatus.PROCESSING.value,
+                JobStatus.PENDING.value.upper(),
+                JobStatus.PROCESSING.value.upper(),
             ),
         )
 
@@ -490,14 +498,14 @@ class PostgreSQLJobManager:
             query,
             (
                 self.tenant_id,
-                JobStatus.PENDING.value,
+                JobStatus.PENDING.value.upper(),
                 self.tenant_id,
-                JobStatus.PENDING.value,
+                JobStatus.PENDING.value.upper(),
                 self.tenant_id,
-                JobStatus.PROCESSING.value,
+                JobStatus.PROCESSING.value.upper(),
                 self.tenant_id,
                 self.tenant_id,
-                JobStatus.PENDING.value,
+                JobStatus.PENDING.value.upper(),
             ),
         )
 

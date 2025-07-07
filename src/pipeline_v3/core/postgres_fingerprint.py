@@ -141,19 +141,19 @@ class PostgreSQLFingerprintManager:
 
     def _row_to_fingerprint(self, row: Dict[str, Any]) -> DocumentFingerprint:
         """Convert database row to DocumentFingerprint."""
-        # Extract metadata fields from JSON
-        metadata = self.db.jsonb_to_dict(row.get("metadata", {})) or {}
+        # Extract metadata fields from JSON (if needed in future)
+        # metadata = self.db.jsonb_to_dict(row.get("metadata", {})) or {}
 
         return DocumentFingerprint(
             source=row["source"],
             content_hash=row["content_hash"],
-            size=row["file_size"],
-            modified_time=row["last_modified"].timestamp() if row["last_modified"] else time.time(),
-            metadata_hash=metadata.get("metadata_hash", ""),
+            size=row["size"],
+            modified_time=row["modified_time"].timestamp() if row["modified_time"] else time.time(),
+            metadata_hash=row.get("metadata_hash", ""),
             created_at=row["created_at"].timestamp() if row["created_at"] else time.time(),
-            last_seen=time.time(),  # No last_seen column in current schema
-            doc_id=metadata.get("doc_id"),
-            processing_status=metadata.get("processing_status", "unknown"),
+            last_seen=row["last_seen"].timestamp() if row.get("last_seen") else time.time(),
+            doc_id=str(row["doc_id"]) if row.get("doc_id") else None,
+            processing_status=row.get("processing_status", "unknown"),
         )
 
     def update_fingerprint(
@@ -181,12 +181,12 @@ class PostgreSQLFingerprintManager:
         """
 
         try:
-            # Build metadata dict
-            metadata = {
-                "metadata_hash": fingerprint.metadata_hash,
-                "doc_id": doc_id,
-                "processing_status": processing_status,
-            }
+            # Build metadata dict (kept for reference)
+            # metadata = {
+            #     "metadata_hash": fingerprint.metadata_hash,
+            #     "doc_id": doc_id,
+            #     "processing_status": processing_status,
+            # }
 
             self.db.execute(
                 query,

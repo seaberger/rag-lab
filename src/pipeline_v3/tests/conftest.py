@@ -384,7 +384,7 @@ def database_adapters(database_factory):
             database_factory.close_all(adapters)
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def test_pipeline(test_config):
     """Provide an initialized test pipeline with proper cleanup."""
     pipeline = None
