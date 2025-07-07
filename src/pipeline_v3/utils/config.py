@@ -200,8 +200,8 @@ class PostgreSQLSettings:
     # Connection settings
     host: str = "localhost"
     port: int = 5432
-    database: str = "rag_lab_db"
-    user: str = "rag_lab_user"
+    database: str = "rag_lab"  # Fixed to match Docker setup
+    user: str = "rag_user"  # Fixed to match Docker setup
     password: str = ""  # Should be loaded from environment variable
     ssl_mode: str = "prefer"  # disable, allow, prefer, require, verify-ca, verify-full
 

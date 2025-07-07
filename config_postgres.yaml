@@ -9,7 +9,7 @@ database:
     database: rag_lab
     user: rag_user
     password: ""  # Set via POSTGRES_PASSWORD environment variable
-    default_tenant_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"  # lmc-dev tenant UUID
+    default_tenant_id: "081f2c7d-20be-4fc6-b8e2-113b9629db8e"  # matrix tenant UUID
     pool_size: 10
     max_overflow: 20
 

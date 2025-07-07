@@ -1,0 +1,65 @@
+--- a/src/pipeline_v3/cli/management.py
++++ b/src/pipeline_v3/cli/management.py
+@@ -172,8 +172,15 @@ class PipelineCLI:
+-    async def initialize(self):
++    async def initialize(self, tenant_id=None):
+         """Initialize pipeline components using DatabaseFactory pattern."""
+         try:
++            # If tenant_id is provided, update the config temporarily
++            original_tenant_id = None
++            if tenant_id and self.config.database.backend == "postgresql":
++                original_tenant_id = self.config.database.postgresql.default_tenant_id
++                self.config.database.postgresql.default_tenant_id = tenant_id
++                logger.info(f"Using tenant_id: {tenant_id}")
++
+             # Initialize database factory
+             self.database_factory = DatabaseFactory(self.config)
+
+@@ -215,6 +222,11 @@ class PipelineCLI:
+
+             logger.info(f"Initialized CLI with {self.database_factory.backend} backend")
+
++            # Store original tenant_id for restoration if needed
++            if original_tenant_id:
++                self._original_tenant_id = original_tenant_id
++                self._temp_tenant_id = tenant_id
++
+         except ImportError as e:
+             command_string = " ".join(sys.argv[1:])
+             raise DependencyError(
+@@ -393,6 +405,10 @@ class PipelineCLI:
+             "--top-k", type=int, default=10, help="Number of results to return"
+         )
+         search_parser.add_argument("--filter", help="Filter expression (JSON format)")
++        search_parser.add_argument(
++            "--tenant-id",
++            help="Tenant ID for multi-tenant search (PostgreSQL only)"
++        )
+         search_parser.add_argument(
+             "--fusion-method",
+             choices=["rrf", "weighted", "adaptive"],
+@@ -1054,6 +1070,11 @@ class PipelineCLI:
+     async def handle_search(self, args):
+         """Handle search operations."""
+         from utils.security import InputSanitizer
++
++        # Reinitialize with tenant_id if provided
++        if hasattr(args, 'tenant_id') and args.tenant_id:
++            await self.cleanup()  # Clean up existing connections
++            await self.initialize(tenant_id=args.tenant_id)
+
+         try:
+             # Sanitize search query to prevent injection
+@@ -1412,6 +1433,12 @@ class PipelineCLI:
+     async def cleanup(self):
+         """Clean up database connections and resources."""
+         try:
++            # Restore original tenant_id if it was temporarily changed
++            if hasattr(self, '_original_tenant_id') and hasattr(self, '_temp_tenant_id'):
++                if self.config.database.backend == "postgresql":
++                    self.config.database.postgresql.default_tenant_id = self._original_tenant_id
++                    logger.debug(f"Restored original tenant_id: {self._original_tenant_id}")
++
+             if self.database_adapters and self.database_factory:
+                 self.database_factory.close_all(self.database_adapters)
+                 logger.debug("Database adapters closed successfully")

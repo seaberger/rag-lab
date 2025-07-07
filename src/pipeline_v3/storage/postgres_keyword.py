@@ -8,11 +8,10 @@ SQLite FTS5 with PostgreSQL's native tsvector/tsquery functionality.
 import re
 from typing import Any, Dict, List
 
-from core.data_structures import TextChunk
-from core.postgres_base import PostgreSQLBase
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.data_structures import TextChunk
+from src.pipeline_v3.core.postgres_base import PostgreSQLBase
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class PostgreSQLKeywordIndex:

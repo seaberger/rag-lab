@@ -7,22 +7,15 @@ including creation, configuration, monitoring, and data cleanup.
 
 import json
 import sys
-from pathlib import Path
 
-# Add the pipeline_v3 root to Python path
-pipeline_root = Path(__file__).parent.parent.parent
-if str(pipeline_root) not in sys.path:
-    sys.path.insert(0, str(pipeline_root))
-
-from core.tenant_manager import (
+from src.pipeline_v3.core.tenant_manager import (
     TenantError,
     TenantManager,
     TenantNotFoundError,
     TenantQuotaExceededError,
 )
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class TenantCLI:

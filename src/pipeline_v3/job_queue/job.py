@@ -14,8 +14,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class JobType(Enum):

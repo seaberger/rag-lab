@@ -4,7 +4,6 @@ Performance optimization commands for Pipeline v3 CLI.
 Provides commands to analyze and optimize PostgreSQL performance.
 """
 
-import sys
 from pathlib import Path
 
 import typer
@@ -13,13 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-# Add the pipeline_v3 root to Python path
-pipeline_root = Path(__file__).parent.parent.parent
-if str(pipeline_root) not in sys.path:
-    sys.path.insert(0, str(pipeline_root))
-
-from core.postgres_performance import get_performance_optimizer
-
+from src.pipeline_v3.core.postgres_performance import get_performance_optimizer
 from utils.config import PipelineConfig
 
 app = typer.Typer(help="PostgreSQL performance optimization commands")

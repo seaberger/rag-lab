@@ -6,23 +6,15 @@ connection pool monitoring, and automatic pool management for enterprise
 multi-tenant PostgreSQL deployments.
 """
 
-import sys
 import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Dict, List
 
-# Add the pipeline_v3 root to Python path
-pipeline_root = Path(__file__).parent.parent
-if str(pipeline_root) not in sys.path:
-    sys.path.insert(0, str(pipeline_root))
-
-from core.postgres_base import PostgreSQLBase, PostgreSQLConnectionError
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig, PostgreSQLSettings
+from src.pipeline_v3.core.postgres_base import PostgreSQLBase, PostgreSQLConnectionError
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig, PostgreSQLSettings
 
 
 @dataclass

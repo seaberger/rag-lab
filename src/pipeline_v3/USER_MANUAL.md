@@ -62,7 +62,27 @@ uv run python -m src.pipeline_v3.cli_main status
 
 - **Python 3.12+**
 - **UV package manager** (recommended)
+- **PostgreSQL 13+** (for multi-tenant architecture)
 - **API Keys** for enhanced features
+
+### Database Setup 🗄️
+
+**IMPORTANT:** Pipeline v3 uses a **multi-tenant PostgreSQL architecture** with complete tenant isolation.
+
+#### Option 1: Automated Setup (Recommended)
+```bash
+# From project root - runs complete database setup
+./setup_databases.sh
+```
+
+#### Option 2: Manual Setup
+```bash
+# 1. Install and setup PostgreSQL and Qdrant
+# See: DATABASE_SETUP_GUIDE.md for detailed instructions
+
+# 2. Verify setup
+uv run python -m src.pipeline_v3.cli_main status --json
+```
 
 ### Environment Setup
 
@@ -72,13 +92,18 @@ uv run python -m src.pipeline_v3.cli_main status
    uv sync
    ```
 
-2. **Start Qdrant Server:**
+2. **Start Required Services:**
    ```bash
-   # Start the vector database server (REQUIRED)
+   # Start PostgreSQL (if not running as service)
+   brew services start postgresql  # macOS
+   sudo systemctl start postgresql  # Linux
+
+   # Start Qdrant server (REQUIRED)
    ./scripts/qdrant_server.sh start
 
-   # Verify it's running
+   # Verify both are running
    ./scripts/qdrant_server.sh status
+   uv run python -m src.pipeline_v3.cli_main status
    ```
 
 3. **Configure Environment Variables:**
@@ -89,23 +114,47 @@ uv run python -m src.pipeline_v3.cli_main status
    # Required for vector search
    OPENAI_API_KEY=your_openai_key_here
 
+   # Optional: PostgreSQL password (may use other auth methods)
+   POSTGRES_PASSWORD=your_postgres_password
+
    # Optional for parsing
    LLAMA_CLOUD_API_KEY=your_llama_key_here
    ```
 
 4. **Verify Installation:**
    ```bash
-   cd src/pipeline_v3
-   python cli_main.py --help
+   # Test complete system
+   uv run python -m src.pipeline_v3.cli_main status --detailed
+
+   # Should show PostgreSQL backend and tenant info
+   # Should show Qdrant server accessible
    ```
+
+### Multi-Tenant Configuration 🏢
+
+```bash
+# View current tenant context
+uv run python -m src.pipeline_v3.cli_main status
+# Shows: "tenant_id": "081f2c7d-20be-4fc6-b8e2-113b9629db8e"
+
+# Search with specific tenant (complete data isolation)
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+
+# Initialize with recommended settings
+uv run python -m src.pipeline_v3.cli_main config set queue.max_workers 4
+uv run python -m src.pipeline_v3.cli_main config set chunking.chunk_size 1024
+uv run python -m src.pipeline_v3.cli_main config list
+```
 
 ### First-Time Configuration
 
 ```bash
-# Initialize with recommended settings
-python cli_main.py config set queue.max_workers 4
-python cli_main.py config set chunking.chunk_size 1024
-python cli_main.py config list
+# Test tenant isolation (should return different results)
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 4a58b5b8-9c7e-4e5a-8c3b-7f9e6d2a1c8e
+
+# Add test document to verify system works
+uv run python -m src.pipeline_v3.cli_main add data/sample_docs/labmax-touch-ds.pdf
 ```
 
 ---
@@ -200,23 +249,27 @@ The following parameters still work but show deprecation warnings:
 
 #### Single Document
 ```bash
-# Basic addition
-python cli_main.py add document.pdf
+# Basic addition (uses uv from project root)
+uv run python -m src.pipeline_v3.cli_main add document.pdf
 
 # With metadata
-python cli_main.py add manual.pdf --metadata type=manual category=technical
+uv run python -m src.pipeline_v3.cli_main add manual.pdf --metadata type=manual category=technical
 
 # Force reprocessing
-python cli_main.py add document.pdf --force
+uv run python -m src.pipeline_v3.cli_main add document.pdf --force
+
+# Add to specific tenant (enterprise feature)
+uv run python -m src.pipeline_v3.cli_main add document.pdf --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
 ```
 
 #### Multiple Documents
 ```bash
 # Add multiple files
-python cli_main.py add doc1.pdf doc2.pdf doc3.pdf
+uv run python -m src.pipeline_v3.cli_main add doc1.pdf doc2.pdf doc3.pdf
 
-# Add with pattern (if supported by shell)
-python cli_main.py add *.pdf --metadata batch=import_2024
+# Add with pattern (if supported by shell) - USE QUEUE FOR PRODUCTION
+uv run python -m src.pipeline_v3.cli_main queue start --workers 4
+uv run python -m src.pipeline_v3.cli_main add "*.pdf" --metadata batch=import_2024
 ```
 
 #### Page Range Selection 🆕
@@ -224,16 +277,16 @@ Process specific pages from PDF documents for testing or targeted extraction:
 
 ```bash
 # Process pages 1-5 only
-python cli_main.py add document.pdf --pages "1-5"
+uv run python -m src.pipeline_v3.cli_main add document.pdf --pages "1-5"
 
 # Process specific pages
-python cli_main.py add manual.pdf --pages "1,3,5,10-15"
+uv run python -m src.pipeline_v3.cli_main add manual.pdf --pages "1,3,5,10-15"
 
 # Process with other options (new syntax)
-python cli_main.py add catalog.pdf --pages "1-10" --document-type datasheet --processing-options keywords
+uv run python -m src.pipeline_v3.cli_main add catalog.pdf --pages "1-10" --document-type datasheet --processing-options keywords
 
 # Or using a profile
-python cli_main.py add catalog.pdf --pages "1-10" --profile standard-datasheet
+uv run python -m src.pipeline_v3.cli_main add catalog.pdf --pages "1-10" --profile standard-datasheet
 ```
 
 **Benefits:**

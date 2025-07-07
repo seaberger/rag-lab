@@ -12,11 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from core.fingerprint import DocumentFingerprint
-from core.postgres_base import PostgreSQLBase
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.fingerprint import DocumentFingerprint
+from src.pipeline_v3.core.postgres_base import PostgreSQLBase
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class PostgreSQLFingerprintManager:
@@ -131,7 +130,7 @@ class PostgreSQLFingerprintManager:
 
         query = """
             SELECT * FROM fingerprints
-            WHERE file_path = %s AND tenant_id = %s
+            WHERE source = %s AND tenant_id = %s
         """
 
         row = self.db.fetch_one(query, (source_key, self.tenant_id))
@@ -146,7 +145,7 @@ class PostgreSQLFingerprintManager:
         metadata = self.db.jsonb_to_dict(row.get("metadata", {})) or {}
 
         return DocumentFingerprint(
-            source=row["file_path"],
+            source=row["source"],
             content_hash=row["content_hash"],
             size=row["file_size"],
             modified_time=row["last_modified"].timestamp() if row["last_modified"] else time.time(),
@@ -166,15 +165,19 @@ class PostgreSQLFingerprintManager:
         """Update or create fingerprint record."""
         query = """
             INSERT INTO fingerprints (
-                tenant_id, file_path, content_hash, file_size, last_modified, metadata
+                tenant_id, source, content_hash, size, modified_time, metadata_hash,
+                doc_id, processing_status, created_at, last_seen
             ) VALUES (
-                %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()
             )
-            ON CONFLICT (tenant_id, file_path) DO UPDATE SET
+            ON CONFLICT (tenant_id, source) DO UPDATE SET
                 content_hash = EXCLUDED.content_hash,
-                file_size = EXCLUDED.file_size,
-                last_modified = EXCLUDED.last_modified,
-                metadata = EXCLUDED.metadata
+                size = EXCLUDED.size,
+                modified_time = EXCLUDED.modified_time,
+                metadata_hash = EXCLUDED.metadata_hash,
+                doc_id = EXCLUDED.doc_id,
+                processing_status = EXCLUDED.processing_status,
+                last_seen = NOW()
         """
 
         try:
@@ -193,7 +196,9 @@ class PostgreSQLFingerprintManager:
                     fingerprint.content_hash,
                     fingerprint.size,
                     datetime.fromtimestamp(fingerprint.modified_time),
-                    self.db.json_to_jsonb(metadata),
+                    fingerprint.metadata_hash,
+                    uuid.UUID(doc_id) if doc_id else None,
+                    processing_status,
                 ),
             )
 
@@ -247,7 +252,7 @@ class PostgreSQLFingerprintManager:
             SET processing_status = %s,
                 doc_id = COALESCE(%s, doc_id),
                 last_seen = NOW()
-            WHERE file_path = %s AND tenant_id = %s
+            WHERE source = %s AND tenant_id = %s
         """
 
         result = self.db.execute(

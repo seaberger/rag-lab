@@ -1,6 +1,6 @@
-# Production Document Pipeline v3 ⚠️
+# Production Document Pipeline v3 🏢
 
-A production-ready document processing pipeline with advanced features including **database migration framework** for safe system evolution and enterprise deployment.
+A production-ready document processing pipeline with **multi-tenant PostgreSQL architecture**, complete tenant isolation, and enterprise-grade features including database migration framework for safe system evolution and enterprise deployment.
 
 <!-- CI Test: Verifying Qdrant server integration -->
 
@@ -13,54 +13,65 @@ A production-ready document processing pipeline with advanced features including
 
 Pipeline v3 delivers a complete, production-ready document processing system built on the stable v2.1 foundation. It adds enterprise-grade features including intelligent queue management, document lifecycle operations, and comprehensive CLI tools for production deployment.
 
-> **🚀 Coming Soon: Enterprise Multi-Tenant Platform** - Pipeline v4 will transform RAG Lab into a full enterprise platform with PostgreSQL backend, API authentication, per-tenant MCP servers, and advanced multi-vector search. See the [Enterprise Roadmap](#-future-enterprise-architecture-v40) below.
+## 🎉 **NOW AVAILABLE: Enterprise Multi-Tenant Architecture**
 
-### 🚨 Important: Qdrant Server Mode is Now Default!
-Pipeline v3 now uses **Qdrant server mode** by default instead of local file storage. This provides:
-- ✅ Better performance and scalability
-- ✅ No file lock conflicts during parallel operations
-- ✅ Production-ready architecture from the start
-- ✅ Easy transition to cloud deployments
+Pipeline v3 now includes a **complete multi-tenant PostgreSQL architecture** with:
+- ✅ **PostgreSQL Backend**: Row-Level Security (RLS) for complete tenant isolation
+- ✅ **Tenant-Specific CLI**: `--tenant-id` parameter for tenant operations
+- ✅ **Complete Data Isolation**: Both vector and keyword search properly isolated
+- ✅ **Database Setup Automation**: Comprehensive setup scripts and documentation
+- ✅ **Production Ready**: Enterprise-grade multi-tenant document processing
 
-**To start Qdrant server**: `./scripts/qdrant_server.sh start`
-**To use legacy local mode**: `--config config_local.yaml`
+### 🚨 Important: Multi-Tenant Database Setup Required!
+
+Pipeline v3 uses **multi-tenant PostgreSQL + Qdrant architecture** by default. This provides:
+- ✅ **Complete tenant isolation** with Row-Level Security (RLS)
+- ✅ **Enterprise scalability** with PostgreSQL backend
+- ✅ **Production-ready architecture** from the start
+- ✅ **Automated setup** with comprehensive documentation
+
+**For new installations**: `./setup_databases.sh` (automated setup)
+**Daily usage**: `./scripts/qdrant_server.sh start` + PostgreSQL service
+**Single-user development**: `--config config_local.yaml` (SQLite mode)
 
 ### ✨ Key Capabilities
 
+- **🏢 Multi-Tenant Architecture** - Complete tenant isolation with PostgreSQL Row-Level Security
+- **🔐 Tenant-Specific Operations** - CLI support for tenant-specific document management
 - **🔄 Queue-Based Processing** - Scalable concurrent document processing with job persistence
 - **📋 Document Lifecycle Management** - Intelligent add/update/remove with change detection
 - **🔗 URL Batch Processing** - Process collections of web documents from markdown/JSON files
-- **🔍 Advanced Search** - Hybrid vector + keyword search with relevance scoring
-- **💻 Production CLI** - Complete command-line interface for all operations
-- **📊 System Monitoring** - Real-time status, metrics, and health checking
+- **🔍 Advanced Search** - Hybrid vector + keyword search with complete tenant isolation
+- **💻 Production CLI** - Complete command-line interface with multi-tenant support
+- **📊 System Monitoring** - Real-time status, metrics, and tenant context
 - **🛠️ Enterprise Features** - Index management, consistency checking, and maintenance tools
 - **🗄️ Database Migration Framework** - Schema versioning, rollback support, and safe upgrades
 
 ## 🏗️ Architecture
 
-### Current Architecture (v3.0)
+### Current Multi-Tenant Architecture (v3.0)
 ```
-Pipeline v3 Architecture
+Pipeline v3 Multi-Tenant Architecture
 ┌─────────────────────────────────────────────────────────────┐
-│                    CLI Management Layer                     │
+│              CLI Management Layer (Tenant-Aware)            │
 ├─────────────────────────────────────────────────────────────┤
-│  📄 Documents  │  ⚙️ Queue    │  📊 Status  │  🔧 Config   │
+│  📄 Documents  │  🏢 Tenants  │  📊 Status  │  🔧 Config   │
 ├─────────────────────────────────────────────────────────────┤
-│              Job Queue System (Critical)                    │
+│              Job Queue System (Tenant Isolated)             │
 ├─────────────────────────────────────────────────────────────┤
 │ Workers │ Job Storage │ Retry Logic │ Progress Tracking    │
 ├─────────────────────────────────────────────────────────────┤
 │                  Enhanced Core Pipeline                     │
 ├─────────────────────────────────────────────────────────────┤
-│ Phase 1: Queue & Fingerprinting │ Phase 2: Index Lifecycle │
+│ PostgreSQL (RLS) │ Qdrant (Metadata Filter) │ Tenant Context │
 ├─────────────────────────────────────────────────────────────┤
-│  🔍 Hybrid Search  │  💾 Storage  │  📈 Monitoring          │
+│  🔍 Tenant-Isolated Search  │  💾 Multi-Tenant Storage     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 🚀 Future Enterprise Architecture (v4.0)
+### 🚀 Next Phase: Advanced Enterprise Features (v3.1+)
 ```
-Enterprise Multi-Tenant Architecture
+Advanced Enterprise Architecture (Coming Soon)
 ┌─────────────────────────────────────────────────────────────┐
 │            🔐 API Gateway & Authentication                  │
 ├─────────────────────────────────────────────────────────────┤
@@ -68,20 +79,20 @@ Enterprise Multi-Tenant Architecture
 ├─────────────────────────────────────────────────────────────┤
 │    Tenant-Specific Search Pipelines │ Multi-Vector Search   │
 ├─────────────────────────────────────────────────────────────┤
-│              PostgreSQL (Metadata & Keywords)               │
+│              PostgreSQL (Metadata & Keywords) ✅            │
 ├─────────────────────────────────────────────────────────────┤
-│         Qdrant Server (Dense, Sparse, ColBERT)             │
+│         Qdrant Server (Dense, Sparse, ColBERT) ✅          │
 ├─────────────────────────────────────────────────────────────┤
 │    Document Security │ Audit Logs │ Usage Analytics        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### 🏢 Enterprise Features Roadmap:
-- **PostgreSQL Migration**: Replace SQLite for concurrent multi-tenant access
-- **API Authentication**: Secure API keys with rate limiting and RBAC
-- **MCP Servers**: Per-tenant Model Context Protocol for agentic workflows
-- **Advanced Search**: ColBERT, SPLADE, and adaptive optimization
-- **Document Security**: Fine-grained access control and encryption
+#### 🏢 Advanced Enterprise Features (Next Phase):
+- **✅ PostgreSQL Multi-Tenant**: Complete with RLS and tenant isolation (DONE)
+- **🔄 API Authentication**: Secure API keys with rate limiting and RBAC (Issue #78)
+- **🔄 MCP Servers**: Per-tenant Model Context Protocol for agentic workflows (Issue #81)
+- **🔄 Advanced Search**: ColBERT, SPLADE, and adaptive optimization (Issue #84)
+- **🔄 Document Security**: Fine-grained access control and encryption (Issue #79)
 
 See [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](./docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision.
 

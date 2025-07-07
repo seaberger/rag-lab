@@ -7,8 +7,7 @@ the appropriate database adapters based on configuration.
 
 from typing import Any, Dict, List
 
-from core.database_factory import DatabaseFactory
-
+from src.pipeline_v3.core.database_factory import DatabaseFactory
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 

@@ -9,11 +9,10 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict
 
-from core.postgres_base import PostgreSQLBase
-from job_queue.job import JobRecord, JobStatus, JobType
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.postgres_base import PostgreSQLBase
+from src.pipeline_v3.job_queue.job import JobRecord, JobStatus, JobType
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class PostgreSQLJobManager:

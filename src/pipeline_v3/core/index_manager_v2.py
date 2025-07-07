@@ -96,14 +96,14 @@ class IndexManagerV2:
     def _init_qdrant(self) -> None:
         """Initialize Qdrant vector store (supports both local and server modes)."""
         try:
-            if self.config.qdrant.use_server:
+            if self.config.qdrant.mode == "server":
                 # Server mode
                 self.qdrant_client = qdrant_client.QdrantClient(
-                    host=self.config.qdrant.host,
-                    port=self.config.qdrant.port,
+                    host=self.config.qdrant.server.host,
+                    port=self.config.qdrant.server.port,
                 )
                 logger.info(
-                    f"Connected to Qdrant server at {self.config.qdrant.host}:{self.config.qdrant.port}"
+                    f"Connected to Qdrant server at {self.config.qdrant.server.host}:{self.config.qdrant.server.port}"
                 )
             else:
                 # Local mode

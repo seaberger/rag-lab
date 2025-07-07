@@ -4,7 +4,6 @@ Pool monitoring commands for Pipeline v3 CLI.
 Provides commands to monitor and manage PostgreSQL connection pools.
 """
 
-import sys
 import time
 from pathlib import Path
 
@@ -15,15 +14,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-# Add the pipeline_v3 root to Python path
-pipeline_root = Path(__file__).parent.parent.parent
-if str(pipeline_root) not in sys.path:
-    sys.path.insert(0, str(pipeline_root))
-
-from core.tenant_connection_manager import get_tenant_connection_manager
-from core.tenant_pool_monitor import get_pool_monitor
-
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.tenant_connection_manager import get_tenant_connection_manager
+from src.pipeline_v3.core.tenant_pool_monitor import get_pool_monitor
+from src.pipeline_v3.utils.config import PipelineConfig
 
 app = typer.Typer(help="Connection pool monitoring commands")
 console = Console()

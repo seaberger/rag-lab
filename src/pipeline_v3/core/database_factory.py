@@ -5,17 +5,35 @@ This module provides a factory pattern to create database adapters based on
 configuration, supporting both SQLite and PostgreSQL backends.
 """
 
-import sys
-from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-# Add the pipeline_v3 root to Python path
-pipeline_root = Path(__file__).parent.parent
-if str(pipeline_root) not in sys.path:
-    sys.path.insert(0, str(pipeline_root))
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+# Conditional imports based on backend - imported at module level for clarity
+# These will be used conditionally in the factory methods
+try:
+    # PostgreSQL adapters
+    from src.pipeline_v3.core.postgres_fingerprint import PostgreSQLFingerprintManager
+    from src.pipeline_v3.core.postgres_registry import PostgreSQLDocumentRegistry
+    from src.pipeline_v3.core.tenant_connection_manager import get_tenant_connection_manager
+    from src.pipeline_v3.job_queue.postgres_jobs import PostgreSQLJobManager
+    from src.pipeline_v3.storage.postgres_keyword import PostgreSQLKeywordIndex
+
+    POSTGRESQL_AVAILABLE = True
+except ImportError:
+    POSTGRESQL_AVAILABLE = False
+    PostgreSQLDocumentRegistry = None
+    PostgreSQLFingerprintManager = None
+    get_tenant_connection_manager = None
+    PostgreSQLJobManager = None
+    PostgreSQLKeywordIndex = None
+
+# SQLite adapters
+from src.pipeline_v3.core.fingerprint import FingerprintManager
+from src.pipeline_v3.core.registry import DocumentRegistry
+from src.pipeline_v3.job_queue.job import JobManager
+from src.pipeline_v3.storage.keyword_index import BM25Index
 
 
 @runtime_checkable
@@ -158,9 +176,7 @@ class DatabaseFactory:
 
         # Initialize connection manager for PostgreSQL
         self._connection_manager = None
-        if self.backend == "postgresql":
-            from core.tenant_connection_manager import get_tenant_connection_manager
-
+        if self.backend == "postgresql" and POSTGRESQL_AVAILABLE:
             self._connection_manager = get_tenant_connection_manager(self.config)
 
         logger.info(f"DatabaseFactory initialized with backend: {self.backend}")
@@ -168,16 +184,16 @@ class DatabaseFactory:
     def create_document_registry(self) -> DocumentRegistryProtocol:
         """Create document registry adapter."""
         if self.backend == "postgresql":
-            from core.postgres_registry import PostgreSQLDocumentRegistry
-
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError(
+                    "PostgreSQL adapters not available. Install required dependencies."
+                )
             registry = PostgreSQLDocumentRegistry(
                 self.config, self.tenant_id, connection_manager=self._connection_manager
             )
             logger.info("Created PostgreSQL document registry")
             return registry
         else:
-            from core.registry import DocumentRegistry
-
             registry = DocumentRegistry(self.config)
             logger.info("Created SQLite document registry")
             return registry
@@ -185,16 +201,16 @@ class DatabaseFactory:
     def create_keyword_index(self) -> KeywordIndexProtocol:
         """Create keyword index adapter."""
         if self.backend == "postgresql":
-            from storage.postgres_keyword import PostgreSQLKeywordIndex
-
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError(
+                    "PostgreSQL adapters not available. Install required dependencies."
+                )
             index = PostgreSQLKeywordIndex(
                 self.config, self.tenant_id, connection_manager=self._connection_manager
             )
             logger.info("Created PostgreSQL keyword index")
             return index
         else:
-            from storage.keyword_index import BM25Index
-
             index = BM25Index(config=self.config)
             logger.info("Created SQLite keyword index")
             return index
@@ -202,16 +218,16 @@ class DatabaseFactory:
     def create_job_manager(self) -> JobManagerProtocol:
         """Create job manager adapter."""
         if self.backend == "postgresql":
-            from job_queue.postgres_jobs import PostgreSQLJobManager
-
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError(
+                    "PostgreSQL adapters not available. Install required dependencies."
+                )
             manager = PostgreSQLJobManager(
                 self.config, self.tenant_id, connection_manager=self._connection_manager
             )
             logger.info("Created PostgreSQL job manager")
             return manager
         else:
-            from job_queue.job import JobManager
-
             manager = JobManager(self.config)
             logger.info("Created SQLite job manager")
             return manager
@@ -219,16 +235,16 @@ class DatabaseFactory:
     def create_fingerprint_manager(self) -> FingerprintManagerProtocol:
         """Create fingerprint manager adapter."""
         if self.backend == "postgresql":
-            from core.postgres_fingerprint import PostgreSQLFingerprintManager
-
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError(
+                    "PostgreSQL adapters not available. Install required dependencies."
+                )
             manager = PostgreSQLFingerprintManager(
                 self.config, self.tenant_id, connection_manager=self._connection_manager
             )
             logger.info("Created PostgreSQL fingerprint manager")
             return manager
         else:
-            from core.fingerprint import FingerprintManager
-
             manager = FingerprintManager(self.config)
             logger.info("Created SQLite fingerprint manager")
             return manager

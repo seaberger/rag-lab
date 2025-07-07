@@ -11,8 +11,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 # import numpy as np # numpy seems unused in this file, commenting out.
-from core.data_structures import TextChunk
-
+from src.pipeline_v3.core.data_structures import TextChunk
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 

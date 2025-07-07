@@ -5,18 +5,10 @@ This module provides comprehensive tenant management capabilities including
 tenant creation, configuration, quota management, and isolation enforcement.
 """
 
-import sys
 import uuid
-from pathlib import Path
 from typing import Any, Dict, List
 
-# Add the pipeline_v3 root to Python path
-pipeline_root = Path(__file__).parent.parent
-if str(pipeline_root) not in sys.path:
-    sys.path.insert(0, str(pipeline_root))
-
-from core.postgres_base import PostgreSQLBase
-
+from src.pipeline_v3.core.postgres_base import PostgreSQLBase
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 

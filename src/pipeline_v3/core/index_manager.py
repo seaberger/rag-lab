@@ -874,6 +874,7 @@ class IndexManager:
         self, query: str, top_k: int = 10, filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """Search vector index."""
+        logger.debug(f"search_vector called: query='{query}', top_k={top_k}, filters={filters}")
         if not self.qdrant_client:
             logger.error("Vector search not available")
             return []
@@ -887,9 +888,10 @@ class IndexManager:
 
             # Build Qdrant filter from parsed filters
             qdrant_filter = None
-            if parsed_filters:
-                must_conditions = []
+            must_conditions = []
 
+            # Add user-provided filters if present
+            if parsed_filters:
                 # Add doc_ids filter if present
                 if "doc_ids" in parsed_filters:
                     for doc_id in parsed_filters["doc_ids"]:
@@ -904,15 +906,18 @@ class IndexManager:
                             FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
                         )
 
-                # Add backend-specific filters for PostgreSQL
-                if self.config.database.backend == "postgresql":
-                    tenant_id = self.config.database.postgresql.default_tenant_id
-                    must_conditions.append(
-                        FieldCondition(key="metadata.tenant_id", match=MatchValue(value=tenant_id))
-                    )
+            # Add backend-specific filters for PostgreSQL (always apply for tenant isolation)
+            if self.config.database.backend == "postgresql":
+                tenant_id = self.config.database.postgresql.default_tenant_id
+                logger.debug(f"Vector search: filtering by tenant_id = {tenant_id}")
+                must_conditions.append(
+                    FieldCondition(key="metadata.tenant_id", match=MatchValue(value=tenant_id))
+                )
+            else:
+                logger.debug(f"Backend: {self.config.database.backend} - no tenant filtering")
 
-                if must_conditions:
-                    qdrant_filter = Filter(must=must_conditions)
+            if must_conditions:
+                qdrant_filter = Filter(must=must_conditions)
 
             # Search Qdrant directly
             search_results = self.qdrant_client.search(

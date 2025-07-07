@@ -10,10 +10,12 @@
 
 RAG Lab is evolving from a production-ready document intelligence engine to a full **enterprise multi-tenant platform** designed to transform how organizations interact with their technical documentation. By combining state-of-the-art AI models with enterprise-grade infrastructure, RAG Lab enables instant access to complex technical information across thousands of documents.
 
-### Current State → Future Vision
+### 🎉 **Current Capabilities (v3.0)**
 
-**Today**: Single-user document processing with hybrid search
-**Tomorrow**: Multi-tenant platform with per-organization MCP servers, advanced multi-vector search (ColBERT, SPLADE), and agentic workflows
+**✅ Multi-Tenant Database Architecture**: Complete tenant isolation with PostgreSQL Row-Level Security
+**✅ Enterprise-Grade Security**: Tenant-specific data access with zero cross-tenant leakage
+**✅ Production Scalability**: Queue-based processing with concurrent multi-tenant support
+**🔄 Next Phase**: API authentication, MCP servers, and advanced multi-vector search
 
 ### Why RAG Lab?
 
@@ -28,11 +30,12 @@ In today's knowledge economy, critical business information is trapped in PDFs, 
 - **Context Preservation**: Maintains document structure, relationships, and metadata throughout processing
 
 ### 🚀 **Production-Ready Infrastructure**
+- **Multi-Tenant PostgreSQL**: Complete tenant isolation with Row-Level Security (RLS) policies
 - **Scalable Queue Architecture**: Concurrent processing with job persistence, automatic retries, and resource management
-- **Enterprise Search**: Hybrid vector + keyword search with adaptive fusion for optimal retrieval
+- **Enterprise Search**: Hybrid vector + keyword search with complete tenant isolation and adaptive fusion
 - **Change Intelligence**: 6 types of document change detection with smart differential updates
 - **Database Migration Framework**: Safe schema evolution with versioning and rollback support
-- **Qdrant Server Mode**: Default vector storage for production scalability and concurrent access
+- **Qdrant Server Mode**: Default vector storage with tenant metadata filtering for complete isolation
 
 ### 🛡️ **Reliability & Performance**
 - **Comprehensive Error Handling**: Multi-layer retry logic, graceful degradation, and detailed error reporting
@@ -144,16 +147,52 @@ echo "OPENAI_API_KEY=your-key-here" > .env
 # Dashboard available at: http://localhost:6333/dashboard
 ```
 
+## 🚀 Getting Started
+
+### 🏢 **Multi-Tenant Enterprise Setup**
+
+**For new installations (automated setup):**
+```bash
+# Complete database setup (PostgreSQL + Qdrant)
+git clone https://github.com/seaberger/rag-lab.git
+cd rag-lab
+./setup_databases.sh
+
+# Test multi-tenant system
+uv run python -m src.pipeline_v3.cli_main status --json
+```
+
+**For existing installations:**
+```bash
+# Update to latest multi-tenant version
+git pull origin main
+
+# Start required services
+./scripts/qdrant_server.sh start
+# PostgreSQL should be running as system service
+
+# Verify tenant isolation works
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+```
+
+**Documentation:**
+- **Database Setup**: [DATABASE_SETUP_GUIDE.md](DATABASE_SETUP_GUIDE.md)
+- **User Manual**: [src/pipeline_v3/USER_MANUAL.md](src/pipeline_v3/USER_MANUAL.md)
+- **Quick Reference**: [src/pipeline_v3/QUICK_REFERENCE.md](src/pipeline_v3/QUICK_REFERENCE.md)
+
 ### Basic Usage
 
 ```bash
-# Process a single document
+# Process a single document (with tenant context)
 uv run python -m src.pipeline_v3.cli_main add technical_manual.pdf
 
-# Search across all documents
+# Search across all documents (tenant-isolated)
 uv run python -m src.pipeline_v3.cli_main search "laser power specifications"
 
-# Check system status
+# Multi-tenant search (complete data isolation)
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+
+# Check system status (shows tenant context)
 uv run python -m src.pipeline_v3.cli_main status --detailed
 ```
 

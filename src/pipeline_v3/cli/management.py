@@ -7,7 +7,7 @@ Provides comprehensive controls for document operations, queue management,
 system maintenance, and configuration.
 
 Usage:
-    python -m pipeline_v3.cli.management [command] [options]
+    python -m src.pipeline_v3.cli_main [command] [options]
 
 Commands:
     add         Add documents to the pipeline
@@ -18,6 +18,7 @@ Commands:
     status      Show system status
     maintenance Run maintenance operations
     config      Manage configuration
+    tenant      Manage tenant context
 """
 
 import argparse
@@ -28,8 +29,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Import custom exceptions and logger
-from ..utils.common_utils import (
+# Import all dependencies at the top
+from src.pipeline_v3.utils.common_utils import (
     CLIArgumentError,
     ConfigLoadError,
     DependencyError,
@@ -38,41 +39,32 @@ from ..utils.common_utils import (
 
 # Import with graceful degradation
 try:
-    import sys
-    from pathlib import Path
+    # Core pipeline components
+    from src.pipeline_v3.core.database_factory import DatabaseContext, DatabaseFactory
+    from src.pipeline_v3.core.index_manager import IndexManager
+    from src.pipeline_v3.core.registry import DocumentRegistry, IndexType
+    from src.pipeline_v3.job_queue.manager import DocumentQueue
+    from src.pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
 
-    # Add the pipeline_v3 root to Python path
-    pipeline_root = Path(__file__).parent.parent
-    if str(pipeline_root) not in sys.path:
-        sys.path.insert(0, str(pipeline_root))
-
-    from pipeline.enhanced_core import EnhancedPipeline
-
-    PIPELINE_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Pipeline components not available: {e}")
-    PIPELINE_AVAILABLE = False
-    EnhancedPipeline = None
-
-try:
-    from core.database_factory import DatabaseContext, DatabaseFactory
-    from core.index_manager import IndexManager
-    from core.registry import DocumentRegistry, IndexType
-    from job_queue.manager import DocumentQueue
-
-    from utils.config import PipelineConfig
-    from utils.env_utils import setup_environment
-    from utils.monitoring import ProgressMonitor
-    from utils.url_utils import (
+    # Configuration and utilities
+    from src.pipeline_v3.utils.config import PipelineConfig
+    from src.pipeline_v3.utils.env_utils import setup_environment
+    from src.pipeline_v3.utils.monitoring import ProgressMonitor
+    from src.pipeline_v3.utils.url_utils import (
         create_url_batch_file,
         extract_urls_from_file,
         validate_url_list,
     )
 
+    PIPELINE_AVAILABLE = True
     CORE_AVAILABLE = True
 except ImportError as e:
-    print(f"Warning: Core components not available: {e}")
+    print(f"Warning: Pipeline components not available: {e}")
+    PIPELINE_AVAILABLE = False
     CORE_AVAILABLE = False
+
+    # Set all to None for graceful degradation
+    EnhancedPipeline = None
     DatabaseFactory = None
     DatabaseContext = None
     DocumentQueue = None
@@ -177,9 +169,16 @@ class PipelineCLI:
         """
         return getattr(self, "_config_load_error", None)
 
-    async def initialize(self):
+    async def initialize(self, tenant_id=None):
         """Initialize pipeline components using DatabaseFactory pattern."""
         try:
+            # If tenant_id is provided, update the config temporarily
+            original_tenant_id = None
+            if tenant_id and self.config.database.backend == "postgresql":
+                original_tenant_id = self.config.database.postgresql.default_tenant_id
+                self.config.database.postgresql.default_tenant_id = tenant_id
+                logger.info(f"Using tenant_id: {tenant_id}")
+
             # Initialize database factory
             self.database_factory = DatabaseFactory(self.config)
 
@@ -221,6 +220,11 @@ class PipelineCLI:
             self.queue = DocumentQueue(self.config)
 
             logger.info(f"Initialized CLI with {self.database_factory.backend} backend")
+
+            # Store original tenant_id for restoration if needed
+            if original_tenant_id:
+                self._original_tenant_id = original_tenant_id
+                self._temp_tenant_id = tenant_id
 
         except ImportError as e:
             command_string = " ".join(sys.argv[1:])
@@ -270,9 +274,6 @@ Examples:
 
         # System operations
         self._add_system_commands(subparsers)
-
-        # Migration
-        self._add_migrate_commands(subparsers)
 
         # Configuration
         self._add_config_commands(subparsers)
@@ -405,6 +406,9 @@ Examples:
         )
         search_parser.add_argument("--filter", help="Filter expression (JSON format)")
         search_parser.add_argument(
+            "--tenant-id", help="Tenant ID for multi-tenant search (PostgreSQL only)"
+        )
+        search_parser.add_argument(
             "--fusion-method",
             choices=["rrf", "weighted", "adaptive"],
             default="rrf",
@@ -454,64 +458,6 @@ Examples:
         maint_parser.add_argument(
             "--consistency-check", action="store_true", help="Check index consistency"
         )
-
-    def _add_migrate_commands(self, subparsers):
-        """Add migration commands."""
-        migrate_parser = subparsers.add_parser("migrate", help="Database migration operations")
-        migrate_subparsers = migrate_parser.add_subparsers(dest="migrate_action")
-
-        # Migrate to PostgreSQL
-        to_pg_parser = migrate_subparsers.add_parser(
-            "to-postgres", help="Migrate from SQLite to PostgreSQL"
-        )
-        to_pg_parser.add_argument(
-            "--registry",
-            type=Path,
-            default=Path("./document_registry_v3.db"),
-            help="Path to SQLite registry database",
-        )
-        to_pg_parser.add_argument(
-            "--keyword",
-            type=Path,
-            default=Path("./keyword_index_v3.db"),
-            help="Path to SQLite keyword index database",
-        )
-        to_pg_parser.add_argument(
-            "--jobs",
-            type=Path,
-            default=Path("./jobs_v3.db"),
-            help="Path to SQLite jobs database",
-        )
-        to_pg_parser.add_argument(
-            "--fingerprints",
-            type=Path,
-            default=Path("./fingerprints_v3.db"),
-            help="Path to SQLite fingerprints database",
-        )
-        to_pg_parser.add_argument(
-            "--tenant-id",
-            type=str,
-            help="Target tenant ID (defaults to config)",
-        )
-        to_pg_parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=1000,
-            help="Number of records to process per batch",
-        )
-        to_pg_parser.add_argument(
-            "--skip-existing/--overwrite",
-            default=True,
-            help="Skip records that already exist in PostgreSQL",
-        )
-        to_pg_parser.add_argument(
-            "--verify/--no-verify",
-            default=True,
-            help="Verify migration after completion",
-        )
-
-        # Migration status
-        migrate_subparsers.add_parser("status", help="Check migration readiness")
 
     def _add_config_commands(self, subparsers):
         """Add configuration commands."""
@@ -598,8 +544,6 @@ Examples:
             await self.handle_status(args)
         elif args.command == "maintenance":
             await self.handle_maintenance(args)
-        elif args.command == "migrate":
-            await self.handle_migrate(args)
         elif args.command == "config":
             await self.handle_config(args)
         elif args.command == "batch":
@@ -1125,6 +1069,11 @@ Examples:
         """Handle search operations."""
         from utils.security import InputSanitizer
 
+        # Reinitialize with tenant_id if provided
+        if hasattr(args, "tenant_id") and args.tenant_id:
+            await self.cleanup()  # Clean up existing connections
+            await self.initialize(tenant_id=args.tenant_id)
+
         try:
             # Sanitize search query to prevent injection
             safe_query = InputSanitizer.sanitize_search_query(args.query)
@@ -1266,92 +1215,6 @@ Examples:
             print("Running consistency check...")
             result = self.index_manager.verify_consistency()
             print(f"Consistency check: {result}")
-
-    async def handle_migrate(self, args):
-        """Handle migration operations."""
-        if args.migrate_action == "to-postgres":
-            # Import migration tool
-            from ..tools.sqlite_to_postgres import SQLiteToPostgresMigrator
-
-            # Check if PostgreSQL is configured
-            if self.config.database.backend != "postgresql":
-                print(
-                    "❌ PostgreSQL not configured. Set database.backend = 'postgresql' in config."
-                )
-                return
-
-            # Build paths dictionary
-            sqlite_paths = {}
-            if args.registry.exists():
-                sqlite_paths["registry"] = args.registry
-            if args.keyword.exists():
-                sqlite_paths["keyword"] = args.keyword
-            if args.jobs.exists():
-                sqlite_paths["jobs"] = args.jobs
-            if args.fingerprints.exists():
-                sqlite_paths["fingerprints"] = args.fingerprints
-
-            if not sqlite_paths:
-                print("❌ No SQLite databases found to migrate")
-                return
-
-            print(f"Found {len(sqlite_paths)} database(s) to migrate")
-            print(
-                f"Target tenant ID: {args.tenant_id or self.config.database.postgresql.default_tenant_id}"
-            )
-
-            # Create migrator
-            migrator = SQLiteToPostgresMigrator(
-                sqlite_paths,
-                self.config.database.postgresql,
-                tenant_id=args.tenant_id,
-            )
-
-            # Run migration
-            await migrator.migrate_all(
-                batch_size=args.batch_size,
-                skip_existing=args.skip_existing,
-            )
-
-            # Show results
-            stats = migrator.stats
-            print("\n✅ Migration complete:")
-            print(f"   Documents: {stats.documents_migrated}")
-            print(f"   Index entries: {stats.index_entries_migrated}")
-            print(f"   Jobs: {stats.jobs_migrated}")
-            print(f"   Fingerprints: {stats.fingerprints_migrated}")
-            if stats.errors:
-                print(f"   ⚠️  Errors: {len(stats.errors)}")
-
-            # Verify if requested
-            if args.verify:
-                print("\n🔍 Verifying migration...")
-                verification = await migrator.verify_migration()
-                all_match = all(verification["matches"].values())
-                print(f"   Verification: {'✅ Passed' if all_match else '❌ Failed'}")
-
-        elif args.migrate_action == "status":
-            # Show migration status
-            print(f"Current database backend: {self.config.database.backend}")
-
-            # Check SQLite databases
-            sqlite_dbs = [
-                ("Registry", Path("./document_registry_v3.db")),
-                ("Keyword Index", Path("./keyword_index_v3.db")),
-                ("Jobs", Path("./jobs_v3.db")),
-                ("Fingerprints", Path("./fingerprints_v3.db")),
-            ]
-
-            print("\nSQLite databases:")
-            for db_name, db_path in sqlite_dbs:
-                if db_path.exists():
-                    size = db_path.stat().st_size / 1024 / 1024
-                    print(f"  ✓ {db_name}: {size:.1f} MB")
-                else:
-                    print(f"  ✗ {db_name}: Not found")
-
-        else:
-            print(f"Unknown migrate action: {args.migrate_action}")
 
     async def handle_config(self, args):
         """Handle configuration operations."""
@@ -1567,6 +1430,11 @@ Examples:
     async def cleanup(self):
         """Clean up database connections and resources."""
         try:
+            # Restore original tenant_id if it was temporarily changed
+            if hasattr(self, "_original_tenant_id") and hasattr(self, "_temp_tenant_id"):
+                if self.config.database.backend == "postgresql":
+                    self.config.database.postgresql.default_tenant_id = self._original_tenant_id
+                    logger.debug(f"Restored original tenant_id: {self._original_tenant_id}")
             if self.database_adapters and self.database_factory:
                 self.database_factory.close_all(self.database_adapters)
                 logger.debug("Database adapters closed successfully")
