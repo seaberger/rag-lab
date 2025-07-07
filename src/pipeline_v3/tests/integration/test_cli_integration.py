@@ -14,15 +14,15 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import pytest_asyncio
 
 from cli.management import PipelineCLI
+from core.index_manager import IndexManager
 from core.registry import DocumentRegistry
 from job_queue.manager import DocumentQueue, JobPriority
-
+from pipeline.enhanced_core import EnhancedPipeline
 from utils.config import PipelineConfig
+from ..conftest import cleanup_qdrant_resources
 
 
 @pytest.mark.requires_qdrant_server
@@ -35,35 +35,29 @@ class TestCLIIntegration:
         with tempfile.TemporaryDirectory() as tmpdir:
             yield tmpdir
 
-    @pytest.fixture
-    def cli_instance(self, test_config):
-        """Create CLI instance with test config."""
-        with patch("cli.management.PipelineConfig") as mock_config_class:
+    @pytest_asyncio.fixture
+    async def cli_instance(self, test_config):
+        """Create CLI instance with test config using DatabaseFactory."""
+        with patch("utils.config.PipelineConfig") as mock_config_class:
             mock_config_class.return_value = test_config
             mock_config_class.from_yaml.return_value = test_config
 
             # Create CLI with proper initialization
             cli = PipelineCLI()
+
+            # Override the config after creation
             cli.config = test_config
 
-            # Initialize real components (not mocks)
-            from core.index_manager import IndexManager
-            from core.registry import DocumentRegistry
-            from job_queue.manager import DocumentQueue
-            from pipeline.enhanced_core import EnhancedPipeline
-
-            cli.pipeline = EnhancedPipeline(config=test_config)
-            cli.registry = DocumentRegistry(config=test_config)
-            cli.index_manager = IndexManager(config=test_config)
-            cli.queue = DocumentQueue(config=test_config)
+            # Let the CLI initialize itself with DatabaseFactory
+            await cli.initialize()  # No parameter needed, it uses self.config
 
             yield cli
 
-            # Cleanup Qdrant resources from all components
-            from ..conftest import cleanup_qdrant_resources
-
-            cleanup_qdrant_resources(cli.pipeline)
-            cleanup_qdrant_resources(cli.index_manager)
+            # Cleanup is handled by CLI's cleanup methods
+            if hasattr(cli, 'pipeline'):
+                cleanup_qdrant_resources(cli.pipeline)
+            if hasattr(cli, 'index_manager'):
+                cleanup_qdrant_resources(cli.index_manager)
 
     @pytest.fixture
     def mock_openai_for_cli(self):
@@ -132,6 +126,7 @@ class TestCLIIntegration:
             args.with_keywords = True
             args.mode = "datasheet"
             args.workers = 1
+            args.tenant_id = None  # Use default tenant from config
 
             # Execute add command
             await cli_instance.handle_add(args)
@@ -195,6 +190,7 @@ class TestCLIIntegration:
             add_args.with_keywords = True
             add_args.mode = "datasheet"
             add_args.workers = 1
+            add_args.tenant_id = None  # Use default tenant from config
 
             await cli_instance.handle_add(add_args)
 
@@ -206,6 +202,7 @@ class TestCLIIntegration:
             search_args.filter = None
             search_args.json = True
             search_args.fusion_method = "rrf"
+            search_args.tenant_id = None  # Use default tenant from config
 
             # Capture output
             with patch("builtins.print") as mock_print:

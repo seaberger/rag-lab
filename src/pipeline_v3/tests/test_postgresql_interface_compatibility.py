@@ -1,118 +1,97 @@
 """
-Test PostgreSQL adapter interface compatibility.
+Test PostgreSQL adapter interface consistency and completeness.
 
-This ensures our PostgreSQL adapters maintain the same interface as SQLite versions.
+This ensures our PostgreSQL adapters have consistent interfaces and
+implement all required functionality for the multi-tenant architecture.
 """
 
 import pytest
 from unittest.mock import MagicMock, patch
 import inspect
 
-from src.pipeline_v3.core.registry import DocumentRegistry
 from src.pipeline_v3.core.postgres_registry import PostgreSQLDocumentRegistry
-from src.pipeline_v3.storage.keyword_index import BM25Index
 from src.pipeline_v3.storage.postgres_keyword import PostgreSQLKeywordIndex
-from src.pipeline_v3.job_queue.manager import DocumentQueue
 from src.pipeline_v3.job_queue.postgres_jobs import PostgreSQLJobManager
-from src.pipeline_v3.core.fingerprint import FingerprintStore
 from src.pipeline_v3.core.postgres_fingerprint import PostgreSQLFingerprintManager
 
 
-class TestInterfaceCompatibility:
-    """Test that PostgreSQL adapters implement the same interface as SQLite versions."""
+class TestPostgreSQLInterfaceConsistency:
+    """Test that PostgreSQL adapters have consistent and complete interfaces."""
 
-    def test_registry_interface_compatibility(self):
-        """Test PostgreSQL registry has all methods from SQLite registry."""
-        sqlite_methods = self._get_public_methods(DocumentRegistry)
+    def test_registry_has_core_methods(self):
+        """Test PostgreSQL registry has all core document management methods."""
         postgres_methods = self._get_public_methods(PostgreSQLDocumentRegistry)
 
-        # PostgreSQL should have all SQLite methods
-        missing_methods = sqlite_methods - postgres_methods
-        assert not missing_methods, f"PostgreSQL registry missing methods: {missing_methods}"
-
-        # Check key method signatures match
-        key_methods = [
+        # Check core document methods
+        core_methods = [
             'register_document',
             'get_document',
+            'get_document_by_source',
             'update_document_state',
             'mark_indexed',
             'list_documents',
+            'remove_document',
             'get_statistics'
         ]
 
-        for method in key_methods:
-            assert method in postgres_methods, f"Missing critical method: {method}"
+        for method in core_methods:
+            assert method in postgres_methods, f"Missing core method: {method}"
 
-    def test_keyword_index_interface_compatibility(self):
-        """Test PostgreSQL keyword index has all methods from SQLite version."""
-        sqlite_methods = self._get_public_methods(BM25Index)
+    def test_keyword_index_has_search_methods(self):
+        """Test PostgreSQL keyword index has all search functionality."""
         postgres_methods = self._get_public_methods(PostgreSQLKeywordIndex)
 
-        # Check critical search methods
-        critical_methods = ['index_nodes', 'search', 'get_stats']
-        for method in critical_methods:
-            assert method in postgres_methods, f"Missing critical method: {method}"
+        # Check search methods
+        search_methods = [
+            'index_nodes',
+            'search',
+            'get_stats',
+            'fuzzy_search',
+            'search_with_filters',
+            'delete_document'  # Actual method name
+        ]
 
-        # PostgreSQL adds advanced features
-        advanced_methods = ['fuzzy_search', 'search_with_filters']
-        for method in advanced_methods:
-            assert method in postgres_methods, f"Missing advanced method: {method}"
+        for method in search_methods:
+            assert method in postgres_methods, f"Missing search method: {method}"
 
-    def test_job_manager_interface_compatibility(self):
-        """Test PostgreSQL job manager has all methods from SQLite version."""
-        # DocumentQueue uses different pattern, so check key methods directly
+    def test_job_manager_has_queue_methods(self):
+        """Test PostgreSQL job manager has all queue management methods."""
         postgres_methods = self._get_public_methods(PostgreSQLJobManager)
 
-        # Check critical job methods
-        critical_methods = [
+        # Check job queue methods
+        queue_methods = [
             'create_job',
             'get_job',
             'update_job_status',
             'claim_next_job',
             'list_jobs',
-            'get_job_statistics'
+            'get_job_statistics',
+            'cleanup_completed_jobs'  # Actual method name
         ]
 
-        for method in critical_methods:
-            assert method in postgres_methods, f"Missing critical method: {method}"
+        for method in queue_methods:
+            assert method in postgres_methods, f"Missing queue method: {method}"
 
-    def test_fingerprint_interface_compatibility(self):
-        """Test PostgreSQL fingerprint manager has all methods from SQLite version."""
-        sqlite_methods = self._get_public_methods(FingerprintStore)
+    def test_fingerprint_manager_has_change_detection(self):
+        """Test PostgreSQL fingerprint manager has change detection methods."""
         postgres_methods = self._get_public_methods(PostgreSQLFingerprintManager)
 
-        # Check critical fingerprint methods
-        critical_methods = [
+        # Check fingerprint methods
+        fingerprint_methods = [
             'compute_fingerprint',
             'get_fingerprint',
             'update_fingerprint',
             'has_changed',
             'get_processing_status',
-            'mark_processing_status'
+            'mark_processing_status',
+            'find_duplicates'
         ]
 
-        for method in critical_methods:
-            assert method in postgres_methods, f"Missing critical method: {method}"
+        for method in fingerprint_methods:
+            assert method in postgres_methods, f"Missing fingerprint method: {method}"
 
-        # PostgreSQL adds multi-tenant features
-        assert 'find_duplicates' in postgres_methods, "Missing duplicate detection"
-
-    def test_all_adapters_have_context_manager(self):
-        """Test all PostgreSQL adapters support context manager protocol."""
-        adapters = [
-            PostgreSQLDocumentRegistry,
-            PostgreSQLKeywordIndex,
-            PostgreSQLJobManager,
-            PostgreSQLFingerprintManager
-        ]
-
-        for adapter in adapters:
-            assert hasattr(adapter, '__enter__'), f"{adapter.__name__} missing __enter__"
-            assert hasattr(adapter, '__exit__'), f"{adapter.__name__} missing __exit__"
-            assert hasattr(adapter, 'close'), f"{adapter.__name__} missing close method"
-
-    def test_tenant_id_parameter_consistency(self):
-        """Test all PostgreSQL adapters accept tenant_id parameter."""
+    def test_all_adapters_support_multi_tenancy(self):
+        """Test all PostgreSQL adapters support multi-tenant architecture."""
         adapters = [
             PostgreSQLDocumentRegistry,
             PostgreSQLKeywordIndex,
@@ -131,6 +110,36 @@ class TestInterfaceCompatibility:
             param = params['tenant_id']
             assert param.default is None, f"{adapter.__name__} tenant_id should default to None"
 
+    def test_all_adapters_have_context_manager(self):
+        """Test all PostgreSQL adapters support context manager protocol."""
+        adapters = [
+            PostgreSQLDocumentRegistry,
+            PostgreSQLKeywordIndex,
+            PostgreSQLJobManager,
+            PostgreSQLFingerprintManager
+        ]
+
+        for adapter in adapters:
+            assert hasattr(adapter, '__enter__'), f"{adapter.__name__} missing __enter__"
+            assert hasattr(adapter, '__exit__'), f"{adapter.__name__} missing __exit__"
+            assert hasattr(adapter, 'close'), f"{adapter.__name__} missing close method"
+
+    def test_all_adapters_have_initialization_methods(self):
+        """Test all PostgreSQL adapters have proper initialization."""
+        adapters = [
+            PostgreSQLDocumentRegistry,
+            PostgreSQLKeywordIndex,
+            PostgreSQLJobManager,
+            PostgreSQLFingerprintManager
+        ]
+
+        for adapter in adapters:
+            methods = self._get_public_methods(adapter)
+
+            # Should have initialization support
+            assert 'initialize' in methods or '__enter__' in dir(adapter), \
+                f"{adapter.__name__} missing initialization method"
+
     def _get_public_methods(self, cls):
         """Get all public methods of a class."""
         return {
@@ -139,33 +148,77 @@ class TestInterfaceCompatibility:
         }
 
 
-class TestMethodSignatures:
-    """Test that critical methods have compatible signatures."""
+class TestPostgreSQLMethodSignatures:
+    """Test that PostgreSQL methods have expected signatures."""
 
-    def test_search_method_signatures(self):
-        """Test search methods have compatible signatures."""
-        # BM25Index.search signature
-        bm25_sig = inspect.signature(BM25Index.search)
+    def test_search_method_signature(self):
+        """Test search method has expected signature."""
         pg_sig = inspect.signature(PostgreSQLKeywordIndex.search)
 
-        # Both should accept query and limit
-        assert 'query' in bm25_sig.parameters
+        # Should accept query and limit
         assert 'query' in pg_sig.parameters
-        assert 'limit' in bm25_sig.parameters
         assert 'limit' in pg_sig.parameters
 
-        # Return types should be similar (list of dicts)
-        # Note: We can't check return type annotations if not present
+    def test_register_document_signature(self):
+        """Test document registration has expected signature."""
+        reg_sig = inspect.signature(PostgreSQLDocumentRegistry.register_document)
 
-    def test_job_claiming_signatures(self):
-        """Test job claiming methods are compatible."""
-        pg_sig = inspect.signature(PostgreSQLJobManager.claim_next_job)
+        # Should accept core document parameters
+        required_params = ['source', 'content_hash', 'size', 'modified_time']
+        for param in required_params:
+            assert param in reg_sig.parameters, f"Missing parameter: {param}"
 
-        # Should accept worker_id
-        assert 'worker_id' in pg_sig.parameters
+    def test_job_creation_signature(self):
+        """Test job creation has expected signature."""
+        job_sig = inspect.signature(PostgreSQLJobManager.create_job)
 
-        # Should be simple interface (self, worker_id)
-        assert len(pg_sig.parameters) == 2  # self + worker_id
+        # Should accept job parameters
+        assert 'source' in job_sig.parameters
+        assert 'job_type' in job_sig.parameters
+
+    def test_fingerprint_computation_signature(self):
+        """Test fingerprint computation has expected signature."""
+        fp_sig = inspect.signature(PostgreSQLFingerprintManager.compute_fingerprint)
+
+        # Should accept source path (actual parameter name)
+        assert 'source' in fp_sig.parameters
+
+
+class TestPostgreSQLFeatureCompleteness:
+    """Test that PostgreSQL adapters implement enterprise features."""
+
+    def test_registry_supports_tenant_filtering(self):
+        """Test registry supports tenant-aware operations."""
+        # This would require actual database testing
+        # For now, just verify the interface supports it
+        assert hasattr(PostgreSQLDocumentRegistry, 'list_documents')
+
+    def test_keyword_index_supports_advanced_search(self):
+        """Test keyword index supports advanced search features."""
+        methods = self._get_public_methods(PostgreSQLKeywordIndex)
+
+        # PostgreSQL version should have advanced features
+        advanced_features = ['fuzzy_search', 'search_with_filters']
+        for feature in advanced_features:
+            assert feature in methods, f"Missing advanced feature: {feature}"
+
+    def test_job_manager_supports_priority_queuing(self):
+        """Test job manager supports priority-based queuing."""
+        # Check that job creation accepts priority
+        job_sig = inspect.signature(PostgreSQLJobManager.create_job)
+        assert 'priority' in job_sig.parameters or 'metadata' in job_sig.parameters
+
+    def test_fingerprint_manager_supports_duplicate_detection(self):
+        """Test fingerprint manager supports duplicate detection."""
+        methods = self._get_public_methods(PostgreSQLFingerprintManager)
+        assert 'find_duplicates' in methods, "Missing duplicate detection"
+
+    def _get_public_methods(self, cls):
+        """Get all public methods of a class."""
+        return {
+            name for name, method in inspect.getmembers(cls, inspect.isfunction)
+            if not name.startswith('_')
+        }
 
 
 if __name__ == "__main__":

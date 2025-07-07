@@ -86,9 +86,9 @@ class TestSQLInjectionProtection:
     def test_keyword_search_sql_injection(self, keyword_index):
         """Test that keyword search is safe from SQL injection."""
         # Add some test documents
-        from llama_index.core.schema import TextNode
+        from src.pipeline_v3.core.data_structures import TextChunk
 
-        test_node = TextNode(
+        test_node = TextChunk(
             text="This is a test document with some content.",
             metadata={"type": "test", "title": "Test Document"},
         )
@@ -196,9 +196,9 @@ class TestSQLInjectionProtection:
             assert special_input in doc.source
 
             # Test keyword index
-            from llama_index.core.schema import TextNode
+            from src.pipeline_v3.core.data_structures import TextChunk
 
-            test_node = TextNode(
+            test_node = TextChunk(
                 text=f"Content with {special_input}",
                 metadata={"test": special_input, "title": special_input},
             )

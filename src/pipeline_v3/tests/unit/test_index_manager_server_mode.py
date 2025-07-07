@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from core.index_manager import IndexManager, IndexType
 from utils.config import PipelineConfig
-from llama_index.core.schema import TextNode
+from src.pipeline_v3.core.data_structures import TextChunk
 
 
 class TestIndexManagerServerMode:
@@ -137,9 +137,9 @@ class TestIndexManagerServerMode:
         # Create test nodes with metadata
         doc_id = "test_doc_789"
         nodes = [
-            TextNode(
+            TextChunk(
                 text=f"Test content {i}",
-                id_=f"node_{i}",
+                id=f"node_{i}",
                 metadata={
                     "doc_id": doc_id,
                     "chunk_index": i,

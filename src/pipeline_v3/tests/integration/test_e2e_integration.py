@@ -18,9 +18,6 @@ import pytest
 import pytest_asyncio
 import yaml
 
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from core.index_manager import IndexManager
 from core.registry import DocumentRegistry
 from job_queue.manager import DocumentQueue

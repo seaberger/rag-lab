@@ -17,10 +17,9 @@ pipeline_root = Path(__file__).parent.parent
 if str(pipeline_root) not in sys.path:
     sys.path.insert(0, str(pipeline_root))
 
-from core.postgres_base import PostgreSQLBase
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.postgres_base import PostgreSQLBase
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 @dataclass

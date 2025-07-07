@@ -19,7 +19,7 @@ from src.pipeline_v3.core.postgres_base_rls import PostgreSQLBaseRLS
 from src.pipeline_v3.core.postgres_registry import PostgreSQLDocumentRegistry
 from src.pipeline_v3.storage.postgres_keyword import PostgreSQLKeywordIndex
 from src.pipeline_v3.job_queue.postgres_jobs import PostgreSQLJobManager
-from src.pipeline_v3.core.postgres_fingerprint import PostgreSQLFingerprintStore
+from src.pipeline_v3.core.postgres_fingerprint import PostgreSQLFingerprintManager
 from src.pipeline_v3.scripts.tenant_management import TenantManager
 from src.pipeline_v3.utils.config import PipelineConfig
 

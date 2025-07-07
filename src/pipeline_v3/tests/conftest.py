@@ -7,14 +7,13 @@ import asyncio
 import contextlib
 import os
 import shutil
-
-# Add parent directory for imports
 import sys
 import uuid
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 
 # Import cleanup fixtures
 
@@ -113,9 +112,15 @@ def create_test_config(
     """Create a test configuration with isolated databases and unique collection names."""
     config = PipelineConfig()
 
+    # Use the CI test tenant for all tests
+    ci_tenant_id = "11111111-1111-1111-1111-111111111111"
+
     # Generate unique identifier for this test instance (use UUID for better uniqueness)
     if unique_id is None:
-        unique_id = str(uuid.uuid4()).replace("-", "")[:12]  # 12 char unique ID
+        unique_id = str(uuid.uuid4()).replace("-", "")[:12]  # 12 char unique ID for paths
+
+    # Always use the CI tenant ID for PostgreSQL
+    tenant_uuid = ci_tenant_id
 
     # Create environment-specific paths with unique ID
     env_path = base_path / f"{environment}_{unique_id}"
@@ -130,7 +135,8 @@ def create_test_config(
     # Configure Qdrant for server mode (baseline for all tests)
     config.qdrant.mode = "server"
     # Create unique collection name per test to avoid conflicts
-    config.qdrant.collection_name = f"datasheets_{environment}_{unique_id}"
+    # Use CI test prefix for proper cleanup
+    config.qdrant.collection_name = f"ci_test_{environment}_{unique_id}"
 
     config.job_queue.job_storage_path = str(env_path / "jobs.db")
     config.fingerprint.storage_path = str(env_path / "fingerprints.db")
@@ -139,6 +145,27 @@ def create_test_config(
     config.pipeline.timeout_per_page = 10
     config.chunking.chunk_size = 512
     config.chunking.chunk_overlap = 50
+
+    # Configure PostgreSQL for tests
+    config.database.backend = "postgresql"
+
+    # Load PostgreSQL credentials from environment
+    # First check if .env.postgres exists and load it
+    env_postgres = Path(__file__).parent.parent.parent.parent / ".env.postgres"
+    if env_postgres.exists():
+        load_dotenv(env_postgres, override=True)
+
+    # Apply PostgreSQL settings
+    config.database.postgresql.host = os.environ.get("POSTGRES_HOST", "localhost")
+    config.database.postgresql.port = int(os.environ.get("POSTGRES_PORT", "5432"))
+    config.database.postgresql.database = os.environ.get(
+        "POSTGRES_DB", os.environ.get("POSTGRES_DATABASE", "rag_lab")
+    )
+    config.database.postgresql.user = os.environ.get("POSTGRES_USER", "postgres")
+    config.database.postgresql.password = os.environ.get("POSTGRES_PASSWORD", "")
+    config.database.postgresql.default_tenant_id = (
+        tenant_uuid  # Use full UUID as tenant for test isolation
+    )
 
     return config
 

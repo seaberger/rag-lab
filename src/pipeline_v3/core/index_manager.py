@@ -2,14 +2,12 @@
 Index Manager - Phase 2 Implementation
 
 Advanced index lifecycle management with CRUD operations for vector and keyword indexes.
-Provides consistent operations across Qdrant vector store and SQLite BM25 keyword index.
+Provides consistent operations across Qdrant vector store and PostgreSQL keyword index.
+Requires DatabaseFactory adapters for all database operations.
 """
 
 import asyncio
-import json
-import sqlite3
 import time
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -74,15 +72,17 @@ class IndexManager:
         # Initialize components
         self._init_qdrant()
 
-        # Use provided keyword index adapter or create legacy SQLite connection
+        # Keyword index adapter is required - no SQLite fallback
         if keyword_index:
             self.keyword_index = keyword_index
             self.keyword_conn = None  # Not used when using adapter
             logger.info("IndexManager using DatabaseFactory keyword index adapter")
         else:
-            self.keyword_index = None
-            self._init_keyword_index()  # Legacy SQLite initialization
-            logger.info("IndexManager using legacy SQLite keyword index")
+            # PostgreSQL is required - no SQLite fallback
+            raise ValueError(
+                "IndexManager requires a keyword index adapter. "
+                "SQLite is no longer supported. Please use DatabaseFactory to create adapters."
+            )
 
         # Initialize embedding service and text splitter
         self.embedding_service = EmbeddingService(self.config)
@@ -97,9 +97,8 @@ class IndexManager:
         # Backend awareness is now integrated into our custom structures
         logger.info(f"Using custom structures with backend: {self.config.database.backend}")
 
-        adapter_info = "with adapter" if keyword_index else "with legacy SQLite"
         logger.info(
-            f"IndexManager initialized with Qdrant: {self.qdrant_path} and keyword index {adapter_info}"
+            f"IndexManager initialized with Qdrant: {self.qdrant_path} and keyword index adapter"
         )
 
     def _init_qdrant(self) -> None:
@@ -171,256 +170,108 @@ class IndexManager:
             logger.error(f"Error ensuring collection exists: {e}")
             raise
 
-    def _init_keyword_index(self) -> None:
-        """Initialize SQLite-based keyword index (legacy mode)."""
-        try:
-            Path(self.keyword_db_path).parent.mkdir(parents=True, exist_ok=True)
-
-            self.keyword_conn = sqlite3.connect(self.keyword_db_path)
-
-            # Create keyword index table with FTS5
-            self.keyword_conn.execute(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS keyword_index
-                USING fts5(
-                    doc_id UNINDEXED,
-                    node_id UNINDEXED,
-                    chunk_index UNINDEXED,
-                    content,
-                    metadata UNINDEXED,
-                    content_hash UNINDEXED
-                )
-            """
-            )
-
-            self.keyword_conn.commit()
-            logger.info(f"Legacy SQLite keyword index initialized: {self.keyword_db_path}")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize legacy keyword index: {e}")
-            self.keyword_conn = None
-
     # DatabaseFactory adapter helper methods
     def _keyword_index_chunks(self, chunks: list[TextChunk]) -> bool:
-        """Add chunks to keyword index using either adapter or legacy SQLite."""
-        if self.keyword_index:
-            # Use DatabaseFactory adapter
-            try:
-                # Get doc_id from first chunk's metadata
-                doc_id = chunks[0].metadata.get("doc_id", "unknown")
-                source = chunks[0].metadata.get("source", "unknown")
-                pairs = chunks[0].metadata.get("pairs", [])
+        """Add chunks to keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return False
 
-                # Pass chunks directly - the adapter expects TextChunk objects
-                logger.info(
-                    f"DEBUG: Indexing with pairs: {pairs} (from metadata: {chunks[0].metadata.get('pairs', 'NOT_FOUND')})"
-                )
-                self.keyword_index.index_nodes(chunks, doc_id, source, pairs)
-                return True
-            except Exception as e:
-                logger.error(f"Failed to index chunks with adapter: {e}")
-                return False
-        elif self.keyword_conn:
-            # Use legacy SQLite
-            try:
-                for i, chunk in enumerate(chunks):
-                    self.keyword_conn.execute(
-                        """
-                        INSERT INTO keyword_index
-                        (doc_id, node_id, chunk_index, content, metadata, content_hash)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            chunk.metadata.get("doc_id", ""),
-                            chunk.id,
-                            i,
-                            chunk.text,
-                            json.dumps(chunk.metadata),
-                            chunk.hash,
-                        ),
-                    )
-                self.keyword_conn.commit()
-                return True
-            except Exception as e:
-                logger.error(f"Failed to index chunks with legacy SQLite: {e}")
-                return False
-        else:
-            logger.warning("No keyword index available (neither adapter nor legacy SQLite)")
+        try:
+            # Get doc_id from first chunk's metadata
+            doc_id = chunks[0].metadata.get("doc_id", "unknown")
+            source = chunks[0].metadata.get("source", "unknown")
+            pairs = chunks[0].metadata.get("pairs", [])
+
+            # Pass chunks directly - the adapter expects TextChunk objects
+            logger.info(
+                f"DEBUG: Indexing with pairs: {pairs} (from metadata: {chunks[0].metadata.get('pairs', 'NOT_FOUND')})"
+            )
+            self.keyword_index.index_nodes(chunks, doc_id, source, pairs)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to index chunks with adapter: {e}")
             return False
 
     def _keyword_search(
         self, query: str, top_k: int, filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        """Search keyword index using either adapter or legacy SQLite."""
+        """Search keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available for search")
+            return []
+
         # Add backend-specific filters if needed
         if filters and self.config.database.backend == "postgresql":
             if "metadata" not in filters:
                 filters["metadata"] = {}
             filters["metadata"]["tenant_id"] = self.config.database.postgresql.default_tenant_id
 
-        if self.keyword_index:
-            # Use DatabaseFactory adapter (without backend-aware processing)
-            try:
-                # Check if the adapter supports filters
-                import inspect
+        try:
+            # Check if the adapter supports filters
+            import inspect
 
-                sig = inspect.signature(self.keyword_index.search)
-                if "filters" in sig.parameters:
-                    return self.keyword_index.search(query, top_k, filters=filters)
-                else:
-                    # Adapter doesn't support filters, just do basic search
-                    return self.keyword_index.search(query, top_k)
-            except Exception as e:
-                logger.error(f"Failed to search with adapter: {e}")
-                return []
-        elif self.keyword_conn:
-            # Use legacy SQLite FTS5 search
-            try:
-                # Build FTS5 query
-                sql_query = """
-                    SELECT node_id, chunk_index, content, metadata, content_hash
-                    FROM keyword_index
-                    WHERE keyword_index MATCH ?
-                """
-                params = [query]
-
-                # Add filters if provided
-                if filters:
-                    filter_conditions = []
-                    for key, value in filters.items():
-                        if key == "doc_id":
-                            filter_conditions.append("doc_id = ?")
-                            params.append(value)
-                        # Add other filter support as needed
-
-                    if filter_conditions:
-                        sql_query += " AND " + " AND ".join(filter_conditions)
-
-                sql_query += " ORDER BY rank LIMIT ?"
-                params.append(top_k)
-
-                cursor = self.keyword_conn.execute(sql_query, params)
-                results = []
-                for row in cursor.fetchall():
-                    node_id, chunk_index, content, metadata_str, content_hash = row
-                    try:
-                        import ast
-
-                        metadata = ast.literal_eval(metadata_str) if metadata_str else {}
-                    except Exception:
-                        metadata = {}
-
-                    results.append(
-                        {
-                            "node_id": node_id,
-                            "chunk_id": node_id,  # Alias for compatibility
-                            "text": content,
-                            "content": content,  # Alias for compatibility
-                            "score": 1.0,  # FTS5 doesn't provide normalized scores
-                            "metadata": metadata,
-                            "chunk_index": chunk_index,
-                        }
-                    )
-                return results
-            except Exception as e:
-                logger.error(f"Failed to search with legacy SQLite: {e}")
-                return []
-        else:
-            logger.warning("No keyword index available for search")
+            sig = inspect.signature(self.keyword_index.search)
+            if "filters" in sig.parameters:
+                return self.keyword_index.search(query, top_k, filters=filters)
+            else:
+                # Adapter doesn't support filters, just do basic search
+                return self.keyword_index.search(query, top_k)
+        except Exception as e:
+            logger.error(f"Failed to search with adapter: {e}")
             return []
 
     def _keyword_remove_document(self, doc_id: str) -> int:
-        """Remove document from keyword index using either adapter or legacy SQLite."""
-        if self.keyword_index:
-            # Use DatabaseFactory adapter
-            try:
-                # Assuming adapter has a remove_document method
-                if hasattr(self.keyword_index, "remove_document"):
-                    return self.keyword_index.remove_document(doc_id)
-                else:
-                    logger.warning("Keyword index adapter does not support remove_document")
-                    return 0
-            except Exception as e:
-                logger.error(f"Failed to remove document with adapter: {e}")
+        """Remove document from keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return 0
+
+        try:
+            # Assuming adapter has a remove_document method
+            if hasattr(self.keyword_index, "remove_document"):
+                return self.keyword_index.remove_document(doc_id)
+            else:
+                logger.warning("Keyword index adapter does not support remove_document")
                 return 0
-        elif self.keyword_conn:
-            # Use legacy SQLite
-            try:
-                cursor = self.keyword_conn.execute(
-                    "DELETE FROM keyword_index WHERE doc_id = ?", (doc_id,)
-                )
-                deleted_count = cursor.rowcount
-                self.keyword_conn.commit()
-                return deleted_count
-            except Exception as e:
-                logger.error(f"Failed to remove document with legacy SQLite: {e}")
-                return 0
-        else:
+        except Exception as e:
+            logger.error(f"Failed to remove document with adapter: {e}")
             return 0
 
     def _keyword_get_stats(self) -> dict[str, Any]:
-        """Get keyword index statistics using either adapter or legacy SQLite."""
-        if self.keyword_index:
-            # Use DatabaseFactory adapter
-            try:
-                return self.keyword_index.get_stats()
-            except Exception as e:
-                logger.error(f"Failed to get stats with adapter: {e}")
-                return {"total_entries": 0, "unique_documents": 0}
-        elif self.keyword_conn:
-            # Use legacy SQLite
-            try:
-                cursor = self.keyword_conn.execute("SELECT COUNT(*) FROM keyword_index")
-                entry_count = cursor.fetchone()[0]
+        """Get keyword index statistics using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return {"total_entries": 0, "unique_documents": 0}
 
-                cursor = self.keyword_conn.execute(
-                    "SELECT COUNT(DISTINCT doc_id) FROM keyword_index"
-                )
-                doc_count = cursor.fetchone()[0]
-
-                return {
-                    "total_entries": entry_count,
-                    "unique_documents": doc_count,
-                }
-            except Exception as e:
-                logger.error(f"Failed to get stats with legacy SQLite: {e}")
-                return {"total_entries": 0, "unique_documents": 0}
-        else:
+        try:
+            return self.keyword_index.get_stats()
+        except Exception as e:
+            logger.error(f"Failed to get stats with adapter: {e}")
             return {"total_entries": 0, "unique_documents": 0}
 
     def _keyword_check_document_exists(self, doc_id: str) -> dict[str, Any]:
-        """Check if document exists in keyword index using either adapter or legacy SQLite."""
-        if self.keyword_index:
-            # Use DatabaseFactory adapter
-            try:
-                # Most adapters don't have a specific exists method, so we search for the doc
-                if hasattr(self.keyword_index, "search"):
-                    results = self.keyword_index.search("*", top_k=1, filters={"doc_id": doc_id})
-                    count = len(results)
-                    return {"exists": count > 0, "count": count}
-                else:
-                    logger.warning("Keyword index adapter does not support search")
-                    return {"exists": False, "count": 0}
-            except Exception as e:
-                logger.error(f"Failed to check document exists with adapter: {e}")
-                return {"exists": False, "count": 0, "error": str(e)}
-        elif self.keyword_conn:
-            # Use legacy SQLite
-            try:
-                cursor = self.keyword_conn.execute(
-                    "SELECT COUNT(*) FROM keyword_index WHERE doc_id = ?", (doc_id,)
-                )
-                count = cursor.fetchone()[0]
-                return {"exists": count > 0, "count": count}
-            except Exception as e:
-                logger.error(f"Failed to check document exists with legacy SQLite: {e}")
-                return {"exists": False, "count": 0, "error": str(e)}
-        else:
+        """Check if document exists in keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
             return {
                 "exists": False,
                 "count": 0,
                 "error": "Keyword index not available",
             }
+
+        try:
+            # Most adapters don't have a specific exists method, so we search for the doc
+            if hasattr(self.keyword_index, "search"):
+                results = self.keyword_index.search("*", top_k=1, filters={"doc_id": doc_id})
+                count = len(results)
+                return {"exists": count > 0, "count": count}
+            else:
+                logger.warning("Keyword index adapter does not support search")
+                return {"exists": False, "count": 0}
+        except Exception as e:
+            logger.error(f"Failed to check document exists with adapter: {e}")
+            return {"exists": False, "count": 0, "error": str(e)}
 
     def add_document(
         self,

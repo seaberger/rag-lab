@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from conftest import (
+from .conftest import (
     create_test_document_info,
     create_test_job_info,
     create_test_search_data,

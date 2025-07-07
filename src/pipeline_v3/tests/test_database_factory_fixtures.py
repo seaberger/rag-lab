@@ -107,9 +107,9 @@ class TestDatabaseFactoryFixtures:
             print("✓ KeywordIndex fixture using direct instantiation (fallback)")
 
         # Test basic functionality works
-        from llama_index.core.schema import TextNode
-        node = TextNode(text="test content", id_="test_node")
-        test_keyword_index.index_nodes([node])
+        from src.pipeline_v3.core.data_structures import TextChunk
+        chunk = TextChunk(text="test content", id="test_node")
+        test_keyword_index.index_nodes([chunk])
 
         results = test_keyword_index.search("test", top_k=1)
         assert len(results) <= 1  # May be 0 if indexing not fully committed

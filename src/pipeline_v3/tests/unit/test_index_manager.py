@@ -11,7 +11,7 @@ import pytest
 
 from core.index_manager import IndexManager
 from core.registry import DocumentState, IndexType
-from llama_index.core.schema import TextNode
+from src.pipeline_v3.core.data_structures import TextChunk
 
 from utils.config import PipelineConfig
 
@@ -314,7 +314,7 @@ class TestIndexManager:
     def test_error_handling_during_indexing(self, index_manager):
         """Test error handling during document indexing."""
         doc_id = "test_doc_id"
-        nodes = [TextNode(id_="node1", text="Test")]
+        nodes = [TextChunk(id="node1", text="Test")]
 
         # Mock vector indexing to fail
         index_manager.vector_store.add = Mock(
@@ -338,7 +338,7 @@ class TestIndexManager:
         documents = [
             {
                 "doc_id": f"doc{i}",
-                "nodes": [TextNode(id_=f"node{i}", text=f"Document {i}")],
+                "nodes": [TextChunk(id=f"node{i}", text=f"Document {i}")],
                 "source": f"doc{i}.pdf",
                 "pairs": [],
             }

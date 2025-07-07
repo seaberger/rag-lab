@@ -1,18 +1,19 @@
 """
-Unit tests for backend-aware LlamaIndex helpers.
+Unit tests for backend-aware helpers.
 
-Tests the BackendAwareNodeFactory and BackendAwareQueryProcessor
-to ensure proper metadata handling for both SQLite and PostgreSQL backends.
+NOTE: This test file is disabled because LlamaIndex-based helpers have been removed
+from the pipeline and replaced with custom data structures in core/data_structures.py.
+
+The functionality is now tested in:
+- test_backend_aware_features.py (manual tests)
+- test_multi_backend_support.py (integration tests)
+- Individual component tests (test_data_structures.py, etc.)
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from llama_index.core.schema import TextNode, Document
-from llama_index.core.vector_stores import VectorStoreQuery
 
-from core.llama_index_helpers import BackendAwareNodeFactory, create_backend_aware_nodes
-from core.query_helpers import BackendAwareQueryProcessor
-from utils.config import PipelineConfig
+# All tests in this file are disabled due to LlamaIndex removal
+pytestmark = pytest.mark.skip(reason="LlamaIndex helpers removed - functionality replaced by data_structures.py")
 
 
 class TestBackendAwareNodeFactory:

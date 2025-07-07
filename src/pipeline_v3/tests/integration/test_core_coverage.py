@@ -15,9 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from core.fingerprint import FingerprintManager
 from core.migrations import (Migration, MigrationManager,
                              load_migrations_from_sql_files)
@@ -25,6 +22,11 @@ from core.registry import DocumentRegistry, DocumentState
 from job_queue.job import JobManager, JobStatus, JobType
 from job_queue.manager import DocumentQueue, JobPriority
 from storage.cache import CacheManager
+from utils.common_utils import logger
+from utils.env_utils import setup_environment
+from utils.environment import EnvironmentManager
+from utils.monitoring import ProgressMonitor
+from utils.validators import ValidationManager
 
 # Import database fixtures for multi-backend support
 try:

@@ -251,10 +251,10 @@ class TestTenantIsolation:
                     keyword2 = adapters2["keyword_index"]
 
                     # Add different content to each tenant
-                    from llama_index.core.schema import TextNode
+                    from src.pipeline_v3.core.data_structures import TextChunk
 
-                    node1 = TextNode(text="This is tenant 1 content about sensors", id_="node1")
-                    node2 = TextNode(text="This is tenant 2 content about lasers", id_="node2")
+                    node1 = TextChunk(text="This is tenant 1 content about sensors", id="node1")
+                    node2 = TextChunk(text="This is tenant 2 content about lasers", id="node2")
 
                     # Index content in each tenant
                     keyword1.index_nodes([node1], "doc1", "test1.pdf", [])

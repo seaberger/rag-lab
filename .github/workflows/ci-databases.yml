@@ -1,0 +1,68 @@
+name: Database Services for CI
+
+on:
+  workflow_call:
+
+jobs:
+  setup-databases:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
+          POSTGRES_DB: rag_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "curl -f http://localhost:6333/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+
+      - name: Wait for Qdrant
+        run: |
+          until curl -f http://localhost:6333/health; do
+            echo "Waiting for Qdrant..."
+            sleep 2
+          done
+          echo "Qdrant is ready!"
+
+      - name: Set up PostgreSQL database
+        env:
+          PGPASSWORD: postgres  # pragma: allowlist secret
+        run: |
+          psql -h localhost -U postgres -c "CREATE DATABASE rag_lab;" || true
+          psql -h localhost -U postgres -d rag_lab -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+          psql -h localhost -U postgres -d rag_lab -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+      - name: Export database URLs
+        run: |  # pragma: allowlist secret
+          echo "POSTGRES_HOST=localhost" >> $GITHUB_ENV
+          echo "POSTGRES_PORT=5432" >> $GITHUB_ENV
+          echo "POSTGRES_USER=postgres" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=postgres" >> $GITHUB_ENV  # pragma: allowlist secret
+          echo "POSTGRES_DATABASE=rag_lab" >> $GITHUB_ENV
+          echo "QDRANT_HOST=localhost" >> $GITHUB_ENV
+          echo "QDRANT_PORT=6333" >> $GITHUB_ENV
