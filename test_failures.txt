@@ -1,0 +1,209 @@
+
+=== integration/test_core_coverage.py::TestCoreCoverage::test_document_registry_lifecycle ===
+Error: self = <src.pipeline_v3.tests.integration.test_core_coverage.TestCoreCoverage object at 0x10d58d370>
+test_config = PipelineConfig(pipeline=PipelineSettings(max_concurrent=5, timeout_seconds=300, timeout_per_page=10, timeout_base=60, ...rue, migration_batch_size=1000, migration_timeout=3600, enable_fallback=False, log_queries=False), datasheet_mode=True)
+
+    def test_document_registry_lifecycle(self, test_config):
+        """Test DocumentRegistry operations."""
+        registry = create_test_registry(test_config)
+
+        try:
+            # Test registration
+            import time
+
+            doc_id = registry.register_document(
+            source="test.pdf",
+            content_hash="abc123",
+            size=1024,
+            modified_time=time.time(),
+            metadata={"author": "test", "version": "1.0", "doc_type": "datasheet"},
+            )
+            assert doc_id is not None
+
+            # Test retrieval
+            doc = registry.get_document(doc_id)
+            assert doc is not None
+            assert doc.source.endswith("test.pdf")
+            assert doc.metadata["doc_type"] == "datasheet"
+
+            # Test get by source
+            doc_by_source = registry.get_document_by_source("test.pdf")
+            assert doc_by_source.doc_id == doc_id
+
+            # Test status updates - using update_document_state method
+            registry.update_document_state(doc_id, DocumentState.UPDATING)
+            doc = registry.get_document(doc_id)
+            assert doc.state == "updating"
+
+            registry.update_document_state(doc_id, DocumentState.INDEXED)
+            doc = registry.get_document(doc_id)
+            assert doc.state == "indexed"
+
+            # Test index updates
+            from core.registry import IndexType
+
+            registry.mark_indexed(doc_id, IndexType.BOTH, chunk_count=5)
+            doc = registry.get_document(doc_id)
+            assert doc.vector_indexed == True
+            assert doc.keyword_indexed == True
+
+            # Skip document updates - method not available
+            # Would need to check actual registry API
+
+            # Test list documents
+            docs = registry.list_documents(limit=10)
+>           assert len(docs) == 1
+E           AssertionError: assert 3 == 1
+E            +  where 3 = len([DocumentRecord(doc_id='06faca12-65ab-4ac8-9327-775d40c233c1', source='/Users/seanbergman/Repositories/rag_lab/test.pdf', content_hash='abc123', size=1024, modified_time=1751907774.842118, created_at=1751928558.008656, updated_at=1751932974.864163, state='indexed', vector_indexed=True, keyword_indexed=True, chunk_count=5, error_count=0, last_error=None, metadata={'author': 'test', 'version': '1.0', 'doc_type': 'datasheet'}), DocumentRecord(doc_id='8ca9e671-9fc5-45e2-8314-f91d9e945cad', source='/Users/seanbergman/Repositories/rag_lab/data/lmc_docs/understanding-a-certificate-of-calibration.pdf', content_hash='e621490ce498dff04d63f99b70e166d98800cfe71d809ef60eacd4c0c7586e99', size=517071, modified_time=1749680456.466958, created_at=1751928708.290732, updated_at=1751932972.954151, state='stale', vector_indexed=True, keyword_indexed=True, chunk_count=18, error_count=0, last_error=None, metadata={'source': 'smoke_test', 'file_name': 'understanding-a-certificate-of-calibration.pdf', 'file_size': 517071, 'source_type': 'generic_pdf', 'parse_method': 'openai_vision', 'document_type': 'datasheet', 'content_length': 7052}), DocumentRecord(doc_id='0a52cd6b-0dad-47de-a975-db15938ea036', source='/Users/seanbergman/Repositories/rag_lab/data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf', content_hash='9d1f1a9dca745b7b1da60fac3f8a64216c38e4e9c54389cc995a279085392b2b', size=159378, modified_time=1748118850.636919, created_at=1751926937.621199, updated_at=1751932082.954029, state='corrupted', vector_indexed=False, keyword_indexed=False, chunk_count=0, error_count=1, last_error='Indexing failed', metadata={'env': 'env1', 'file_name': 'FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf', 'file_size': 159378, 'source_type': 'generic_pdf', 'parse_method': 'openai_vision', 'content_length': 5337})])
+
+src/pipeline_v3/tests/integration/test_core_coverage.py:175: AssertionError
+
+=== integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality ===
+Error: self = <src.pipeline_v3.tests.integration.test_e2e_integration.TestE2EIntegration object at 0x10d58fcb0>
+populated_pipeline = <pipeline.enhanced_core.EnhancedPipeline object at 0x12103dac0>
+expected_content = {'fieldmax': {'keywords': ['FieldMaxII', 'laser', 'power', 'meter', 'thermopile', 'optical'], 'model_names': ['FieldMa...res': ['touchscreen', 'USB', 'real-time'], 'keywords': ['LabMax', 'Touch', 'laser', 'power', 'measurement', 'sensor']}}
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.e2e
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for search tests
+    async def test_search_functionality(self, populated_pipeline, expected_content):
+        """Test different search types with pre-populated data."""
+        pipeline = populated_pipeline
+
+        # Check if document was successfully processed
+        if hasattr(pipeline, 'test_error') and pipeline.test_error:
+>           pytest.fail(f"Document processing failed in fixture: {pipeline.test_error}")
+E           Failed: Document processing failed in fixture: Document processing failed: indexing_failed. Details: No additional details
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:151: Failed
+
+=== integration/test_e2e_integration.py::TestDatabaseIsolation::test_database_cleanup ===
+Error: self = <src.pipeline_v3.tests.integration.test_e2e_integration.TestDatabaseIsolation object at 0x10d5ace30>
+test_config = PipelineConfig(pipeline=PipelineSettings(max_concurrent=5, timeout_seconds=300, timeout_per_page=10, timeout_base=60, ...rue, migration_batch_size=1000, migration_timeout=3600, enable_fallback=False, log_queries=False), datasheet_mode=True)
+test_pipeline = <pipeline.enhanced_core.EnhancedPipeline object at 0x1227ea4e0>
+sample_documents = {'large_datasheet': PosixPath('/Users/seanbergman/Repositories/rag_lab/data/sample_docs/COHR_PowerMax-USB_UV-VIS_DS_09...ath('/Users/seanbergman/Repositories/rag_lab/data/sample_docs/ISO-17025-Calibration-Standards-Presentation.pptx'), ...}
+
+    @pytest.mark.asyncio
+    async def test_database_cleanup(self, test_config, test_pipeline, sample_documents):
+        """Test that database cleanup works properly."""
+        from ..conftest import clear_test_databases
+
+        pipeline = test_pipeline
+
+        # Add a document
+        test_doc = sample_documents["small_datasheet"]
+        if test_doc.exists():
+            await pipeline.process_document(str(test_doc))
+
+        # Verify document exists
+>       assert pipeline.registry.get_statistics()["total_documents"] == 1
+E       assert 3 == 1
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:500: AssertionError
+
+=== integration/test_metadata_preservation.py::TestMetadataPreservation::test_comprehensive_metadata_flow ===
+Error: self = <src.pipeline_v3.tests.integration.test_metadata_preservation.TestMetadataPreservation object at 0x10d5ad6d0>
+test_config = PipelineConfig(pipeline=PipelineSettings(max_concurrent=5, timeout_seconds=300, timeout_per_page=10, timeout_base=60, ...rue, migration_batch_size=1000, migration_timeout=3600, enable_fallback=False, log_queries=False), datasheet_mode=True)
+
+    @pytest.mark.asyncio
+    async def test_comprehensive_metadata_flow(self, test_config):
+        """Test that all metadata types are preserved correctly."""
+        # Force server mode
+        test_config.qdrant.mode = "server"
+        test_collection = f"test_metadata_{int(time.time() * 1000)}"
+        test_config.qdrant.collection_name = test_collection
+
+>       pipeline = EnhancedPipeline(test_config)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+src/pipeline_v3/tests/integration/test_metadata_preservation.py:34:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/pipeline_v3/pipeline/enhanced_core.py:61: in __init__
+    self.registry = registry or DocumentRegistry(self.config)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/pipeline_v3/core/registry.py:90: in __init__
+    self.storage_path = Path(self.config.storage.document_registry_path)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.9-macos-aarch64-none/lib/python3.12/pathlib.py:1162: in __init__
+    super().__init__(*args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <[AttributeError("'PosixPath' object has no attribute '_raw_paths'") raised in repr()] PosixPath object at 0x127d194d0>
+args = (None,), paths = [], arg = None, path = None
+
+    def __init__(self, *args):
+        paths = []
+        for arg in args:
+            if isinstance(arg, PurePath):
+                if arg._flavour is not self._flavour:
+                    # GH-103631: Convert separators for backwards compatibility.
+                    paths.append(arg.as_posix())
+                else:
+                    paths.extend(arg._raw_paths)
+            else:
+                try:
+                    path = os.fspath(arg)
+                except TypeError:
+                    path = arg
+                if not isinstance(path, str):
+>                   raise TypeError(
+                        "argument should be a str or an os.PathLike "
+                        "object where __fspath__ returns a str, "
+                        f"not {type(path).__name__!r}")
+E                   TypeError: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'NoneType'
+
+../../.local/share/uv/python/cpython-3.12.9-macos-aarch64-none/lib/python3.12/pathlib.py:373: TypeError
+
+=== integration/test_metadata_preservation.py::TestMetadataPreservation::test_metadata_with_keywords ===
+Error: self = <src.pipeline_v3.tests.integration.test_metadata_preservation.TestMetadataPreservation object at 0x10d5ada60>
+test_config = PipelineConfig(pipeline=PipelineSettings(max_concurrent=5, timeout_seconds=300, timeout_per_page=10, timeout_base=60, ...rue, migration_batch_size=1000, migration_timeout=3600, enable_fallback=False, log_queries=False), datasheet_mode=True)
+
+    @pytest.mark.asyncio
+    async def test_metadata_with_keywords(self, test_config):
+        """Test metadata preservation when using keyword enhancement."""
+        test_config.qdrant.mode = "server"
+        test_collection = f"test_meta_keywords_{int(time.time() * 1000)}"
+        test_config.qdrant.collection_name = test_collection
+
+>       pipeline = EnhancedPipeline(test_config)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+src/pipeline_v3/tests/integration/test_metadata_preservation.py:158:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src/pipeline_v3/pipeline/enhanced_core.py:61: in __init__
+    self.registry = registry or DocumentRegistry(self.config)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/pipeline_v3/core/registry.py:90: in __init__
+    self.storage_path = Path(self.config.storage.document_registry_path)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.9-macos-aarch64-none/lib/python3.12/pathlib.py:1162: in __init__
+    super().__init__(*args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <[AttributeError("'PosixPath' object has no attribute '_raw_paths'") raised in repr()] PosixPath object at 0x127d18dd0>
+args = (None,), paths = [], arg = None, path = None
+
+    def __init__(self, *args):
+        paths = []
+        for arg in args:
+            if isinstance(arg, PurePath):
+                if arg._flavour is not self._flavour:
+                    # GH-103631: Convert separators for backwards compatibility.
+                    paths.append(arg.as_posix())
+                else:
+                    paths.extend(arg._raw_paths)
+            else:
+                try:
+                    path = os.fspath(arg)
+                except TypeError:
+                    path = arg
+                if not isinstance(path, str):
+>                   raise TypeError(
+                        "argument should be a str or an os.PathLike "
+                        "object where __fspath__ returns a str, "
+                        f"not {type(path).__name__!r}")
+E                   TypeError: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'NoneType'
+
+../../.local/share/uv/python/cpython-3.12.9-macos-aarch64-none/lib/python3.12/pathlib.py:373: TypeError

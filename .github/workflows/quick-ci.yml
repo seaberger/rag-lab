@@ -1,4 +1,9 @@
-name: CI/CD Pipeline
+name: Quick CI
+
+# Quick CI Pipeline - Runs on every push/PR to main branches
+# Mirrors the local run_local_quickci.sh script
+# Focuses on fast feedback with essential tests only
+# Minimizes OpenAI API usage by running all tests in one command
 
 on:
   push:
@@ -13,6 +18,10 @@ env:
   MIN_COVERAGE: 10
   QDRANT_HOST: "localhost"
   QDRANT_PORT: "6333"
+  POSTGRES_HOST: "localhost"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "postgres"
+  POSTGRES_DATABASE: "rag_lab"
 
 permissions:
   contents: read
@@ -26,6 +35,20 @@ jobs:
     timeout-minutes: 30
 
     services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: rag_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
       qdrant:
         image: qdrant/qdrant:latest
         ports:
@@ -158,9 +181,28 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
+    - name: Set up databases for testing
+      env:
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        CI: true
+      run: |
+        echo "🔧 Setting up test databases..."
+        uv run python src/pipeline_v3/scripts/ci_database_setup.py
+
+        # Verify setup
+        if [ -f "/tmp/ci_test_tenant.txt" ]; then
+          echo "✅ Test tenant created successfully"
+          TEST_TENANT_ID=$(cat /tmp/ci_test_tenant.txt)
+          echo "TEST_TENANT_ID=$TEST_TENANT_ID" >> $GITHUB_ENV
+        else
+          echo "❌ Failed to create test tenant"
+          exit 1
+        fi
+
     - name: Run tests with coverage
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         QDRANT_HOST: localhost
         QDRANT_PORT: 6333
         SKIP_QDRANT_TESTS: ${{ env.QDRANT_AVAILABLE == 'false' && 'true' || 'false' }}

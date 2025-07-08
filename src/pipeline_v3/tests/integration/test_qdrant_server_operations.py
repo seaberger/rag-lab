@@ -38,7 +38,13 @@ class TestQdrantServerOperations:
         test_collection = f"test_server_ops_{int(time.time() * 1000)}"
         test_config.qdrant.collection_name = test_collection
 
-        pipeline = EnhancedPipeline(test_config)
+        # Import DatabaseFactory to create pipeline properly
+        from core.database_factory import DatabaseFactory
+
+        # Create pipeline with database adapters for PostgreSQL
+        factory = DatabaseFactory(test_config)
+        adapters = factory.create_all()
+        pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
         yield pipeline
 
         # Cleanup
@@ -332,6 +338,7 @@ class TestQdrantServerOperations:
     @pytest.mark.server
     @pytest.mark.integration
     @pytest.mark.heavy
+    @pytest.mark.comprehensive  # Batch processing of 5+ documents
     @pytest.mark.requires_api
     @pytest.mark.timeout(900)  # 15 minutes for batch operations
     async def test_batch_operations_server_mode(self, server_pipeline):
@@ -439,6 +446,7 @@ class TestQdrantServerOperations:
     @pytest.mark.server
     @pytest.mark.integration
     @pytest.mark.heavy
+    @pytest.mark.comprehensive  # Tests multiple collection isolation
     @pytest.mark.requires_api
     @pytest.mark.timeout(900)  # 15 minutes for collection isolation
     async def test_collection_isolation(self, test_config):

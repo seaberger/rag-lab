@@ -4,7 +4,6 @@ Unit tests for BM25 Keyword Index component.
 Tests cover keyword indexing, search functionality, and SQL injection protection.
 """
 
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -12,7 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from llama_index.core.schema import TextNode
+from src.pipeline_v3.core.data_structures import TextChunk
 from storage.keyword_index import BM25Index
 
 from utils.config import PipelineConfig
@@ -30,13 +29,13 @@ class TestBM25Index:
         """Test indexing nodes to the database."""
         # Create test nodes
         nodes = [
-            TextNode(
-                id_="node1",
+            TextChunk(
+                id="node1",
                 text="This is a test document about laser power meters.",
                 metadata={"page": 1},
             ),
-            TextNode(
-                id_="node2",
+            TextChunk(
+                id="node2",
                 text="PM100 specifications and features.",
                 metadata={"page": 2},
             ),
@@ -63,8 +62,8 @@ class TestBM25Index:
                 "doc_id": "doc1",
                 "source": "laser_meter.pdf",
                 "nodes": [
-                    TextNode(id_="n1", text="Laser power meter PM100 specifications"),
-                    TextNode(id_="n2", text="High accuracy optical power measurement"),
+                    TextChunk(id="n1", text="Laser power meter PM100 specifications"),
+                    TextChunk(id="n2", text="High accuracy optical power measurement"),
                 ],
                 "pairs": [("Product", "PM100")],
             },
@@ -72,10 +71,10 @@ class TestBM25Index:
                 "doc_id": "doc2",
                 "source": "thermal_sensor.pdf",
                 "nodes": [
-                    TextNode(
-                        id_="n3", text="Thermal sensors for temperature measurement"
+                    TextChunk(
+                        id="n3", text="Thermal sensors for temperature measurement"
                     ),
-                    TextNode(id_="n4", text="Industrial grade sensors"),
+                    TextChunk(id="n4", text="Industrial grade sensors"),
                 ],
                 "pairs": [("Product", "TS200")],
             },
@@ -83,8 +82,8 @@ class TestBM25Index:
                 "doc_id": "doc3",
                 "source": "pm100_manual.pdf",
                 "nodes": [
-                    TextNode(id_="n5", text="PM100 laser measurement device manual"),
-                    TextNode(id_="n6", text="Operating instructions and safety"),
+                    TextChunk(id="n5", text="PM100 laser measurement device manual"),
+                    TextChunk(id="n6", text="Operating instructions and safety"),
                 ],
                 "pairs": [("Product", "PM100")],
             },
@@ -111,8 +110,8 @@ class TestBM25Index:
         nodes = []
         for i in range(10):
             nodes.append(
-                TextNode(
-                    id_=f"node{i}",
+                TextChunk(
+                    id=f"node{i}",
                     text=f"Document {i} about laser power meters and optical measurement",
                     metadata={"index": i},
                 )
@@ -133,18 +132,18 @@ class TestBM25Index:
         """Test search result ranking."""
         # Create nodes with different relevance
         nodes = [
-            TextNode(
-                id_="low_relevance",
+            TextChunk(
+                id="low_relevance",
                 text="This document mentions laser once",
                 metadata={},
             ),
-            TextNode(
-                id_="high_relevance",
+            TextChunk(
+                id="high_relevance",
                 text="laser laser laser power meter laser specifications laser",
                 metadata={},
             ),
-            TextNode(
-                id_="medium_relevance",
+            TextChunk(
+                id="medium_relevance",
                 text="Laser power meter for measuring laser output",
                 metadata={},
             ),
@@ -163,7 +162,7 @@ class TestBM25Index:
     def test_sql_injection_protection(self, keyword_index):
         """Test protection against SQL injection attempts."""
         # Add a test node
-        nodes = [TextNode(id_="test1", text="Test document for security testing")]
+        nodes = [TextChunk(id="test1", text="Test document for security testing")]
         keyword_index.index_nodes(
             nodes=nodes, doc_id="doc_security", source="security.pdf", pairs=[]
         )
@@ -192,8 +191,8 @@ class TestBM25Index:
         """Test handling of special characters in search queries."""
         # Add node with special characters
         nodes = [
-            TextNode(
-                id_="special1",
+            TextChunk(
+                id="special1",
                 text="PM100 laser power meter (10W to 100W range) with RS232 interface",
                 metadata={},
             )
@@ -234,8 +233,8 @@ class TestBM25Index:
         """Test searching by part number."""
         # Index nodes with part numbers
         nodes = [
-            TextNode(id_="n1", text="Power meter model information"),
-            TextNode(id_="n2", text="Specifications for optical measurement"),
+            TextChunk(id="n1", text="Power meter model information"),
+            TextChunk(id="n2", text="Specifications for optical measurement"),
         ]
 
         keyword_index.index_nodes(
@@ -253,7 +252,7 @@ class TestBM25Index:
     def test_empty_search(self, keyword_index):
         """Test search with empty query."""
         # Add a node
-        nodes = [TextNode(id_="n1", text="Test content")]
+        nodes = [TextChunk(id="n1", text="Test content")]
         keyword_index.index_nodes(nodes, "doc1", "test.pdf", [])
 
         # Empty search should return empty results
@@ -304,13 +303,13 @@ class TestBM25Index:
         # Index some nodes
         for i in range(5):
             nodes = [
-                TextNode(
-                    id_=f"node_{i}_1",
+                TextChunk(
+                    id=f"node_{i}_1",
                     text=f"Document {i} first chunk about lasers",
                     metadata={"chunk": 1},
                 ),
-                TextNode(
-                    id_=f"node_{i}_2",
+                TextChunk(
+                    id=f"node_{i}_2",
                     text=f"Document {i} second chunk about power meters",
                     metadata={"chunk": 2},
                 ),
@@ -333,8 +332,8 @@ class TestBM25Index:
         """Test keyword extraction from Context: lines."""
         # Create node with Context: line
         nodes = [
-            TextNode(
-                id_="ctx1",
+            TextChunk(
+                id="ctx1",
                 text="Main content here.\nContext: laser, power meter, optical measurement\nMore content.",
                 metadata={},
             )
@@ -352,7 +351,7 @@ class TestBM25Index:
         """Test that index persists across instances."""
         # Index a node
         nodes = [
-            TextNode(id_="persist1", text="Persistent document content about lasers")
+            TextChunk(id="persist1", text="Persistent document content about lasers")
         ]
         keyword_index.index_nodes(
             nodes=nodes,

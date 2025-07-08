@@ -1,164 +1,117 @@
-# Database Migration System
+# PostgreSQL Migrations for Pipeline v3
 
-This directory contains database migrations for all SQLite databases in Pipeline v3.
-
-## Overview
-
-The migration system provides:
-- **Version tracking** - Know exactly what schema version each database is at
-- **Safe upgrades** - Apply schema changes without data loss
-- **Rollback capability** - Undo migrations if issues arise
-- **Consistency** - Ensure all deployments have the same schema
+This directory contains database migrations for the PostgreSQL backend of Pipeline v3.
 
 ## Directory Structure
 
 ```
 migrations/
-├── registry/          # Document registry migrations
-├── fingerprints/      # Fingerprint tracking migrations
-├── keyword_index/     # Keyword search index migrations
-└── jobs/             # Job queue migrations
-```
-
-## Migration File Naming
-
-Migrations follow this naming convention:
-- Single file: `XXX_migration_name.sql` (contains only UP migration)
-- Split files: `XXX_migration_name.up.sql` and `XXX_migration_name.down.sql`
-
-Where `XXX` is a 3-digit version number (e.g., `001`, `002`, etc.)
-
-## Creating New Migrations
-
-### 1. Determine the next version number
-Look at existing migrations in the target directory and increment.
-
-### 2. Create migration file(s)
-
-**For simple additions (no rollback needed):**
-```sql
--- migrations/registry/003_add_processing_stats.sql
--- Migration: 003_add_processing_stats
--- Description: Add columns for processing statistics
-
-ALTER TABLE documents ADD COLUMN processing_time REAL;
-ALTER TABLE documents ADD COLUMN processing_attempts INTEGER DEFAULT 0;
-```
-
-**For complex changes (with rollback):**
-```sql
--- migrations/registry/004_add_indexes.up.sql
-CREATE INDEX idx_documents_processing_time ON documents(processing_time);
-CREATE INDEX idx_documents_attempts ON documents(processing_attempts);
-
--- migrations/registry/004_add_indexes.down.sql
-DROP INDEX idx_documents_processing_time;
-DROP INDEX idx_documents_attempts;
-```
-
-### 3. Test the migration
-```python
-from core.migrations import MigrationManager
-
-manager = MigrationManager("test.db")
-# ... load and apply migrations
-```
-
-## Migration Guidelines
-
-### DO:
-- Keep migrations small and focused
-- Always test migrations on a copy of production data
-- Include descriptive comments
-- Consider rollback scenarios
-- Use transactions (automatic in our system)
-
-### DON'T:
-- Modify existing migration files after deployment
-- Skip version numbers
-- Include data modifications in schema migrations
-- Use database-specific features not supported by SQLite
-
-## SQLite Limitations
-
-Be aware of SQLite limitations:
-- No `DROP COLUMN` support (requires table recreation)
-- Limited `ALTER TABLE` capabilities
-- No stored procedures or complex constraints
-
-For complex schema changes, use the table recreation pattern:
-```sql
--- Create new table with desired schema
-CREATE TABLE documents_new AS SELECT ... FROM documents;
--- Drop old table
-DROP TABLE documents;
--- Rename new table
-ALTER TABLE documents_new RENAME TO documents;
--- Recreate indexes
+├── postgres/           # Raw SQL migration files
+│   └── 001_initial_schema.sql
+├── alembic/           # Alembic migration framework
+│   ├── env.py         # Alembic environment configuration
+│   ├── script.py.mako # Template for new migrations
+│   └── versions/      # Migration scripts
+│       └── 001_initial_schema.py
+└── README.md          # This file
 ```
 
 ## Running Migrations
 
-Migrations are automatically applied when databases are initialized:
+### Initial Setup
 
-```python
-from core.registry_migrated import DocumentRegistry
+1. Ensure PostgreSQL is installed and running
+2. Create the database and user:
+   ```sql
+   CREATE DATABASE rag_lab_db;
+   CREATE USER rag_lab_user WITH PASSWORD 'your_password';  -- pragma: allowlist secret
+   GRANT ALL PRIVILEGES ON DATABASE rag_lab_db TO rag_lab_user;
+   ```
 
-# Migrations run automatically on init
-registry = DocumentRegistry()
+3. Set the PostgreSQL password in environment:
+   ```bash
+   export POSTGRES_PASSWORD='your_password'  # pragma: allowlist secret
+   ```
 
-# Check current version
-version = registry.get_schema_version()
-```
+### Apply Migrations
 
-## Manual Migration Management
+From the project root:
 
-For manual control:
-
-```python
-from core.migrations import MigrationManager, load_migrations_from_sql_files
-
-# Initialize manager
-manager = MigrationManager("path/to/database.db")
-
-# Load migrations from directory
-migrations = load_migrations_from_sql_files(Path("migrations/registry"))
-
-# Check pending
-pending = manager.get_pending_migrations(migrations)
+```bash
+# Navigate to pipeline v3 directory
+cd src/pipeline_v3
 
 # Run migrations
-result = manager.run_migrations(migrations, dry_run=True)  # Test first
-result = manager.run_migrations(migrations)  # Actually apply
-
-# Rollback if needed
-manager.rollback_migration(target_version=2)
+uv run alembic upgrade head
 ```
 
-## Troubleshooting
+### Create New Migration
 
-### Migration Failed
-1. Check the error message in logs
-2. Verify SQL syntax is valid for SQLite
-3. Ensure no conflicting schema exists
-4. Test on a copy of the database first
+```bash
+# Auto-generate migration from model changes
+uv run alembic revision --autogenerate -m "Description of changes"
 
-### Inconsistent State
-1. Check current version: `SELECT MAX(version) FROM schema_migrations`
-2. Review applied migrations: `SELECT * FROM schema_migrations`
-3. Manually fix if needed, then update version tracking
+# Or create empty migration
+uv run alembic revision -m "Description of changes"
+```
 
-### Performance Issues
-1. Migrations run in transactions - large operations may lock database
-2. Consider running during maintenance windows
-3. Add indexes in separate migrations for better control
+### Check Migration Status
 
-## Best Practices
+```bash
+# Show current revision
+uv run alembic current
 
-1. **Always backup** before running migrations in production
-2. **Test thoroughly** on development data first
-3. **Document changes** in migration comments
-4. **Keep migrations idempotent** where possible
-5. **Version control** all migration files
-6. **Monitor execution time** for large migrations
-7. **Plan rollback strategy** before applying
+# Show migration history
+uv run alembic history
+```
+
+### Rollback Migrations
+
+```bash
+# Rollback one migration
+uv run alembic downgrade -1
+
+# Rollback to specific revision
+uv run alembic downgrade 001
+
+# Rollback all migrations
+uv run alembic downgrade base
+```
+
+## Migration Files
+
+### 001_initial_schema.sql
+
+Creates the initial database schema with four main schemas:
+
+1. **registry** - Document state management
+2. **search** - Full-text search with PostgreSQL tsvector
+3. **jobs** - Asynchronous job queue
+4. **fingerprints** - Document fingerprinting
+
+Each schema includes:
+- Tables with proper constraints and indexes
+- UUID primary keys for multi-tenancy
+- JSONB columns for flexible metadata
+- Timestamps with automatic updates
+- Helper functions and triggers
+
+## Multi-Tenancy Preparation
+
+All tables include a `tenant_id` column (default: `00000000-0000-0000-0000-000000000000`) for future multi-tenant support. Row-level security (RLS) can be enabled per tenant when needed.
+
+## Performance Considerations
+
+The schema includes:
+- GIN indexes for JSONB columns
+- GIN indexes for full-text search
+- Partial indexes for common queries
+- Trigram indexes for fuzzy search
+- Proper foreign key constraints
+
+## Security
+
+- All sensitive operations should use prepared statements
+- Connection strings should never include passwords in code
+- Use environment variables for credentials
+- Enable SSL for production deployments

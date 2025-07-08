@@ -114,6 +114,40 @@ chunking:
 
 # Storage configuration
 storage:
-  keyword_db_path: ./keyword_index_v3.db
+  keyword_db_path: ./keyword_index_v3.db  # Legacy SQLite path for backwards compatibility
   base_dir: ./storage_data_v3
-  document_registry_path: ./document_registry_v3.db
+  document_registry_path: ./document_registry_v3.db  # Legacy SQLite path for backwards compatibility
+
+# Database configuration - PostgreSQL backend (NEW in v3)
+database:
+  backend: postgresql  # Default to PostgreSQL for new deployments
+
+  postgresql:
+    # Connection settings (override with environment variables)
+    host: localhost
+    port: 5432
+    database: rag_lab_db
+    user: rag_lab_user
+    password: ""  # Set via POSTGRES_PASSWORD environment variable
+    ssl_mode: prefer
+
+    # Connection pooling
+    min_connections: 10
+    max_connections: 100
+    connection_timeout: 30
+    idle_timeout: 600
+
+    # Multi-tenancy
+    enable_rls: true
+    default_tenant_id: "00000000-0000-0000-0000-000000000000"
+
+    # Schema organization
+    registry_schema: registry
+    search_schema: search
+    jobs_schema: jobs
+    fingerprints_schema: fingerprints
+
+  # Migration and fallback settings
+  auto_migrate: true
+  enable_fallback: false  # Disable SQLite fallback for production
+  log_queries: false

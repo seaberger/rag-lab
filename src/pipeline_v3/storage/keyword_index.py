@@ -11,8 +11,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 # import numpy as np # numpy seems unused in this file, commenting out.
-from llama_index.core.schema import TextNode  # Added TextNode
-
+from src.pipeline_v3.core.data_structures import TextChunk
 from utils.common_utils import logger
 from utils.config import PipelineConfig
 
@@ -61,7 +60,7 @@ class BM25Index:
 
     def index_nodes(
         self,
-        nodes: list[TextNode],
+        nodes: list[TextChunk],
         doc_id: str,
         source: str,
         pairs: list[tuple[str, str]],
@@ -94,7 +93,7 @@ class BM25Index:
                 INSERT INTO documents (doc_id, chunk_id, text, keywords, metadata)
                 VALUES (?, ?, ?, ?, ?)
             """,
-                (doc_id, node.id_, clean_text, keywords, json.dumps(node.metadata)),
+                (doc_id, node.node_id, clean_text, keywords, json.dumps(node.metadata)),
             )
 
         self.conn.commit()
@@ -240,7 +239,7 @@ class SimpleBM25Index:
         self.N = 0  # total documents
         self.avgdl = 0  # average document length
 
-    def index_nodes(self, nodes: list[TextNode], doc_id: str):
+    def index_nodes(self, nodes: list[TextChunk], doc_id: str):
         """Index nodes for BM25."""
         for node in nodes:
             chunk_id = f"{doc_id}_{node.metadata.get('chunk_index', 0)}"
@@ -254,7 +253,7 @@ class SimpleBM25Index:
             self.documents[chunk_id] = {
                 "text": node.text,
                 "metadata": node.metadata,
-                "node_id": node.id_,
+                "node_id": node.node_id,
             }
 
             # Update document frequencies

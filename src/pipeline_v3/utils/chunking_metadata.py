@@ -1,8 +1,8 @@
-# The chunking and metadata enhancement remains the same
+# The chunking and metadata enhancement using custom data structures
 from typing import Any
 
-from llama_index.core.node_parser import MarkdownNodeParser
-from llama_index.core.schema import Document, TextNode
+from src.pipeline_v3.core.data_structures import Document, TextChunk
+from src.pipeline_v3.core.enhanced_text_splitter import create_enhanced_text_splitter
 
 from .common_utils import logger
 from .enhanced_retry import enhanced_retry_api_call
@@ -18,7 +18,7 @@ class KeywordGenerator:
         self.model = model
         self.max_keywords = max_keywords
 
-    async def atransform(self, nodes: list[TextNode]) -> list[TextNode]:
+    async def atransform(self, nodes: list[TextChunk]) -> list[TextChunk]:
         """Transform nodes by appending keywords to content (per Anthropic RAG best practices)."""
         try:
             # Process nodes individually for better context
@@ -37,7 +37,7 @@ class KeywordGenerator:
             logger.error(f"Keyword generation failed: {e}")
             return nodes  # Return original nodes on failure
 
-    async def _generate_keywords_for_node(self, node: TextNode) -> list[str]:
+    async def _generate_keywords_for_node(self, node: TextChunk) -> list[str]:
         """Generate keywords for a single node."""
 
         # Create keyword generation prompt
@@ -91,8 +91,8 @@ Return only a JSON list of keywords, like: ["keyword1", "keyword2", ...]"""
 
 
 async def batch_generate_keywords(
-    nodes: list[TextNode], model: str = "gpt-4.1-mini", batch_size: int = 10
-) -> list[TextNode]:
+    nodes: list[TextChunk], model: str = "gpt-4.1-mini", batch_size: int = 10
+) -> list[TextChunk]:
     """Generate keywords for multiple nodes in batches for cost efficiency."""
 
     if not nodes:
@@ -196,7 +196,7 @@ async def process_and_index_document(
     with_keywords: bool = False,
     progress: ProgressMonitor | None = None,
     config=None,  # PipelineConfig
-) -> list[TextNode]:
+) -> list[TextChunk]:
     """Chunk document and add metadata + optional keywords."""
 
     # Create document with metadata
@@ -211,19 +211,24 @@ async def process_and_index_document(
         },
     )
 
-    # Chunk using MarkdownNodeParser (preserves structure)
+    # Chunk using enhanced TextSplitter (preserves markdown structure)
     if progress:
         progress.update_stage(doc_id, "chunking")
-    md_parser = MarkdownNodeParser()
-    nodes = md_parser.get_nodes_from_documents([doc])
 
-    # Add metadata to each chunk
-    for node in nodes:
+    # Use enhanced text splitter with markdown awareness
+    text_splitter = create_enhanced_text_splitter(
+        config=config, header_aware=True, protect_code_blocks=True, include_header_path=True
+    )
+    nodes = text_splitter.create_chunks(doc)
+
+    # Add metadata to each chunk (metadata already included from create_chunks)
+    for i, node in enumerate(nodes):
         node.metadata.update(
             {
                 "doc_id": doc_id,
+                "source": source,  # Ensure source is explicitly set on each chunk
                 "pairs": pairs,
-                "chunk_index": nodes.index(node),
+                "chunk_index": i,
                 "total_chunks": len(nodes),
             }
         )

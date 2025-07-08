@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with Pi
 
 ## Project Overview
 
-Pipeline v3 is a production-ready document processing system with enterprise-grade features including queue-based processing, intelligent change detection, and comprehensive index lifecycle management. It processes PDF datasheets and documents into a searchable hybrid vector/keyword database with advanced metadata extraction.
+Pipeline v3 is a production-ready document processing system with enterprise-grade features including queue-based processing, intelligent change detection, comprehensive index lifecycle management, and **multi-tenant PostgreSQL architecture**. It processes PDF datasheets and documents into a searchable hybrid vector/keyword database with advanced metadata extraction and **complete tenant isolation**.
 
 ## Environment Setup ⚙️
 
@@ -24,6 +24,35 @@ uv run python -m src.pipeline_v3.cli_main [command]
 
 **Environment Variables:**
 - `OPENAI_API_KEY`: Required for document processing (set in `.env` at project root)
+- `POSTGRES_PASSWORD`: PostgreSQL database password (optional - system may use other auth methods)
+
+## 🗄️ Database Setup
+
+Pipeline v3 uses a **multi-tenant PostgreSQL architecture** with complete tenant isolation:
+
+### Quick Setup
+```bash
+# For new installations, use the automated setup guide
+# See: ../../DATABASE_SETUP_GUIDE.md for complete instructions
+
+# Test current setup
+uv run python -m src.pipeline_v3.cli_main status --json
+
+# Test tenant isolation
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id [tenant-uuid]
+```
+
+### Multi-Tenant Features ✅
+- **Row-Level Security (RLS)** on all PostgreSQL tables
+- **Complete tenant data isolation** in both vector and keyword search
+- **Session-based tenant context** with CLI `--tenant-id` parameter
+- **Automated tenant management** with test tenants pre-configured
+- **Qdrant vector database** with metadata-based tenant filtering
+
+### Database Architecture
+- **PostgreSQL**: Document registry, search indexes, jobs, fingerprints with RLS
+- **Qdrant**: Vector embeddings with tenant metadata filtering
+- **Migration-based schema management** with version tracking
 
 ## Document Locations 📁
 
@@ -63,14 +92,17 @@ data/lmc_docs/datasheets/
 - **DocumentQueue** (`job_queue/manager.py`): Async processing with configurable concurrency
 - **CLI Management** (`cli/management.py`): Complete command-line interface
 
-### Storage Isolation (v3-specific paths)
+### Storage Architecture (Multi-Tenant)
+- **PostgreSQL Database:** Multi-tenant with Row-Level Security ✅
+  - `registry` schema: Document state tracking with tenant isolation
+  - `search` schema: Keyword search with PostgreSQL FTS
+  - `jobs` schema: Queue management per tenant
+  - `fingerprints` schema: Change detection per tenant
+  - `tenants` schema: Tenant management and audit logs
+- **Vector Store:** Qdrant server (default) with tenant metadata filtering ✅
 - **Cache:** `./cache_v3/` - LZ4 compressed API responses ✅
-- **Vector Store:** Qdrant server (default) or `./qdrant_data_v3/` (local mode) ✅
-- **Keyword Index:** `./keyword_index_v3.db` - SQLite FTS5 search ✅
-- **Registry:** `./document_registry_v3.db` - Document state tracking ✅
-- **Jobs:** `./jobs_v3.db` - Queue management ✅
-- **Fingerprints:** `./fingerprints_v3.db` - Change detection ✅
 - **Storage Artifacts:** `./storage_data_v3/` - JSONL artifacts ✅
+- **Legacy SQLite:** Fallback mode for single-user development
 
 ### 🚨 Qdrant Server Mode is Now Default!
 - **Server Mode**: Default configuration uses Qdrant server at localhost:6333
@@ -79,9 +111,11 @@ data/lmc_docs/datasheets/
 
 ## Current Status 🎉
 
-**Phase:** Production-Ready
+**Phase:** Production-Ready with Enterprise Multi-Tenancy
 **Core Functionality:** Complete and tested
-**Enterprise Features:** Queue management, batch processing, Office documents, URL processing
+**Enterprise Features:** Multi-tenant PostgreSQL, complete tenant isolation, queue management, batch processing, Office documents, URL processing
+**Database Migration:** ✅ **COMPLETE** - Full PostgreSQL architecture with RLS
+**Tenant Isolation:** ✅ **COMPLETE** - Vector and keyword search properly isolated
 
 ### 🎯 Development Planning
 For current priorities and active issues, see:

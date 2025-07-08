@@ -19,3 +19,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: rag_lab_postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_DB=rag_lab
+      - POSTGRES_USER=rag_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-rag_dev_password}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag_user -d rag_lab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

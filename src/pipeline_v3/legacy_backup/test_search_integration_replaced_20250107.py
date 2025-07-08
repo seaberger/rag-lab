@@ -20,10 +20,7 @@ import pytest_asyncio
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.index_manager import IndexManager
-from search.hybrid import HybridSearch
-from storage.keyword_index import BM25Index as KeywordIndex
-
-# Vector storage is handled by Qdrant directly through IndexManager
+from core.database_factory import DatabaseFactory
 from utils.config import PipelineConfig
 
 
@@ -34,14 +31,20 @@ class TestSearchIntegration:
     @pytest.fixture
     def search_components(self, test_config):
         """Initialize search components using centralized config."""
-        # Use real OpenAI embeddings - we have the API key in CI
-        # Use the centralized IndexManager which already has unique collection names
-        keyword_index = KeywordIndex(config=test_config)
-        index_manager = IndexManager(config=test_config)
+        # Create database adapters
+        factory = DatabaseFactory(test_config)
+        adapters = factory.create_all()
+
+        # Initialize index manager with adapters
+        index_manager = IndexManager(
+            config=test_config,
+            registry=adapters["registry"],
+            keyword_index=adapters["keyword_index"]
+        )
 
         # Don't create separate Qdrant client - use the one from IndexManager
         components = {
-            "keyword_index": keyword_index,
+            "keyword_index": adapters["keyword_index"],
             "index_manager": index_manager,
         }
 
@@ -85,11 +88,11 @@ class TestSearchIntegration:
             yield instance
 
 
-    async def add_test_documents(self, search_components, mock_embeddings):
+    async def add_test_documents(self, search_components):
         """Helper to add test documents to indexes."""
         test_docs = [
             {
-                "content": "High-precision laser power meter with USB interface and real-time monitoring",
+                "content": "High-precision laser power meter with USB interface and real-time monitoring. " * 20,  # Repeat to ensure chunking
                 "metadata": {
                     "source": "laser_meter.pdf",
                     "product": "PM100USB",
@@ -99,7 +102,7 @@ class TestSearchIntegration:
                 "expected_tags": ["laser", "power", "USB"],  # Tags for testing search
             },
             {
-                "content": "Thermopile sensors for accurate temperature measurement in industrial applications",
+                "content": "Thermopile sensors for accurate temperature measurement in industrial applications. " * 20,  # Repeat to ensure chunking
                 "metadata": {
                     "source": "thermopile.pdf",
                     "product": "TP-500",
@@ -162,12 +165,19 @@ class TestSearchIntegration:
         self.test_doc_mapping = {}
 
         # Add documents to both indexes
+        import time
+        unique_suffix = str(int(time.time() * 1000))
+
         for i, doc in enumerate(test_docs):
             # First register the document in the registry
             registry = search_components["index_manager"].registry
+            # Make source unique to avoid conflicts
+            unique_source = f"{doc['metadata']['source']}_{unique_suffix}"
+            doc["metadata"]["source"] = unique_source
+
             doc_id = registry.register_document(
-                source=doc["metadata"]["source"],
-                content_hash=f"hash_{i}",
+                source=unique_source,
+                content_hash=f"hash_{i}_{unique_suffix}",
                 size=len(doc["content"]),
                 modified_time=1640995200,  # Fixed timestamp for testing
                 metadata=doc["metadata"],
@@ -182,24 +192,43 @@ class TestSearchIntegration:
             # Now add to indexes using IndexManager.add_document
             from core.registry import IndexType
 
+            # Debug: Check if chunks will be created
+            from core.data_structures import Document, TextSplitter
+            test_doc = Document(text=doc["content"], doc_id=doc_id, metadata=doc["metadata"])
+            splitter = TextSplitter(chunk_size=512, chunk_overlap=128)
+            chunks = splitter.create_chunks(test_doc)
+            print(f"Document {doc_id} will create {len(chunks)} chunks")
+
+            print(f"About to call add_document for {doc_id}")
             result = search_components["index_manager"].add_document(
                 doc_id=doc_id,
                 content=doc["content"],
                 metadata=doc["metadata"],
                 index_types=IndexType.BOTH,
             )
+            print(f"add_document returned: {result}")
 
             # Debug: verify document was added
             print(f"Added document {doc_id}: {result}")
             assert result, f"Failed to add document {doc_id}"
 
+            # Check if document is in registry as indexed
+            doc_info = registry.get_document(doc_id)
+            print(f"Document {doc_id} state: {doc_info.state if doc_info else 'NOT FOUND'}")
+
+        # After adding all documents, check collection info
+        collection_info = search_components["index_manager"].qdrant_client.get_collection(
+            search_components["index_manager"].config.qdrant.collection_name
+        )
+        print(f"Collection has {collection_info.points_count} points after adding documents")
+
     @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.requires_api
     @pytest.mark.timeout(600)  # 10 minutes for vector search tests
-    async def test_vector_search_accuracy(self, search_components, mock_embeddings):
+    async def test_vector_search_accuracy(self, search_components):
         """Test vector search relevance and accuracy."""
-        await self.add_test_documents(search_components, mock_embeddings)
+        await self.add_test_documents(search_components)
 
         # Test semantic search using actual document content
         test_queries = [

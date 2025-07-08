@@ -237,6 +237,10 @@ qdrant_data/
 qdrant_server_data/
 **/qdrant_server_data/
 
+# PostgreSQL database files
+postgres_data/
+**/postgres_data/
+
 # Processing artifacts
 fingerprints_v3.db
 document_registry_v3.db

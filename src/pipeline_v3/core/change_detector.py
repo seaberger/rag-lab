@@ -12,11 +12,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from core.fingerprint import DocumentFingerprint, FingerprintManager
-from core.registry import DocumentRegistry, DocumentState
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
+from src.pipeline_v3.core.fingerprint import DocumentFingerprint, FingerprintManager
+from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
 
 
 class ChangeType(Enum):
@@ -76,12 +75,19 @@ class ChangeDetector:
         self,
         config: PipelineConfig | None = None,
         registry: DocumentRegistry | None = None,
+        fingerprint_manager: FingerprintManager | None = None,
     ):
-        """Initialize change detector with configuration."""
+        """Initialize change detector with configuration.
+
+        Args:
+            config: Pipeline configuration
+            registry: Optional DocumentRegistry (for backwards compatibility)
+            fingerprint_manager: Optional FingerprintManager from DatabaseFactory
+        """
         self.config = config or PipelineConfig()
 
-        # Initialize components
-        self.fingerprint_manager = FingerprintManager(config)
+        # Use provided components or create new ones
+        self.fingerprint_manager = fingerprint_manager or FingerprintManager(config)
         self.registry = registry or DocumentRegistry(config)
 
         # Configuration thresholds
@@ -94,7 +100,19 @@ class ChangeDetector:
         self.chunk_similarity_threshold = 0.80  # 80% similarity for unchanged
         self.chunk_modification_threshold = 0.50  # 50% similarity for modification
 
-        logger.info("ChangeDetector initialized with intelligent update strategies")
+        # Log initialization approach
+        components_info = []
+        if fingerprint_manager:
+            components_info.append("DatabaseFactory fingerprint_manager")
+        else:
+            components_info.append("direct FingerprintManager")
+
+        if registry:
+            components_info.append("provided registry")
+        else:
+            components_info.append("direct DocumentRegistry")
+
+        logger.info(f"ChangeDetector initialized with {', '.join(components_info)}")
 
     def analyze_changes(
         self, source: str | Path, content: str, metadata: dict[str, Any] | None = None

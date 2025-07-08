@@ -5,27 +5,17 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-# Use absolute imports to avoid relative import issues
-try:
-    from storage.cache import CacheManager
-
-    from utils.common_utils import logger
-    from utils.config import PipelineConfig
-    from utils.enhanced_retry import enhanced_retry_api_call
-    from utils.openai_client import create_vision_client
-    from utils.page_range import PageProgressMonitor, PageRangeParser, get_page_count_from_pdf
-except ImportError:
-    # Fallback for when running from different directory
-    import sys
-
-    sys.path.append(str(Path(__file__).parent.parent))
-    from storage.cache import CacheManager
-
-    from utils.common_utils import logger
-    from utils.config import PipelineConfig
-    from utils.enhanced_retry import enhanced_retry_api_call
-    from utils.openai_client import create_vision_client
-    from utils.page_range import PageProgressMonitor, PageRangeParser, get_page_count_from_pdf
+# Use absolute imports from project root
+from src.pipeline_v3.storage.cache import CacheManager
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
+from src.pipeline_v3.utils.enhanced_retry import enhanced_retry_api_call
+from src.pipeline_v3.utils.openai_client import create_vision_client
+from src.pipeline_v3.utils.page_range import (
+    PageProgressMonitor,
+    PageRangeParser,
+    get_page_count_from_pdf,
+)
 
 
 def _find_poppler() -> str | None:

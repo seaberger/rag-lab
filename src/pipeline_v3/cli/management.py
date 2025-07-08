@@ -7,7 +7,7 @@ Provides comprehensive controls for document operations, queue management,
 system maintenance, and configuration.
 
 Usage:
-    python -m pipeline_v3.cli.management [command] [options]
+    python -m src.pipeline_v3.cli_main [command] [options]
 
 Commands:
     add         Add documents to the pipeline
@@ -18,6 +18,7 @@ Commands:
     status      Show system status
     maintenance Run maintenance operations
     config      Manage configuration
+    tenant      Manage tenant context
 """
 
 import argparse
@@ -28,8 +29,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Import custom exceptions and logger
-from utils.common_utils import (
+# Import all dependencies at the top
+from src.pipeline_v3.utils.common_utils import (
     CLIArgumentError,
     ConfigLoadError,
     DependencyError,
@@ -38,35 +39,38 @@ from utils.common_utils import (
 
 # Import with graceful degradation
 try:
-    from pipeline.enhanced_core import EnhancedPipeline
+    # Core pipeline components
+    from src.pipeline_v3.core.database_factory import DatabaseContext, DatabaseFactory
+    from src.pipeline_v3.core.index_manager import IndexManager
+    from src.pipeline_v3.core.registry import DocumentRegistry, IndexType
+    from src.pipeline_v3.job_queue.manager import DocumentQueue
+    from src.pipeline_v3.pipeline.enhanced_core import EnhancedPipeline
 
-    PIPELINE_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Pipeline components not available: {e}")
-    PIPELINE_AVAILABLE = False
-    EnhancedPipeline = None
-
-try:
-    from core.index_manager import IndexManager
-    from core.registry import DocumentRegistry, IndexType
-    from job_queue.manager import DocumentQueue
-
-    from utils.config import PipelineConfig
-    from utils.env_utils import setup_environment
-    from utils.monitoring import ProgressMonitor
-    from utils.url_utils import (
+    # Configuration and utilities
+    from src.pipeline_v3.utils.config import PipelineConfig
+    from src.pipeline_v3.utils.env_utils import setup_environment
+    from src.pipeline_v3.utils.monitoring import ProgressMonitor
+    from src.pipeline_v3.utils.url_utils import (
         create_url_batch_file,
         extract_urls_from_file,
         validate_url_list,
     )
 
+    PIPELINE_AVAILABLE = True
     CORE_AVAILABLE = True
 except ImportError as e:
-    print(f"Warning: Core components not available: {e}")
+    print(f"Warning: Pipeline components not available: {e}")
+    PIPELINE_AVAILABLE = False
     CORE_AVAILABLE = False
+
+    # Set all to None for graceful degradation
+    EnhancedPipeline = None
+    DatabaseFactory = None
+    DatabaseContext = None
     DocumentQueue = None
     DocumentRegistry = None
     IndexManager = None
+    IndexType = None
     PipelineConfig = None
     ProgressMonitor = None
     extract_urls_from_file = None
@@ -151,6 +155,10 @@ class PipelineCLI:
         self.queue = None
         self.registry = None
         self.index_manager = None
+        self.job_manager = None
+        self.fingerprint_manager = None
+        self.database_factory = None
+        self.database_adapters = None
         self.monitor = ProgressMonitor()
 
     def get_config_load_error(self) -> ConfigLoadError | None:
@@ -161,20 +169,62 @@ class PipelineCLI:
         """
         return getattr(self, "_config_load_error", None)
 
-    async def initialize(self):
-        """Initialize pipeline components."""
+    async def initialize(self, tenant_id=None):
+        """Initialize pipeline components using DatabaseFactory pattern."""
         try:
-            self.registry = DocumentRegistry(self.config)
-            self.index_manager = IndexManager(self.config, registry=self.registry)
+            # If tenant_id is provided, update the config temporarily
+            original_tenant_id = None
+            if tenant_id and self.config.database.backend == "postgresql":
+                original_tenant_id = self.config.database.postgresql.default_tenant_id
+                self.config.database.postgresql.default_tenant_id = tenant_id
+                logger.info(f"Using tenant_id: {tenant_id}")
 
+            # Initialize database factory
+            self.database_factory = DatabaseFactory(self.config)
+
+            # Validate backend configuration
+            if not self.database_factory.validate_backend_configuration():
+                command_string = " ".join(sys.argv[1:])
+                raise ConfigLoadError(
+                    f"Invalid database backend configuration: {self.database_factory.backend}",
+                    command_string=command_string,
+                )
+
+            # Create all database adapters using factory pattern
+            self.database_adapters = self.database_factory.create_all()
+
+            # Extract adapters for compatibility
+            self.registry = self.database_adapters["registry"]
+            self.job_manager = self.database_adapters["job_manager"]
+            self.fingerprint_manager = self.database_adapters["fingerprint_manager"]
+
+            # Create index manager with factory-created registry and keyword index adapter (Phase 4.2.1c)
+            self.index_manager = IndexManager(
+                self.config,
+                registry=self.registry,
+                keyword_index=self.database_adapters["keyword_index"],
+            )
+
+            # Create enhanced pipeline with factory-created adapters
             if PIPELINE_AVAILABLE:
+                # Pass DatabaseFactory adapters to EnhancedPipeline (Phase 4.2.1b)
                 self.pipeline = EnhancedPipeline(
                     self.config,
                     registry=self.registry,
                     index_manager=self.index_manager,
+                    database_adapters=self.database_adapters,
                 )
 
+            # Create document queue
+            # Note: DocumentQueue will be updated in Phase 4.2.1e to use factory adapters
             self.queue = DocumentQueue(self.config)
+
+            logger.info(f"Initialized CLI with {self.database_factory.backend} backend")
+
+            # Store original tenant_id for restoration if needed
+            if original_tenant_id:
+                self._original_tenant_id = original_tenant_id
+                self._temp_tenant_id = tenant_id
 
         except ImportError as e:
             command_string = " ".join(sys.argv[1:])
@@ -230,6 +280,9 @@ Examples:
 
         # Batch operations
         self._add_batch_commands(subparsers)
+
+        # Tenant management
+        self._add_tenant_commands(subparsers)
 
         return parser
 
@@ -353,6 +406,9 @@ Examples:
         )
         search_parser.add_argument("--filter", help="Filter expression (JSON format)")
         search_parser.add_argument(
+            "--tenant-id", help="Tenant ID for multi-tenant search (PostgreSQL only)"
+        )
+        search_parser.add_argument(
             "--fusion-method",
             choices=["rrf", "weighted", "adaptive"],
             default="rrf",
@@ -463,6 +519,12 @@ Examples:
             help="Enable keyword generation during test",
         )
 
+    def _add_tenant_commands(self, subparsers):
+        """Add tenant management commands."""
+        from cli.commands.tenant import add_tenant_subcommands
+
+        add_tenant_subcommands(subparsers)
+
     async def run(self, args):
         """Run the CLI with parsed arguments."""
         if args.verbose:
@@ -486,6 +548,8 @@ Examples:
             await self.handle_config(args)
         elif args.command == "batch":
             await self.handle_batch(args)
+        elif args.command == "tenant":
+            await self.handle_tenant(args)
         else:
             command_string = " ".join(sys.argv[1:])
             raise CLIArgumentError(
@@ -1005,6 +1069,11 @@ Examples:
         """Handle search operations."""
         from utils.security import InputSanitizer
 
+        # Reinitialize with tenant_id if provided
+        if hasattr(args, "tenant_id") and args.tenant_id:
+            await self.cleanup()  # Clean up existing connections
+            await self.initialize(tenant_id=args.tenant_id)
+
         try:
             # Sanitize search query to prevent injection
             safe_query = InputSanitizer.sanitize_search_query(args.query)
@@ -1336,6 +1405,50 @@ Examples:
 
         else:
             print(f"Unknown batch action: {args.batch_action}")
+
+    async def handle_tenant(self, args):
+        """Handle tenant management operations."""
+        # Only allow tenant operations with PostgreSQL backend
+        if self.config.database.backend != "postgresql":
+            print("❌ Error: Tenant management requires PostgreSQL backend")
+            print("   Current backend:", self.config.database.backend)
+            print("   Please configure PostgreSQL backend to use tenant features")
+            return
+
+        try:
+            from cli.commands.tenant import TenantCLI
+
+            tenant_cli = TenantCLI(self.config)
+            tenant_cli.handle_tenant_command(args)
+        except ImportError as e:
+            logger.error(f"Failed to import tenant CLI: {e}")
+            print(f"❌ Error: Tenant management not available: {e}")
+        except Exception as e:
+            logger.error(f"Tenant command failed: {e}")
+            print(f"❌ Error: {e}")
+
+    async def cleanup(self):
+        """Clean up database connections and resources."""
+        try:
+            # Restore original tenant_id if it was temporarily changed
+            if hasattr(self, "_original_tenant_id") and hasattr(self, "_temp_tenant_id"):
+                if self.config.database.backend == "postgresql":
+                    self.config.database.postgresql.default_tenant_id = self._original_tenant_id
+                    logger.debug(f"Restored original tenant_id: {self._original_tenant_id}")
+            if self.database_adapters and self.database_factory:
+                self.database_factory.close_all(self.database_adapters)
+                logger.debug("Database adapters closed successfully")
+        except Exception as e:
+            logger.warning(f"Error during database cleanup: {e}")
+
+    def __del__(self):
+        """Destructor to ensure cleanup on garbage collection."""
+        try:
+            if hasattr(self, "database_adapters") and hasattr(self, "database_factory"):
+                if self.database_adapters and self.database_factory:
+                    self.database_factory.close_all(self.database_adapters)
+        except Exception:
+            pass  # Suppress exceptions during garbage collection
 
 
 async def main():

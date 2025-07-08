@@ -2,50 +2,46 @@
 Index Manager - Phase 2 Implementation
 
 Advanced index lifecycle management with CRUD operations for vector and keyword indexes.
-Provides consistent operations across Qdrant vector store and SQLite BM25 keyword index.
+Provides consistent operations across Qdrant vector store and PostgreSQL keyword index.
+Requires DatabaseFactory adapters for all database operations.
 """
 
 import asyncio
-import sqlite3
 import time
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-try:
-    import qdrant_client
-    from llama_index.core import Document, Settings, StorageContext, VectorStoreIndex
-    from llama_index.core.node_parser import SentenceSplitter
-    from llama_index.core.schema import TextNode
-    from llama_index.core.vector_stores import VectorStoreQuery
-    from llama_index.embeddings.openai import OpenAIEmbedding
-    from llama_index.vector_stores.qdrant import QdrantVectorStore
-    from qdrant_client.models import (
-        Distance,
-        FieldCondition,
-        Filter,
-        FilterSelector,
-        MatchValue,
-        VectorParams,
-    )
+import qdrant_client
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    FilterSelector,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
-    LLAMA_INDEX_AVAILABLE = True
-except ImportError as e:
-    import logging
-
-    logging.exception(f"Failed to import LlamaIndex dependencies: {e}")
-    LLAMA_INDEX_AVAILABLE = False
-
-from core.registry import DocumentRegistry, DocumentState, IndexType
-from core.transaction_coordinator import (
+# Import custom data structures instead of LlamaIndex
+from src.pipeline_v3.core.data_structures import (
+    Document,
+    TextChunk,
+    TextSplitter,
+)
+from src.pipeline_v3.core.embedding_service import EmbeddingService
+from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState, IndexType
+from src.pipeline_v3.core.transaction_coordinator import (
     Checkpoint,
     OperationType,
     TransactionOperation,
 )
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
+from src.pipeline_v3.utils.filter_utils import FilterBuilder
 
-from utils.common_utils import logger
-from utils.config import PipelineConfig
-from utils.filter_utils import FilterBuilder
+# Backend-aware helpers are now integrated into our custom structures
+BACKEND_AWARE_HELPERS = True
+BACKEND_AWARE_QUERY = True
 
 
 class IndexManager:
@@ -55,8 +51,15 @@ class IndexManager:
         self,
         config: PipelineConfig | None = None,
         registry: DocumentRegistry | None = None,
+        keyword_index: Any | None = None,
     ):
-        """Initialize index manager with configuration."""
+        """Initialize index manager with configuration.
+
+        Args:
+            config: Pipeline configuration
+            registry: Optional DocumentRegistry (for backwards compatibility)
+            keyword_index: Optional keyword index adapter from DatabaseFactory
+        """
         self.config = config or PipelineConfig()
 
         # Use provided registry or create new one
@@ -68,23 +71,38 @@ class IndexManager:
 
         # Initialize components
         self._init_qdrant()
-        self._init_keyword_index()
-        self._init_embeddings()
-        self._init_text_splitter()
+
+        # Keyword index adapter is required - no SQLite fallback
+        if keyword_index:
+            self.keyword_index = keyword_index
+            self.keyword_conn = None  # Not used when using adapter
+            logger.info("IndexManager using DatabaseFactory keyword index adapter")
+        else:
+            # PostgreSQL is required - no SQLite fallback
+            raise ValueError(
+                "IndexManager requires a keyword index adapter. "
+                "SQLite is no longer supported. Please use DatabaseFactory to create adapters."
+            )
+
+        # Initialize embedding service and text splitter
+        self.embedding_service = EmbeddingService(self.config)
+        self.text_splitter = TextSplitter(
+            chunk_size=self.config.chunking.chunk_size,
+            chunk_overlap=self.config.chunking.chunk_overlap,
+        )
 
         # Cache for document sources
         self._doc_source_cache = {}
 
-        logger.info(f"IndexManager initialized with Qdrant: {self.qdrant_path}")
+        # Backend awareness is now integrated into our custom structures
+        logger.info(f"Using custom structures with backend: {self.config.database.backend}")
+
+        logger.info(
+            f"IndexManager initialized with Qdrant: {self.qdrant_path} and keyword index adapter"
+        )
 
     def _init_qdrant(self) -> None:
         """Initialize Qdrant vector store (supports both local and server modes)."""
-        if not LLAMA_INDEX_AVAILABLE:
-            logger.warning("LlamaIndex not available - vector operations disabled")
-            self.qdrant_client = None
-            self.vector_store = None
-            return
-
         try:
             # Create Qdrant client based on mode
             if self.config.qdrant.mode == "server":
@@ -117,19 +135,14 @@ class IndexManager:
                 logger.info(f"Initializing Qdrant in local mode: {self.qdrant_path}")
                 self.qdrant_client = qdrant_client.QdrantClient(path=self.qdrant_path)
 
-            # Initialize vector store
-            self.vector_store = QdrantVectorStore(
-                client=self.qdrant_client,
-                collection_name=self.config.qdrant.collection_name,
-                enable_hybrid=False,
-            )
+                # Ensure collection exists in local mode too
+                self._ensure_collection_exists()
 
-            logger.info(f"Qdrant vector store initialized: {self.config.qdrant.collection_name}")
+            logger.info(f"Qdrant client initialized: {self.config.qdrant.collection_name}")
 
         except Exception as e:
             logger.error(f"Failed to initialize Qdrant: {e}")
             self.qdrant_client = None
-            self.vector_store = None
 
     def _ensure_collection_exists(self) -> None:
         """Ensure the Qdrant collection exists with proper configuration."""
@@ -157,72 +170,122 @@ class IndexManager:
             logger.error(f"Error ensuring collection exists: {e}")
             raise
 
-    def _init_keyword_index(self) -> None:
-        """Initialize SQLite-based keyword index."""
-        try:
-            Path(self.keyword_db_path).parent.mkdir(parents=True, exist_ok=True)
-
-            self.keyword_conn = sqlite3.connect(self.keyword_db_path)
-
-            # Create keyword index table with FTS5
-            self.keyword_conn.execute(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS keyword_index
-                USING fts5(
-                    doc_id UNINDEXED,
-                    node_id UNINDEXED,
-                    chunk_index UNINDEXED,
-                    content,
-                    metadata UNINDEXED,
-                    content_hash UNINDEXED
-                )
-            """
-            )
-
-            self.keyword_conn.commit()
-            logger.info(f"Keyword index initialized: {self.keyword_db_path}")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize keyword index: {e}")
-            self.keyword_conn = None
-
-    def _init_embeddings(self) -> None:
-        """Initialize OpenAI embeddings."""
-        if not LLAMA_INDEX_AVAILABLE:
-            self.embedding_model = None
-            return
+    # DatabaseFactory adapter helper methods
+    def _keyword_index_chunks(self, chunks: list[TextChunk]) -> bool:
+        """Add chunks to keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return False
 
         try:
-            self.embedding_model = OpenAIEmbedding(
-                model=self.config.openai.embedding_model,
-                dimensions=self.config.openai.dimensions,
-            )
+            # Get doc_id from first chunk's metadata
+            doc_id = chunks[0].metadata.get("doc_id", "unknown")
+            source = chunks[0].metadata.get("source", None)
 
-            # Set the embedding model in global Settings
-            Settings.embed_model = self.embedding_model
+            # If source is not set, generate a unique one to avoid conflicts
+            if not source or source == "unknown":
+                source = f"doc_{doc_id[:8]}"
+                # Update all chunks to have this source
+                for chunk in chunks:
+                    chunk.metadata["source"] = source
 
-            logger.info(f"Embeddings initialized: {self.config.openai.embedding_model}")
+            pairs = chunks[0].metadata.get("pairs", [])
 
+            # Debug log to understand why source might be unknown
+            logger.debug(f"Chunk 0 metadata keys: {list(chunks[0].metadata.keys())}")
+            logger.debug(f"Extracted source: '{source}', doc_id: '{doc_id}'")
+
+            # Pass chunks directly - the adapter expects TextChunk objects
+            logger.debug(f"Indexing {len(chunks)} chunks with pairs: {pairs}")
+            self.keyword_index.index_nodes(chunks, doc_id, source, pairs)
+            logger.debug(f"Successfully indexed {len(chunks)} chunks for doc {doc_id[:8]}")
+            return True
         except Exception as e:
-            logger.error(f"Failed to initialize embeddings: {e}")
-            self.embedding_model = None
+            logger.error(f"Failed to index chunks with adapter: {e}")
+            import traceback
 
-    def _init_text_splitter(self) -> None:
-        """Initialize text splitter for chunking."""
-        if not LLAMA_INDEX_AVAILABLE:
-            self.text_splitter = None
-            return
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
+
+    def _keyword_search(
+        self, query: str, top_k: int, filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """Search keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available for search")
+            return []
+
+        # Add backend-specific filters if needed
+        if filters and self.config.database.backend == "postgresql":
+            if "metadata" not in filters:
+                filters["metadata"] = {}
+            filters["metadata"]["tenant_id"] = self.config.database.postgresql.default_tenant_id
 
         try:
-            self.text_splitter = SentenceSplitter(
-                chunk_size=self.config.chunking.chunk_size,
-                chunk_overlap=self.config.chunking.chunk_overlap,
-            )
-            logger.info(f"Text splitter initialized: {self.config.chunking.chunk_size} chars")
+            # Check if the adapter supports filters
+            import inspect
 
+            sig = inspect.signature(self.keyword_index.search)
+            if "filters" in sig.parameters:
+                return self.keyword_index.search(query, top_k, filters=filters)
+            else:
+                # Adapter doesn't support filters, just do basic search
+                return self.keyword_index.search(query, top_k)
         except Exception as e:
-            logger.error(f"Failed to initialize text splitter: {e}")
-            self.text_splitter = None
+            logger.error(f"Failed to search with adapter: {e}")
+            return []
+
+    def _keyword_remove_document(self, doc_id: str) -> int:
+        """Remove document from keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return 0
+
+        try:
+            # Assuming adapter has a remove_document method
+            if hasattr(self.keyword_index, "remove_document"):
+                return self.keyword_index.remove_document(doc_id)
+            else:
+                logger.warning("Keyword index adapter does not support remove_document")
+                return 0
+        except Exception as e:
+            logger.error(f"Failed to remove document with adapter: {e}")
+            return 0
+
+    def _keyword_get_stats(self) -> dict[str, Any]:
+        """Get keyword index statistics using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return {"total_entries": 0, "unique_documents": 0}
+
+        try:
+            return self.keyword_index.get_stats()
+        except Exception as e:
+            logger.error(f"Failed to get stats with adapter: {e}")
+            return {"total_entries": 0, "unique_documents": 0}
+
+    def _keyword_check_document_exists(self, doc_id: str) -> dict[str, Any]:
+        """Check if document exists in keyword index using DatabaseFactory adapter."""
+        if not self.keyword_index:
+            logger.error("No keyword index adapter available")
+            return {
+                "exists": False,
+                "count": 0,
+                "error": "Keyword index not available",
+            }
+
+        try:
+            # Most adapters don't have a specific exists method, so we search for the doc
+            if hasattr(self.keyword_index, "search"):
+                results = self.keyword_index.search("*", top_k=1, filters={"doc_id": doc_id})
+                count = len(results)
+                return {"exists": count > 0, "count": count}
+            else:
+                logger.warning("Keyword index adapter does not support search")
+                return {"exists": False, "count": 0}
+        except Exception as e:
+            logger.error(f"Failed to check document exists with adapter: {e}")
+            return {"exists": False, "count": 0, "error": str(e)}
 
     def add_document(
         self,
@@ -233,89 +296,126 @@ class IndexManager:
     ) -> bool:
         """Add document to specified indexes."""
         try:
-            if not LLAMA_INDEX_AVAILABLE:
-                logger.error("LlamaIndex not available - cannot add document")
-                return False
-
-            # Create document with doc_id in metadata
+            # Create document with custom structure
             doc_metadata = metadata or {}
             doc_metadata["doc_id"] = doc_id  # Ensure doc_id is in metadata
+
+            # Ensure source is preserved in metadata
+            if "source" not in doc_metadata:
+                # If no source provided, use doc_id as a fallback to avoid conflicts
+                doc_metadata["source"] = f"doc_{doc_id[:8]}"
+
             doc = Document(text=content, doc_id=doc_id, metadata=doc_metadata)
 
             # Split into chunks
-            nodes = self.text_splitter.get_nodes_from_documents([doc])
+            chunks = self.text_splitter.create_chunks(doc)
+            logger.info(f"Created {len(chunks)} chunks for document {doc_id[:8]}")
 
-            # Ensure doc_id is in each node's metadata
-            for node in nodes:
-                node.metadata["doc_id"] = doc_id
+            # Add backend-specific metadata and ensure source is set
+            source_value = doc_metadata.get("source", f"doc_{doc_id[:8]}")
+            if self.config.database.backend == "postgresql":
+                tenant_id = self.config.database.postgresql.default_tenant_id
+                for chunk in chunks:
+                    chunk.metadata["tenant_id"] = tenant_id
+                    chunk.metadata["backend"] = "postgresql"
+                    chunk.metadata["source"] = source_value  # Ensure source is set
+                    chunk.metadata["doc_id"] = doc_id  # Ensure doc_id is set
+            else:
+                for chunk in chunks:
+                    chunk.metadata["backend"] = "sqlite"
+                    chunk.metadata["source"] = source_value  # Ensure source is set
+                    chunk.metadata["doc_id"] = doc_id  # Ensure doc_id is set
 
             success = True
 
             # Add to vector index
-            if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.vector_store:
-                try:
-                    # Create storage context with the vector store
-                    storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
+            if index_types == IndexType.VECTOR or index_types == IndexType.BOTH:
+                if self.qdrant_client:
+                    try:
+                        # Generate embeddings for all chunks
+                        texts = [chunk.text for chunk in chunks]
+                        logger.info(f"Generating embeddings for {len(texts)} chunks")
+                        embeddings = self.embedding_service.get_text_embedding_batch(texts)
+                        logger.info(f"Generated {len(embeddings)} embeddings")
 
-                    # Index nodes - this generates embeddings and stores them
-                    VectorStoreIndex(nodes, storage_context=storage_context)
+                        # Create points for Qdrant
+                        points = []
+                        for i, (chunk, embedding) in enumerate(
+                            zip(chunks, embeddings, strict=False)
+                        ):
+                            point = PointStruct(
+                                id=chunk.id,
+                                vector=embedding,
+                                payload={
+                                    "text": chunk.text,
+                                    "doc_id": doc_id,
+                                    "chunk_index": i,
+                                    "metadata": chunk.metadata,
+                                },
+                            )
+                            points.append(point)
 
-                    # Register index entries
-                    for i, node in enumerate(nodes):
-                        logger.debug(
-                            f"Registering vector index entry: doc_id={doc_id}, node_id={node.node_id}"
+                        # Upsert to Qdrant
+                        logger.info(
+                            f"Upserting {len(points)} points to Qdrant collection {self.config.qdrant.collection_name}"
                         )
-                        self.registry.register_index_entry(
-                            doc_id=doc_id,
-                            index_type=IndexType.VECTOR,
-                            node_id=node.node_id,
-                            chunk_index=i,
-                            content_hash=node.hash,
-                            metadata=node.metadata,
+                        self.qdrant_client.upsert(
+                            collection_name=self.config.qdrant.collection_name,
+                            points=points,
+                            wait=True,  # Ensure synchronous operation
+                        )
+                        logger.info(f"Successfully upserted {len(points)} points to Qdrant")
+
+                        # Register index entries
+                        for i, chunk in enumerate(chunks):
+                            logger.debug(
+                                f"Registering vector index entry: doc_id={doc_id}, chunk_id={chunk.id}"
+                            )
+                            self.registry.register_index_entry(
+                                doc_id=doc_id,
+                                index_type=IndexType.VECTOR,
+                                node_id=chunk.id,
+                                chunk_index=i,
+                                content_hash=chunk.hash,
+                                metadata=chunk.metadata,
+                            )
+
+                        logger.info(
+                            f"Added document {doc_id[:8]} to vector index ({len(chunks)} chunks)"
                         )
 
-                    logger.info(
-                        f"Added document {doc_id[:8]} to vector index ({len(nodes)} chunks)"
-                    )
+                    except Exception as e:
+                        logger.error(f"Failed to add to vector index: {e}")
+                        import traceback
 
-                except Exception as e:
-                    logger.error(f"Failed to add to vector index: {e}")
-                    success = False
+                        logger.error(f"Traceback: {traceback.format_exc()}")
+                        success = False
 
             # Add to keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+            if (index_types == IndexType.KEYWORD or index_types == IndexType.BOTH) and (
+                self.keyword_index or self.keyword_conn
+            ):
                 try:
-                    for i, node in enumerate(nodes):
-                        self.keyword_conn.execute(
-                            """
-                            INSERT INTO keyword_index
-                            (doc_id, node_id, chunk_index, content, metadata, content_hash)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                doc_id,
-                                node.node_id,
-                                i,
-                                node.text,
-                                str(node.metadata),
-                                node.hash,
-                            ),
-                        )
+                    # Use helper method for keyword indexing
+                    keyword_success = self._keyword_index_chunks(chunks)
 
-                        # Register index entry
-                        self.registry.register_index_entry(
-                            doc_id=doc_id,
-                            index_type=IndexType.KEYWORD,
-                            node_id=node.node_id,
-                            chunk_index=i,
-                            content_hash=node.hash,
-                            metadata=node.metadata,
-                        )
+                    if keyword_success:
+                        # Register index entries
+                        for i, chunk in enumerate(chunks):
+                            self.registry.register_index_entry(
+                                doc_id=doc_id,
+                                index_type=IndexType.KEYWORD,
+                                node_id=chunk.id,
+                                chunk_index=i,
+                                content_hash=chunk.hash,
+                                metadata=chunk.metadata,
+                            )
 
-                    self.keyword_conn.commit()
-                    logger.info(
-                        f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)"
-                    )
+                        logger.info(
+                            f"Added document {doc_id[:8]} to keyword index ({len(chunks)} chunks)"
+                        )
+                    else:
+                        success = False
 
                 except Exception as e:
                     logger.error(f"Failed to add to keyword index: {e}")
@@ -323,7 +423,7 @@ class IndexManager:
 
             # Update registry if successful
             if success:
-                self.registry.mark_indexed(doc_id, index_types, len(nodes))
+                self.registry.mark_indexed(doc_id, index_types, len(chunks))
             else:
                 self.registry.update_document_state(
                     doc_id, DocumentState.CORRUPTED, "Failed to index"
@@ -336,118 +436,166 @@ class IndexManager:
             self.registry.update_document_state(doc_id, DocumentState.CORRUPTED, str(e))
             return False
 
-    def add_nodes(
+    def add_chunks(
         self,
         doc_id: str,
-        nodes: list[TextNode],
+        chunks: list[TextChunk],
         index_types: IndexType = IndexType.BOTH,
     ) -> bool:
-        """Add pre-processed nodes to specified indexes.
+        """Add pre-processed chunks to specified indexes.
 
-        This method is used when nodes have already been processed with
+        This method is used when chunks have already been processed with
         keyword enhancement or other transformations.
 
         Args:
             doc_id: Document identifier
-            nodes: Pre-processed TextNode objects
+            chunks: Pre-processed TextChunk objects
             index_types: Which indexes to update
 
         Returns:
             Success status
         """
+        logger.debug(
+            f"add_chunks called with doc_id={doc_id}, {len(chunks)} chunks, index_types={index_types}"
+        )
         try:
-            if not LLAMA_INDEX_AVAILABLE:
-                logger.error("LlamaIndex not available - cannot add nodes")
-                return False
-
-            if not nodes:
-                logger.warning(f"No nodes provided for document {doc_id}")
+            if not chunks:
+                logger.warning(f"No chunks provided for document {doc_id}")
                 return False
 
             success = True
 
-            # Add to vector index
-            if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.vector_store:
-                try:
-                    # Create storage context with the vector store
-                    storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
+            # Ensure backend-specific metadata
+            # Extract source from first chunk or generate a unique one
+            source_value = None
+            if chunks and "source" in chunks[0].metadata:
+                source_value = chunks[0].metadata["source"]
+            if not source_value:
+                # Generate unique source to avoid conflicts
+                source_value = f"doc_{doc_id[:8]}"
 
-                    # Index nodes - this generates embeddings and stores them
-                    VectorStoreIndex(nodes, storage_context=storage_context)
+            if self.config.database.backend == "postgresql":
+                tenant_id = self.config.database.postgresql.default_tenant_id
+                for chunk in chunks:
+                    chunk.metadata["tenant_id"] = tenant_id
+                    chunk.metadata["backend"] = "postgresql"
+                    chunk.metadata["doc_id"] = doc_id
+                    chunk.metadata["source"] = source_value  # Ensure source is set
+            else:
+                for chunk in chunks:
+                    chunk.metadata["backend"] = "sqlite"
+                    chunk.metadata["doc_id"] = doc_id
+                    chunk.metadata["source"] = source_value  # Ensure source is set
+
+            # Add to vector index
+            if index_types.value in ["vector", "both"] and self.qdrant_client:
+                try:
+                    # Generate embeddings for all chunks
+                    texts = [chunk.text for chunk in chunks]
+                    embeddings = self.embedding_service.get_text_embedding_batch(texts)
+
+                    # Create points for Qdrant
+                    points = []
+                    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
+                        point = PointStruct(
+                            id=chunk.id,
+                            vector=embedding,
+                            payload={
+                                "text": chunk.text,
+                                "doc_id": doc_id,
+                                "chunk_index": i,
+                                "metadata": chunk.metadata,
+                            },
+                        )
+                        points.append(point)
+
+                    # Upsert to Qdrant
+                    logger.info(
+                        f"Upserting {len(points)} points to Qdrant collection {self.config.qdrant.collection_name}"
+                    )
+                    self.qdrant_client.upsert(
+                        collection_name=self.config.qdrant.collection_name,
+                        points=points,
+                        wait=True,  # Ensure synchronous operation
+                    )
+                    logger.info(f"Successfully upserted {len(points)} points to Qdrant")
 
                     # Register index entries
-                    for i, node in enumerate(nodes):
+                    for i, chunk in enumerate(chunks):
                         logger.debug(
-                            f"Registering vector index entry: doc_id={doc_id}, node_id={node.node_id}"
+                            f"Registering vector index entry: doc_id={doc_id}, chunk_id={chunk.id}"
                         )
                         self.registry.register_index_entry(
                             doc_id=doc_id,
                             index_type=IndexType.VECTOR,
-                            node_id=node.node_id,
+                            node_id=chunk.id,
                             chunk_index=i,
-                            content_hash=node.hash,
-                            metadata=node.metadata,
+                            content_hash=chunk.hash,
+                            metadata=chunk.metadata,
                         )
 
                     logger.info(
-                        f"Added document {doc_id[:8]} to vector index ({len(nodes)} chunks)"
+                        f"Added document {doc_id[:8]} to vector index ({len(chunks)} chunks)"
                     )
 
                 except Exception as e:
-                    logger.error(f"Failed to add nodes to vector index: {e}")
+                    logger.error(f"Failed to add chunks to vector index: {e}")
                     success = False
 
             # Add to keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+            if index_types.value in ["keyword", "both"] and (
+                self.keyword_index or self.keyword_conn
+            ):
                 try:
-                    for i, node in enumerate(nodes):
-                        self.keyword_conn.execute(
-                            """
-                            INSERT INTO keyword_index
-                            (doc_id, node_id, chunk_index, content, metadata, content_hash)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                doc_id,
-                                node.node_id,
-                                i,
-                                node.text,
-                                str(node.metadata),
-                                node.hash,
-                            ),
-                        )
+                    # Use helper method for keyword indexing
+                    keyword_success = self._keyword_index_chunks(chunks)
 
-                        # Register index entry
-                        self.registry.register_index_entry(
-                            doc_id=doc_id,
-                            index_type=IndexType.KEYWORD,
-                            node_id=node.node_id,
-                            chunk_index=i,
-                            content_hash=node.hash,
-                            metadata=node.metadata,
-                        )
+                    if keyword_success:
+                        # Register index entries
+                        for i, chunk in enumerate(chunks):
+                            self.registry.register_index_entry(
+                                doc_id=doc_id,
+                                index_type=IndexType.KEYWORD,
+                                node_id=chunk.id,
+                                chunk_index=i,
+                                content_hash=chunk.hash,
+                                metadata=chunk.metadata,
+                            )
 
-                    self.keyword_conn.commit()
-                    logger.info(
-                        f"Added document {doc_id[:8]} to keyword index ({len(nodes)} chunks)"
-                    )
+                        logger.info(
+                            f"Added document {doc_id[:8]} to keyword index ({len(chunks)} chunks)"
+                        )
+                    else:
+                        success = False
 
                 except Exception as e:
-                    logger.error(f"Failed to add nodes to keyword index: {e}")
+                    logger.error(f"Failed to add chunks to keyword index: {e}")
                     success = False
 
             # Update registry if successful
             if success:
-                self.registry.mark_indexed(doc_id, index_types, len(nodes))
+                try:
+                    self.registry.mark_indexed(doc_id, index_types, len(chunks))
+                    logger.debug(f"Successfully marked document {doc_id[:8]} as indexed")
+                except Exception as e:
+                    logger.error(f"Failed to mark document as indexed: {e}")
+                    import traceback
+
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    success = False
+                    self.registry.update_document_state(
+                        doc_id, DocumentState.CORRUPTED, f"Failed to mark as indexed: {e}"
+                    )
             else:
                 self.registry.update_document_state(
-                    doc_id, DocumentState.CORRUPTED, "Failed to index nodes"
+                    doc_id, DocumentState.CORRUPTED, "Failed to index chunks"
                 )
 
+            logger.debug(f"add_chunks returning success={success} for doc {doc_id[:8]}")
             return success
 
         except Exception as e:
-            logger.error(f"Failed to add nodes for document {doc_id}: {e}")
+            logger.error(f"Failed to add chunks for document {doc_id}: {e}")
             self.registry.update_document_state(doc_id, DocumentState.CORRUPTED, str(e))
             return False
 
@@ -477,55 +625,36 @@ class IndexManager:
         try:
             success = True
 
-            # Get existing index entries
-            entries = self.registry.get_index_entries(doc_id)
+            # Get existing index entries (for logging purposes)
+            # Note: We don't need to check entries before deletion as we always
+            # attempt to delete from both indexes to ensure cleanup
 
             # Remove from vector index
-            if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.vector_store:
+            if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.qdrant_client:
                 try:
-                    vector_entries = [e for e in entries if e.index_type == IndexType.VECTOR.value]
-                    if vector_entries:
-                        # In server mode, use direct Qdrant client for proper chunk deletion
-                        if self.config.qdrant.mode == "server" and self.qdrant_client:
-                            # Use filter-based deletion to ensure all chunks are removed
-                            self.qdrant_client.delete(
-                                collection_name=self.config.qdrant.collection_name,
-                                points_selector=FilterSelector(
-                                    filter=Filter(
-                                        must=[
-                                            FieldCondition(
-                                                key="doc_id", match=MatchValue(value=doc_id)
-                                            )
-                                        ]
-                                    )
-                                ),
+                    # Always attempt to delete from Qdrant, regardless of registry entries
+                    # This ensures cleanup even if registry is out of sync
+                    self.qdrant_client.delete(
+                        collection_name=self.config.qdrant.collection_name,
+                        points_selector=FilterSelector(
+                            filter=Filter(
+                                must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
                             )
-                            logger.info(
-                                f"Removed all chunks for document {doc_id[:8]} using server mode deletion"
-                            )
-                        else:
-                            # For local mode, use LlamaIndex's delete method
-                            self.vector_store.delete(doc_id)
-                            logger.info(
-                                f"Removed {len(vector_entries)} vector entries for document {doc_id[:8]}"
-                            )
+                        ),
+                        wait=True,  # Ensure synchronous deletion
+                    )
+                    logger.info(f"Removed all chunks for document {doc_id[:8]} from vector index")
 
                 except Exception as e:
                     logger.error(f"Failed to remove from vector index: {e}")
                     success = False
 
             # Remove from keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and self.keyword_conn:
+            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and (
+                self.keyword_index or self.keyword_conn
+            ):
                 try:
-                    cursor = self.keyword_conn.execute(
-                        """
-                        DELETE FROM keyword_index WHERE doc_id = ?
-                    """,
-                        (doc_id,),
-                    )
-
-                    deleted_count = cursor.rowcount
-                    self.keyword_conn.commit()
+                    deleted_count = self._keyword_remove_document(doc_id)
 
                     if deleted_count > 0:
                         logger.info(
@@ -555,7 +684,7 @@ class IndexManager:
         chunks = []
 
         try:
-            if index_type == IndexType.VECTOR and self.vector_store:
+            if index_type == IndexType.VECTOR and self.qdrant_client:
                 # Get from vector index via registry
                 entries = self.registry.get_index_entries(doc_id, IndexType.VECTOR)
 
@@ -659,70 +788,81 @@ class IndexManager:
         self, query: str, top_k: int = 10, filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """Search vector index."""
-        if not self.vector_store or not self.embedding_model:
+        logger.debug(f"search_vector called: query='{query}', top_k={top_k}, filters={filters}")
+        if not self.qdrant_client:
             logger.error("Vector search not available")
             return []
 
         try:
-            # Parse unified filters and build LlamaIndex metadata filters
+            # Parse unified filters
             parsed_filters = FilterBuilder.parse_unified_filters(filters)
-            FilterBuilder.build_vector_metadata_filters(parsed_filters)
 
             # Create query embedding
-            query_embedding = self.embedding_model.get_text_embedding(query)
+            query_embedding = self.embedding_service.get_text_embedding(query)
 
-            # Create VectorStoreQuery object (simplified for basic functionality)
-            vector_query = VectorStoreQuery(
-                query_embedding=query_embedding,
-                similarity_top_k=top_k * 2,  # Get more for post-filtering
-                # TODO: Implement proper MetadataFilters for llamaindex_filters in Issue #23
+            # Build Qdrant filter from parsed filters
+            qdrant_filter = None
+            must_conditions = []
+
+            # Add user-provided filters if present
+            if parsed_filters:
+                # Add doc_ids filter if present
+                if "doc_ids" in parsed_filters:
+                    for doc_id in parsed_filters["doc_ids"]:
+                        must_conditions.append(
+                            FieldCondition(key="doc_id", match=MatchValue(value=doc_id))
+                        )
+
+                # Add metadata filters
+                if "metadata" in parsed_filters:
+                    for key, value in parsed_filters["metadata"].items():
+                        must_conditions.append(
+                            FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
+                        )
+
+            # Add backend-specific filters for PostgreSQL (always apply for tenant isolation)
+            if self.config.database.backend == "postgresql":
+                tenant_id = self.config.database.postgresql.default_tenant_id
+                logger.debug(f"Vector search: filtering by tenant_id = {tenant_id}")
+                must_conditions.append(
+                    FieldCondition(key="metadata.tenant_id", match=MatchValue(value=tenant_id))
+                )
+            else:
+                logger.debug(f"Backend: {self.config.database.backend} - no tenant filtering")
+
+            if must_conditions:
+                qdrant_filter = Filter(must=must_conditions)
+
+            # Search Qdrant directly
+            search_results = self.qdrant_client.search(
+                collection_name=self.config.qdrant.collection_name,
+                query_vector=query_embedding,
+                query_filter=qdrant_filter,
+                limit=top_k,
+                with_payload=True,
             )
 
-            # Search vector store with enhanced filters
-            results = self.vector_store.query(vector_query)
+            # Convert results to expected format
+            results = []
+            for result in search_results:
+                payload = result.payload
+                doc_id = payload.get("doc_id", "unknown")
 
-            search_results = []
-            # Handle different result structures from QdrantVectorStore
-            if hasattr(results, "nodes"):
-                result_nodes = results.nodes
-            elif isinstance(results, list):
-                result_nodes = results
-            else:
-                logger.error(f"Unexpected vector search result type: {type(results)}")
-                return []
-
-            for result in result_nodes:
-                # Extract doc_id from metadata or result attributes
-                metadata = getattr(result, "metadata", {})
-                doc_id = metadata.get("doc_id", None)
-
-                # In server mode, doc_id might be a direct attribute
-                if not doc_id:
-                    doc_id = getattr(result, "doc_id", None)
-
-                # Fallback to ref_doc_id if available
-                if not doc_id:
-                    doc_id = metadata.get("ref_doc_id", "unknown")
-
-                search_results.append(
+                results.append(
                     {
-                        "node_id": getattr(result, "node_id", getattr(result, "id_", "unknown")),
-                        "score": getattr(result, "score", 0.0),
-                        "content": getattr(result, "text", getattr(result, "content", "")),
-                        "metadata": metadata,
+                        "node_id": str(result.id),
+                        "chunk_id": str(result.id),  # Alias for compatibility
+                        "score": result.score,
+                        "content": payload.get("text", ""),
+                        "text": payload.get("text", ""),  # Alias for compatibility
+                        "metadata": payload.get("metadata", {}),
                         "doc_id": doc_id,
                         "source": self._get_document_source(doc_id),
+                        "chunk_index": payload.get("chunk_index", 0),
                     }
                 )
 
-            # Apply post-filters that can't be handled by LlamaIndex
-            if parsed_filters:
-                search_results = FilterBuilder.apply_post_vector_filters(
-                    search_results, parsed_filters
-                )
-
-            # Return top_k results after filtering
-            return search_results[:top_k]
+            return results
 
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
@@ -736,7 +876,7 @@ class IndexManager:
         doc_filter: list[str] | None = None,  # Backward compatibility
     ) -> list[dict[str, Any]]:
         """Search keyword index."""
-        if not self.keyword_conn:
+        if not (self.keyword_index or self.keyword_conn):
             logger.error("Keyword search not available")
             return []
 
@@ -748,45 +888,21 @@ class IndexManager:
             # Parse unified filters
             parsed_filters = FilterBuilder.parse_unified_filters(filters)
 
-            # Escape special characters in FTS5 query
-            # FTS5 special characters: " ( ) * - : ^
-            escaped_query = query
-            for char in ['"', "(", ")", "*", "-", ":", "^"]:
-                escaped_query = escaped_query.replace(char, f'"{char}"')
+            # Use helper method for keyword search
+            search_results = self._keyword_search(query, top_k, parsed_filters)
 
-            # Build basic query (simplified for initial implementation)
-            sql_query = """
-                SELECT doc_id, node_id, chunk_index, content, metadata,
-                       bm25(keyword_index) as score
-                FROM keyword_index
-                WHERE keyword_index MATCH ?
-            """
-            params = [escaped_query]
-
-            # Add basic doc_ids filter for now (simplified implementation)
-            if parsed_filters and "doc_ids" in parsed_filters:
-                doc_ids = parsed_filters["doc_ids"]
-                if doc_ids:
-                    placeholders = ",".join("?" * len(doc_ids))
-                    sql_query += f" AND doc_id IN ({placeholders})"
-                    params.extend(doc_ids)
-
-            sql_query += " ORDER BY score LIMIT ?"
-            params.append(top_k)
-
-            cursor = self.keyword_conn.execute(sql_query, params)
-
+            # Convert to expected format and add source information
             results = []
-            for row in cursor.fetchall():
-                doc_id = row[0]
+            for result in search_results:
+                doc_id = result.get("metadata", {}).get("doc_id", result.get("doc_id", "unknown"))
                 results.append(
                     {
                         "doc_id": doc_id,
-                        "node_id": row[1],
-                        "chunk_index": row[2],
-                        "content": row[3],
-                        "metadata": row[4],
-                        "score": row[5],
+                        "node_id": result.get("node_id", "unknown"),
+                        "chunk_index": result.get("chunk_index", 0),
+                        "content": result.get("text", result.get("content", "")),
+                        "metadata": result.get("metadata", {}),
+                        "score": result.get("score", 0.0),
                         "source": self._get_document_source(doc_id),
                     }
                 )
@@ -1117,12 +1233,12 @@ class IndexManager:
     def _check_keyword_consistency(self) -> dict[str, Any]:
         """Check keyword index consistency."""
         try:
-            if not self.keyword_conn:
+            if not (self.keyword_index or self.keyword_conn):
                 return {"error": "Keyword index not available"}
 
-            # Get keyword index count
-            cursor = self.keyword_conn.execute("SELECT COUNT(*) FROM keyword_index")
-            keyword_count = cursor.fetchone()[0]
+            # Get keyword index count using helper method
+            keyword_stats = self._keyword_get_stats()
+            keyword_count = keyword_stats.get("total_entries", 0)
 
             # Get registry keyword entries
             registry_entries = []
@@ -1202,20 +1318,14 @@ class IndexManager:
                 stats["vector_index"] = {"status": "unavailable"}
 
             # Keyword index stats
-            if self.keyword_conn:
+            if self.keyword_index or self.keyword_conn:
                 try:
-                    cursor = self.keyword_conn.execute("SELECT COUNT(*) FROM keyword_index")
-                    entry_count = cursor.fetchone()[0]
-
-                    cursor = self.keyword_conn.execute(
-                        "SELECT COUNT(DISTINCT doc_id) FROM keyword_index"
-                    )
-                    doc_count = cursor.fetchone()[0]
-
+                    keyword_stats = self._keyword_get_stats()
                     stats["keyword_index"] = {
-                        "entry_count": entry_count,
-                        "document_count": doc_count,
+                        "entry_count": keyword_stats.get("total_entries", 0),
+                        "document_count": keyword_stats.get("unique_documents", 0),
                         "status": "available",
+                        "backend": "adapter" if self.keyword_index else "legacy_sqlite",
                     }
                 except Exception as e:
                     stats["keyword_index"] = {"status": "error", "error": str(e)}
@@ -1289,20 +1399,7 @@ class IndexManager:
             - count: int - number of keyword entries
         """
         try:
-            if not self.keyword_conn:
-                return {
-                    "exists": False,
-                    "count": 0,
-                    "error": "Keyword index not available",
-                }
-
-            # Query keyword index for entries with this doc_id
-            cursor = self.keyword_conn.execute(
-                "SELECT COUNT(*) FROM keyword_index WHERE doc_id = ?", (doc_id,)
-            )
-            count = cursor.fetchone()[0]
-
-            return {"exists": count > 0, "count": count}
+            return self._keyword_check_document_exists(doc_id)
 
         except Exception as e:
             logger.error(f"Failed to verify keyword index state for {doc_id}: {e}")
@@ -1319,29 +1416,21 @@ class IndexManager:
             bool: Success status
         """
         try:
-            if not self.vector_store:
-                logger.warning("Vector store not available")
+            if not self.qdrant_client:
+                logger.warning("Qdrant client not available")
                 return False
 
-            # In server mode, use direct Qdrant client for proper chunk deletion
-            if self.config.qdrant.mode == "server" and self.qdrant_client:
-                # Use filter-based deletion to ensure all chunks are removed
-                self.qdrant_client.delete(
-                    collection_name=self.config.qdrant.collection_name,
-                    points_selector=FilterSelector(
-                        filter=Filter(
-                            must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
-                        )
-                    ),
-                )
-                logger.info(
-                    f"Deleted all chunks for document {doc_id[:8]} using server mode deletion"
-                )
-            else:
-                # For local mode, use LlamaIndex's delete method
-                self.vector_store.delete(doc_id)
-
-            logger.info(f"Deleted document {doc_id[:8]} from vector index")
+            # Use filter-based deletion to ensure all chunks are removed
+            self.qdrant_client.delete(
+                collection_name=self.config.qdrant.collection_name,
+                points_selector=FilterSelector(
+                    filter=Filter(
+                        must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
+                    )
+                ),
+                wait=True,  # Ensure synchronous deletion
+            )
+            logger.info(f"Deleted all chunks for document {doc_id[:8]} from vector index")
             return True
 
         except Exception as e:
@@ -1359,17 +1448,12 @@ class IndexManager:
             bool: Success status
         """
         try:
-            if not self.keyword_conn:
+            if not (self.keyword_index or self.keyword_conn):
                 logger.warning("Keyword index not available")
                 return False
 
-            # Delete from keyword index
-            cursor = self.keyword_conn.execute(
-                "DELETE FROM keyword_index WHERE doc_id = ?", (doc_id,)
-            )
-
-            deleted_count = cursor.rowcount
-            self.keyword_conn.commit()
+            # Delete from keyword index using helper method
+            deleted_count = self._keyword_remove_document(doc_id)
 
             if deleted_count > 0:
                 logger.info(
@@ -1441,7 +1525,15 @@ class IndexManager:
                     doc_id = checkpoint.doc_id
 
                     # Add to both indexes
-                    result = self.add_nodes(doc_id=doc_id, nodes=nodes, index_types=IndexType.BOTH)
+                    # Convert nodes to chunks if needed
+                    if nodes and hasattr(nodes[0], "text"):
+                        # Already TextChunk objects or compatible
+                        result = self.add_chunks(
+                            doc_id=doc_id, chunks=nodes, index_types=IndexType.BOTH
+                        )
+                    else:
+                        logger.error("Invalid node data in checkpoint")
+                        result = False
                     return result
 
             elif checkpoint.operation_type == OperationType.DELETE_DOCUMENT:
@@ -1490,9 +1582,16 @@ class IndexManager:
 
     def close(self) -> None:
         """Close database connections."""
+        # Close DatabaseFactory adapter if available
+        if hasattr(self, "keyword_index") and self.keyword_index:
+            if hasattr(self.keyword_index, "close"):
+                self.keyword_index.close()
+                logger.debug("Keyword index adapter closed")
+
+        # Close legacy SQLite connection if available
         if hasattr(self, "keyword_conn") and self.keyword_conn:
             self.keyword_conn.close()
-            logger.debug("Keyword index connection closed")
+            logger.debug("Legacy keyword index connection closed")
 
         if hasattr(self, "registry"):
             self.registry.close()

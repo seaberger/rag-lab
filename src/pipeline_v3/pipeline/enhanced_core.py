@@ -12,19 +12,19 @@ import time
 from pathlib import Path
 from typing import Any
 
-from core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
-from core.fingerprint import FingerprintManager
-from core.index_manager import IndexManager, IndexType
-from core.parsers import parse_document
-from core.pipeline import DatasheetArtefact, DocumentClassifier, fetch_document
-from core.registry import DocumentRegistry, DocumentState
-from job_queue.job import JobManager
-from job_queue.manager import DocumentQueue, JobPriority
-from storage.cache import CacheManager
-
-from utils.common_utils import logger
-from utils.config import PipelineConfig
-from utils.monitoring import ProgressMonitor
+# Use absolute imports from project root for consistency
+from src.pipeline_v3.core.change_detector import ChangeDetector, ChangeType, UpdateStrategy
+from src.pipeline_v3.core.fingerprint import FingerprintManager
+from src.pipeline_v3.core.index_manager import IndexManager
+from src.pipeline_v3.core.parsers import DocumentClassifier, parse_document
+from src.pipeline_v3.core.pipeline import DatasheetArtefact, fetch_document
+from src.pipeline_v3.core.registry import DocumentRegistry, DocumentState, IndexType
+from src.pipeline_v3.job_queue.job import JobManager
+from src.pipeline_v3.job_queue.manager import DocumentQueue, JobPriority
+from src.pipeline_v3.storage.cache import CacheManager
+from src.pipeline_v3.utils.common_utils import logger
+from src.pipeline_v3.utils.config import PipelineConfig
+from src.pipeline_v3.utils.monitoring import ProgressMonitor
 
 
 class EnhancedPipeline:
@@ -35,19 +35,48 @@ class EnhancedPipeline:
         config: PipelineConfig | None = None,
         registry: DocumentRegistry | None = None,
         index_manager: IndexManager | None = None,
+        database_adapters: dict[str, Any] | None = None,
     ):
-        """Initialize enhanced pipeline with all components."""
+        """Initialize enhanced pipeline with all components.
+
+        Args:
+            config: Pipeline configuration
+            registry: Optional DocumentRegistry (for backwards compatibility)
+            index_manager: Optional IndexManager (for backwards compatibility)
+            database_adapters: DatabaseFactory adapters (recommended)
+        """
         self.config = config or PipelineConfig()
 
-        # Initialize Phase 1 components
-        self.document_queue = DocumentQueue(self.config)
-        self.job_manager = JobManager(self.config)
-        self.fingerprint_manager = FingerprintManager(self.config)
+        # Use DatabaseFactory adapters if provided, otherwise create components directly
+        if database_adapters:
+            # Use DatabaseFactory adapters (recommended approach)
+            self.job_manager = database_adapters["job_manager"]
+            self.fingerprint_manager = database_adapters["fingerprint_manager"]
+            self.registry = registry or database_adapters["registry"]
+            # Note: keyword_index is handled by IndexManager, DocumentQueue doesn't use database adapters
+        else:
+            # Legacy approach: direct component instantiation
+            self.job_manager = JobManager(self.config)
+            self.fingerprint_manager = FingerprintManager(self.config)
+            self.registry = registry or DocumentRegistry(self.config)
 
-        # Initialize Phase 2 components
-        self.registry = registry or DocumentRegistry(self.config)
-        self.index_manager = index_manager or IndexManager(self.config, registry=self.registry)
-        self.change_detector = ChangeDetector(self.config, registry=self.registry)
+        # Initialize components that don't use DatabaseFactory (yet)
+        self.document_queue = DocumentQueue(self.config)
+        # Pass keyword_index from database adapters if available
+        keyword_index = database_adapters.get("keyword_index") if database_adapters else None
+        self.index_manager = index_manager or IndexManager(
+            self.config, registry=self.registry, keyword_index=keyword_index
+        )
+
+        # Pass fingerprint_manager from DatabaseFactory to ChangeDetector if available
+        fingerprint_manager = (
+            database_adapters.get("fingerprint_manager") if database_adapters else None
+        )
+        self.change_detector = ChangeDetector(
+            self.config,
+            registry=self.registry,
+            fingerprint_manager=fingerprint_manager if database_adapters else None,
+        )
 
         # Initialize cache for document parsing
         self.cache = CacheManager(config=self.config) if self.config.cache.enabled else None
@@ -68,7 +97,11 @@ class EnhancedPipeline:
             "total_processing_time": 0.0,
         }
 
-        logger.info("EnhancedPipeline initialized with full lifecycle management")
+        # Log initialization approach
+        adapter_source = "DatabaseFactory adapters" if database_adapters else "direct instantiation"
+        logger.info(
+            f"EnhancedPipeline initialized with full lifecycle management using {adapter_source}"
+        )
 
     def save_processing_report(self, output_file: str = "processing_report_v3.json") -> bool:
         """Save detailed processing report from progress monitor."""
@@ -223,6 +256,7 @@ class EnhancedPipeline:
                 change_analysis.update_strategy,
                 index_types,
                 with_keywords,
+                pairs,  # Pass the extracted pairs
             )
 
             # Create storage artifact after processing (with enhanced content if available)
@@ -497,6 +531,7 @@ class EnhancedPipeline:
         strategy: UpdateStrategy,
         index_types: IndexType,
         with_keywords: bool = False,
+        pairs: list[tuple[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Execute the determined update strategy."""
         try:
@@ -515,12 +550,12 @@ class EnhancedPipeline:
                 # For now, incremental updates are treated as full reindex
                 # In a more sophisticated implementation, this would update only changed chunks
                 return await self._full_reindex(
-                    doc_id, content, metadata, index_types, source, with_keywords
+                    doc_id, content, metadata, index_types, source, with_keywords, pairs
                 )
 
             if strategy == UpdateStrategy.FULL_REINDEX:
                 return await self._full_reindex(
-                    doc_id, content, metadata, index_types, source, with_keywords
+                    doc_id, content, metadata, index_types, source, with_keywords, pairs
                 )
 
             raise ValueError(f"Unknown update strategy: {strategy}")
@@ -538,6 +573,7 @@ class EnhancedPipeline:
         index_types: IndexType,
         source: str | Path | None = None,
         with_keywords: bool = False,
+        pairs: list[tuple[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Perform full reindexing of document."""
         try:
@@ -554,15 +590,17 @@ class EnhancedPipeline:
                 # Import chunking_metadata here to avoid circular imports
                 from src.pipeline_v3.utils.chunking_metadata import process_and_index_document
 
-                # Extract pairs from metadata for enhanced processing
-                pairs = metadata.get("pairs", []) if metadata else []
+                # Use passed pairs parameter or extract from metadata as fallback
+                pairs_to_use = pairs or (metadata.get("pairs", []) if metadata else [])
 
                 # Process with keyword enhancement
+                # Ensure source is properly converted to string
+                source_str = str(source) if source is not None else "unknown"
                 nodes = await process_and_index_document(
                     doc_id=doc_id,
-                    source=source or "unknown",
+                    source=source_str,
                     markdown=content,
-                    pairs=pairs,
+                    pairs=pairs_to_use,
                     metadata=metadata or {},
                     with_keywords=with_keywords,
                     progress=None,  # Progress monitoring handled at higher level
@@ -570,7 +608,7 @@ class EnhancedPipeline:
                 )
 
                 # Add enhanced nodes to indexes
-                success = self.index_manager.add_nodes(doc_id, nodes, index_types)
+                success = self.index_manager.add_chunks(doc_id, nodes, index_types)
                 logger.info(
                     f"Added document {doc_id[:8]} with keyword enhancement ({len(nodes)} chunks)"
                 )
@@ -579,6 +617,11 @@ class EnhancedPipeline:
                 enhanced_markdown = "\n\n".join(node.text for node in nodes) if nodes else content
             else:
                 # Use direct indexing without keyword enhancement
+                # Ensure source is in metadata for proper indexing
+                if metadata is None:
+                    metadata = {}
+                if source is not None and "source" not in metadata:
+                    metadata["source"] = str(source)
                 success = self.index_manager.add_document(doc_id, content, metadata, index_types)
                 enhanced_markdown = content  # No enhancement, use original
 
@@ -900,11 +943,18 @@ class EnhancedPipeline:
         await self.document_queue.shutdown()
 
         # Close all components
-        self.job_manager.close()
-        self.fingerprint_manager.close()
-        self.index_manager.close()
-        self.registry.close()
-        self.change_detector.close()
+        # Note: When using DatabaseFactory adapters, these may be closed by the factory
+        # However, it's safe to call close() multiple times on most adapters
+        if hasattr(self.job_manager, "close"):
+            self.job_manager.close()
+        if hasattr(self.fingerprint_manager, "close"):
+            self.fingerprint_manager.close()
+        if hasattr(self.index_manager, "close"):
+            self.index_manager.close()
+        if hasattr(self.registry, "close"):
+            self.registry.close()
+        if hasattr(self.change_detector, "close"):
+            self.change_detector.close()
 
         logger.info("Enhanced pipeline shutdown complete")
 

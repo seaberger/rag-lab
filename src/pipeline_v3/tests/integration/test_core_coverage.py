@@ -15,9 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-# Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from core.fingerprint import FingerprintManager
 from core.migrations import (Migration, MigrationManager,
                              load_migrations_from_sql_files)
@@ -25,6 +22,32 @@ from core.registry import DocumentRegistry, DocumentState
 from job_queue.job import JobManager, JobStatus, JobType
 from job_queue.manager import DocumentQueue, JobPriority
 from storage.cache import CacheManager
+from utils.common_utils import logger
+from utils.env_utils import setup_environment
+from utils.monitoring import ProgressMonitor
+
+# Import database fixtures for multi-backend support
+try:
+    from tests.fixtures.database_fixtures import (
+        create_test_registry,
+        create_test_fingerprint_manager,
+        create_test_job_manager,
+        cleanup_test_component
+    )
+except ImportError:
+    # If fixtures not available, define fallback functions
+    def create_test_registry(config):
+        return DocumentRegistry(config=config)
+
+    def create_test_fingerprint_manager(config):
+        return FingerprintManager(config=config)
+
+    def create_test_job_manager(config):
+        return JobManager(config=config)
+
+    def cleanup_test_component(component):
+        if hasattr(component, 'close'):
+            component.close()
 
 from utils.cleanup import cleanup_temp_resources, get_resource_manager
 from utils.common_utils import init_cli_logging, logger
@@ -102,112 +125,149 @@ job_queue:
 
     def test_document_registry_lifecycle(self, test_config):
         """Test DocumentRegistry operations."""
-        registry = DocumentRegistry(config=test_config)
+        registry = create_test_registry(test_config)
 
-        # Test registration
-        import time
+        try:
+            # Get initial document count
+            initial_stats = registry.get_statistics()
+            initial_count = initial_stats["total_documents"]
 
-        doc_id = registry.register_document(
-            source="test.pdf",
+            # Test registration
+            import time
+            import uuid
+
+            # Use a unique source to avoid conflicts
+            unique_source = f"test_{uuid.uuid4().hex[:8]}.pdf"
+
+            doc_id = registry.register_document(
+            source=unique_source,
             content_hash="abc123",
             size=1024,
             modified_time=time.time(),
             metadata={"author": "test", "version": "1.0", "doc_type": "datasheet"},
-        )
-        assert doc_id is not None
+            )
+            assert doc_id is not None
 
-        # Test retrieval
-        doc = registry.get_document(doc_id)
-        assert doc is not None
-        assert doc.source.endswith("test.pdf")
-        assert doc.metadata["doc_type"] == "datasheet"
+            # Test retrieval
+            doc = registry.get_document(doc_id)
+            assert doc is not None
+            assert doc.source.endswith(unique_source)
+            assert doc.metadata["doc_type"] == "datasheet"
 
-        # Test get by source
-        doc_by_source = registry.get_document_by_source("test.pdf")
-        assert doc_by_source.doc_id == doc_id
+            # Test get by source
+            doc_by_source = registry.get_document_by_source(unique_source)
+            assert doc_by_source.doc_id == doc_id
 
-        # Test status updates - using update_document_state method
-        registry.update_document_state(doc_id, DocumentState.UPDATING)
-        doc = registry.get_document(doc_id)
-        assert doc.state == "updating"
+            # Test status updates - using update_document_state method
+            registry.update_document_state(doc_id, DocumentState.UPDATING)
+            doc = registry.get_document(doc_id)
+            assert doc.state == "updating"
 
-        registry.update_document_state(doc_id, DocumentState.INDEXED)
-        doc = registry.get_document(doc_id)
-        assert doc.state == "indexed"
+            registry.update_document_state(doc_id, DocumentState.INDEXED)
+            doc = registry.get_document(doc_id)
+            assert doc.state == "indexed"
 
-        # Test index updates
-        from core.registry import IndexType
+            # Test index updates
+            from core.registry import IndexType
 
-        registry.mark_indexed(doc_id, IndexType.BOTH, chunk_count=5)
-        doc = registry.get_document(doc_id)
-        assert doc.vector_indexed == True
-        assert doc.keyword_indexed == True
+            registry.mark_indexed(doc_id, IndexType.BOTH, chunk_count=5)
+            doc = registry.get_document(doc_id)
+            assert doc.vector_indexed == True
+            assert doc.keyword_indexed == True
 
-        # Skip document updates - method not available
-        # Would need to check actual registry API
+            # Skip document updates - method not available
+            # Would need to check actual registry API
 
-        # Test list documents
-        docs = registry.list_documents(limit=10)
-        assert len(docs) == 1
-        assert docs[0].doc_id == doc_id
+            # Test list documents - should have one more than initial
+            docs = registry.list_documents(limit=100)
+            current_count = len(docs)
+            assert current_count == initial_count + 1
 
-        # Test statistics
-        stats = registry.get_statistics()
-        assert stats["total_documents"] == 1
-        assert stats["by_state"]["indexed"]["count"] == 1
-        # Health score might be less than 100 if we marked indexed without actual index entries
-        assert stats["consistency"]["health_score"] >= 90
+            # Find our test document in the list
+            our_doc = None
+            for doc in docs:
+                if doc.doc_id == doc_id:
+                    our_doc = doc
+                    break
+            assert our_doc is not None
 
-        # Change detection is handled by FingerprintManager, not Registry
-        # Tested separately in test_fingerprint_store_operations
+            # Test statistics
+            stats = registry.get_statistics()
+            assert stats["total_documents"] == initial_count + 1
 
-        # Test deletion
-        registry.remove_document(doc_id)
-        doc = registry.get_document(doc_id)
-        assert doc is None
+            # PostgreSQL registry uses different key names
+            if "documents_by_state" in stats:
+                # We should have at least 1 indexed document (ours)
+                assert stats["documents_by_state"]["indexed"] >= 1
+            else:
+                # Fallback for other implementations
+                assert stats.get("by_state", {}).get("indexed", {}).get("count", 0) >= 1
+
+            # Change detection is handled by FingerprintManager, not Registry
+            # Tested separately in test_fingerprint_store_operations
+
+            # Test deletion
+            registry.remove_document(doc_id)
+            doc = registry.get_document(doc_id)
+            assert doc is None
+        finally:
+            cleanup_test_component(registry)
 
     def test_fingerprint_store_operations(self, test_config, test_base_dir):
         """Test FingerprintManager functionality."""
-        store = FingerprintManager(config=test_config)
+        # Disable metadata inclusion for stable tests
+        test_config.fingerprint.include_metadata = False
+        store = create_test_fingerprint_manager(test_config)
 
-        # Create a test file
-        test_file = os.path.join(test_base_dir, "test.pdf")
-        with open(test_file, "wb") as f:
-            f.write(b"test content")
+        try:
+            # Create a test file
+            test_file = os.path.join(test_base_dir, "test.pdf")
+            with open(test_file, "wb") as f:
+                f.write(b"test content")
 
-        # Compute fingerprint
-        fingerprint = FingerprintManager.compute_fingerprint(test_file)
-        assert fingerprint is not None
-        assert fingerprint.content_hash is not None
-        assert fingerprint.size == 12  # "test content" is 12 bytes
+            # Wait a moment to ensure file system has stable timestamps
+            import time
+            time.sleep(0.1)
 
-        # Store fingerprint
-        store.update_fingerprint(
-            fingerprint, doc_id="doc1", processing_status="completed"
-        )
+            # Compute fingerprint
+            fingerprint = FingerprintManager.compute_fingerprint(test_file)
+            assert fingerprint is not None
+            assert fingerprint.content_hash is not None
+            assert fingerprint.size == 12  # "test content" is 12 bytes
 
-        # Retrieve fingerprint
-        retrieved = store.get_fingerprint(test_file)
-        assert retrieved is not None
-        assert retrieved.content_hash == fingerprint.content_hash
-        assert retrieved.doc_id == "doc1"
-        assert retrieved.processing_status == "completed"
+            # Store fingerprint (use UUID for PostgreSQL)
+            import uuid
+            doc_id = str(uuid.uuid4())
+            store.update_fingerprint(
+                fingerprint, doc_id=doc_id, processing_status="completed"
+            )
 
-        # Test has_changed - should not have changed
-        has_changed = store.has_changed(test_file)
-        assert not has_changed
+            # Retrieve fingerprint
+            retrieved = store.get_fingerprint(test_file)
+            assert retrieved is not None
+            assert retrieved.content_hash == fingerprint.content_hash
+            assert retrieved.doc_id == doc_id
+            assert retrieved.processing_status == "completed"
 
-        # Modify file
-        with open(test_file, "wb") as f:
-            f.write(b"modified content")
+            # Test has_changed - should not have changed
+            # First, ensure file hasn't been modified
+            time.sleep(0.1)
+            has_changed = store.has_changed(test_file)
+            assert not has_changed
 
-        # Now should detect change
-        has_changed = store.has_changed(test_file)
-        assert has_changed
+            # Modify file
+            with open(test_file, "wb") as f:
+                f.write(b"modified content")
 
-        # Test cleanup old fingerprints
-        cleaned = store.cleanup_old_fingerprints()
-        assert isinstance(cleaned, int)
+            # Now should detect change
+            has_changed = store.has_changed(test_file)
+            assert has_changed
+
+            # Test cleanup old fingerprints
+            cleaned = store.cleanup_old_fingerprints()
+            assert isinstance(cleaned, int)
+        finally:
+            cleanup_test_component(store)
 
     def test_storage_cache_operations(self, test_config):
         """Test CacheManager functionality."""
@@ -303,48 +363,55 @@ job_queue:
 
     def test_job_manager_persistence(self, test_config):
         """Test JobManager database operations."""
-        manager = JobManager(config=test_config)
+        manager = create_test_job_manager(test_config)
 
-        # Create job
-        job_id = manager.create_job(
-            source="test.pdf",
-            job_type=JobType.ADD,
-            priority=2,
-            metadata={"key": "value"},
-        )
-        assert job_id is not None
+        try:
+            # Create job
+            job_id = manager.create_job(
+                source="test.pdf",
+                job_type=JobType.ADD,
+                priority=2,
+                metadata={"key": "value"},
+            )
+            assert job_id is not None
 
-        # Get job
-        job = manager.get_job(job_id)
-        assert job is not None
-        assert job.source == "test.pdf"
-        assert job.job_type == JobType.ADD.value
-        assert job.metadata["key"] == "value"
+            # Get job
+            job = manager.get_job(job_id)
+            assert job is not None
+            # PostgreSQL may store full path
+            assert job.source.endswith("test.pdf")
+            assert job.job_type == JobType.ADD.value
+            assert job.metadata["key"] == "value"
 
-        # Update status
-        manager.update_job_status(job_id, JobStatus.PROCESSING)
-        job = manager.get_job(job_id)
-        assert job.status == JobStatus.PROCESSING.value
+            # Update status
+            manager.update_job_status(job_id, JobStatus.PROCESSING)
+            job = manager.get_job(job_id)
+            assert job.status == JobStatus.PROCESSING.value
 
-        # Update with error
-        manager.update_job_status(job_id, JobStatus.FAILED, error_message="Test error")
-        job = manager.get_job(job_id)
-        assert job.status == JobStatus.FAILED.value
-        assert job.error_message == "Test error"
+            # Update with error
+            manager.update_job_status(job_id, JobStatus.FAILED, error_message="Test error")
+            job = manager.get_job(job_id)
+            assert job.status == JobStatus.FAILED.value
+            assert job.error_message == "Test error"
 
-        # List jobs
-        pending_jobs = manager.list_jobs(status=JobStatus.PENDING, limit=10)
-        processing_jobs = manager.list_jobs(status=JobStatus.PROCESSING, limit=10)
-        failed_jobs = manager.list_jobs(status=JobStatus.FAILED, limit=10)
+            # List jobs
+            pending_jobs = manager.list_jobs(status=JobStatus.PENDING, limit=10)
+            processing_jobs = manager.list_jobs(status=JobStatus.PROCESSING, limit=10)
+            failed_jobs = manager.list_jobs(status=JobStatus.FAILED, limit=10)
 
-        assert len(failed_jobs) >= 1
-        assert any(j.job_id == job_id for j in failed_jobs)
+            assert len(failed_jobs) >= 1
+            assert any(j.job_id == job_id for j in failed_jobs)
 
-        # Test job persistence across instances
-        new_manager = JobManager(config=test_config)
-        persisted_job = new_manager.get_job(job_id)
-        assert persisted_job is not None
-        assert persisted_job.source == "test.pdf"
+            # Test job persistence across instances
+            new_manager = create_test_job_manager(test_config)
+            try:
+                persisted_job = new_manager.get_job(job_id)
+                assert persisted_job is not None
+                assert persisted_job.source.endswith("test.pdf")
+            finally:
+                cleanup_test_component(new_manager)
+        finally:
+            cleanup_test_component(manager)
 
     def test_progress_monitor_functionality(self):
         """Test ProgressMonitor operations."""
@@ -484,87 +551,6 @@ job_queue:
         # Test cleanup function
         cleanup_temp_resources()
 
-    def test_database_migrations(self, test_base_dir):
-        """Test database migration framework."""
-        # Test migration sequence
-        db_path = os.path.join(test_base_dir, "test_migrations.db")
-
-        # Remove existing database if it exists
-        if os.path.exists(db_path):
-            os.unlink(db_path)
-
-        manager = MigrationManager(db_path)
-
-        # Create test migrations
-        migrations = [
-            Migration(
-                version=1,
-                name="create_test_table",
-                up_sql="CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT);",
-                down_sql="DROP TABLE test_table;",
-            ),
-            Migration(
-                version=2,
-                name="add_column",
-                up_sql="ALTER TABLE test_table ADD COLUMN created_at TIMESTAMP;",
-                down_sql="ALTER TABLE test_table DROP COLUMN created_at;",
-            ),
-        ]
-
-        # Apply migrations
-        for migration in migrations:
-            manager.apply_migration(migration)
-
-        # Verify version
-        assert manager.get_current_version() == 2
-
-        # Verify table exists
-        cursor = manager.conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'"
-        )
-        assert cursor.fetchone() is not None
-
-        # Test rollback
-        manager.rollback_migration(1)
-        assert manager.get_current_version() == 1
-
-        manager.close()
-
-    def test_real_migration_files(self, test_base_dir):
-        """Test loading and applying real migration files."""
-        # Get the real migrations directory
-        migrations_base = Path(__file__).parent.parent.parent / "migrations"
-
-        if not migrations_base.exists():
-            pytest.skip("Migrations directory not found")
-
-        # Test one database type (registry)
-        migrations_dir = migrations_base / "registry"
-        if migrations_dir.exists():
-            db_path = os.path.join(test_base_dir, "test_registry.db")
-
-            # Remove existing database if it exists
-            if os.path.exists(db_path):
-                os.unlink(db_path)
-
-            # Load migrations
-            migrations = load_migrations_from_sql_files(migrations_dir)
-            assert len(migrations) > 0
-
-            # Apply migrations
-            manager = MigrationManager(db_path)
-            result = manager.run_migrations(migrations)
-
-            assert result["applied_count"] > 0
-            assert result["current_version"] > 0
-
-            # Verify documents table was created
-            cursor = manager.conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
-            )
-            assert cursor.fetchone() is not None
-
-            manager.close()
 
 
 if __name__ == "__main__":

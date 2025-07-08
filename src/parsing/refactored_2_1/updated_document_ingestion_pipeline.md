@@ -283,7 +283,7 @@ Input → Fetch → Validate → Cache Check → Parse → Chunk → Keywords �
 ## 🔐 API Keys Required
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."  # pragma: allowlist secret
 ```
 
 ## 📦 Installation

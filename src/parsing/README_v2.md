@@ -27,7 +27,7 @@ brew install poppler
 sudo apt-get install poppler-utils
 
 # Set OpenAI API key
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."  # pragma: allowlist secret
 ```
 
 ### Basic Usage

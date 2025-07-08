@@ -194,6 +194,57 @@ class ProcessingProfileSettings:
 
 
 @dataclass
+class PostgreSQLSettings:
+    """PostgreSQL database configuration settings."""
+
+    # Connection settings
+    host: str = "localhost"
+    port: int = 5432
+    database: str = "rag_lab"  # Fixed to match Docker setup
+    user: str = "rag_user"  # Fixed to match Docker setup
+    password: str = ""  # Should be loaded from environment variable
+    ssl_mode: str = "prefer"  # disable, allow, prefer, require, verify-ca, verify-full
+
+    # Connection pooling
+    min_connections: int = 10
+    max_connections: int = 100
+    connection_timeout: int = 30  # seconds
+    idle_timeout: int = 600  # seconds (10 minutes)
+
+    # Performance settings
+    statement_timeout: int = 300000  # milliseconds (5 minutes)
+    lock_timeout: int = 10000  # milliseconds (10 seconds)
+
+    # Multi-tenancy preparation
+    enable_rls: bool = True  # Row Level Security
+    default_schema: str = "public"
+    default_tenant_id: str = "00000000-0000-0000-0000-000000000000"
+
+    # Schema names
+    registry_schema: str = "registry"
+    search_schema: str = "search"
+    jobs_schema: str = "jobs"
+    fingerprints_schema: str = "fingerprints"
+
+
+@dataclass
+class DatabaseSettings:
+    """Database backend configuration."""
+
+    backend: str = "postgresql"  # "postgresql" or "sqlite" (legacy)
+    postgresql: PostgreSQLSettings = field(default_factory=PostgreSQLSettings)
+
+    # Migration settings
+    auto_migrate: bool = True
+    migration_batch_size: int = 1000
+    migration_timeout: int = 3600  # seconds (1 hour)
+
+    # Dual-mode settings
+    enable_fallback: bool = False  # Fall back to SQLite if PostgreSQL fails
+    log_queries: bool = False  # Log all database queries for debugging
+
+
+@dataclass
 class PipelineConfig:
     pipeline: PipelineSettings = field(default_factory=PipelineSettings)
     validation: ValidationSettings = field(default_factory=ValidationSettings)
@@ -216,6 +267,7 @@ class PipelineConfig:
     processing_profiles: ProcessingProfileSettings = field(
         default_factory=ProcessingProfileSettings
     )  # NEW
+    database: DatabaseSettings = field(default_factory=DatabaseSettings)  # NEW for PostgreSQL
     datasheet_mode: bool = True
 
     @classmethod
@@ -290,6 +342,18 @@ class PipelineConfig:
             instance.openai.api_key = os.getenv("OPENAI_API_KEY")
             if instance.openai.api_key:
                 print("INFO: Loaded OPENAI_API_KEY from environment variable.")
+
+        # Special handling for PostgreSQL password from environment
+        if (
+            instance.database
+            and instance.database.postgresql
+            and not instance.database.postgresql.password
+        ):
+            pg_password = os.getenv("POSTGRES_PASSWORD")
+            if pg_password:
+                instance.database.postgresql.password = pg_password
+                print("INFO: Loaded POSTGRES_PASSWORD from environment variable.")
+
         return instance
 
 

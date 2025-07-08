@@ -1,0 +1,132 @@
+# Production Pipeline v3 Configuration - PostgreSQL Backend
+# Complete PostgreSQL migration configuration template
+
+# Core pipeline settings
+pipeline:
+  max_concurrent: 10
+  timeout_seconds: 300
+  version: "3.0.0-dev"
+
+# Database configuration - PostgreSQL backend
+database:
+  backend: postgresql
+
+  # PostgreSQL connection settings
+  postgresql:
+    # Connection details
+    host: localhost
+    port: 5432
+    database: rag_lab_db
+    user: rag_lab_user
+    password: ""  # Set via POSTGRES_PASSWORD environment variable
+    ssl_mode: prefer
+
+    # Connection pooling for enterprise workloads
+    min_connections: 10
+    max_connections: 100
+    connection_timeout: 30
+    idle_timeout: 600
+
+    # Performance settings
+    statement_timeout: 300000  # 5 minutes
+    lock_timeout: 10000  # 10 seconds
+
+    # Multi-tenancy configuration
+    enable_rls: true
+    default_schema: public
+    default_tenant_id: "00000000-0000-0000-0000-000000000000"
+
+    # Schema organization
+    registry_schema: registry
+    search_schema: search
+    jobs_schema: jobs
+    fingerprints_schema: fingerprints
+
+  # Migration settings
+  auto_migrate: true
+  migration_batch_size: 1000
+  migration_timeout: 3600
+
+  # Enterprise settings
+  enable_fallback: false  # No SQLite fallback in production
+  log_queries: false  # Set to true for debugging
+
+# Enhanced caching system
+cache:
+  enabled: true
+  directory: ./cache_v3
+  ttl_days: 7
+  compress: true
+
+# Job queue management (PostgreSQL-backed)
+job_queue:
+  max_concurrent: 10
+  job_persistence: true
+  job_storage_path: ""  # Uses PostgreSQL, not file-based
+  job_retention_days: 30
+  chunk_size: 100
+  default_priority: 0
+  resume_interrupted: true
+
+# Document fingerprinting (PostgreSQL-backed)
+fingerprint:
+  enabled: true
+  storage_path: ""  # Uses PostgreSQL, not file-based
+  retention_days: 90
+  include_metadata: true
+
+# OpenAI API settings
+openai:
+  vision_model: gpt-4.1
+  keyword_model: gpt-4.1-mini
+  max_retries: 3
+  embedding_model: text-embedding-3-small
+  dimensions: 1536
+
+# Enhanced logging
+logging:
+  level: INFO
+  file: pipeline_v3.log
+  detailed_progress: true
+  performance_metrics: true
+
+# Vector store settings (Qdrant server mode)
+qdrant:
+  mode: server
+  server:
+    host: localhost
+    port: 6333
+    grpc_port: 6334
+    api_key: null
+    https: false
+    timeout: 30
+  collection_name: datasheets_v3
+
+# Document chunking
+chunking:
+  chunk_size: 1024
+  chunk_overlap: 128
+
+# Storage configuration (PostgreSQL-backed)
+storage:
+  keyword_db_path: ""  # Uses PostgreSQL, not SQLite file
+  base_dir: ./storage_data_v3
+  document_registry_path: ""  # Uses PostgreSQL, not SQLite file
+
+# Validation settings
+validation:
+  validate_urls: true
+  validate_files: true
+
+# Processing limits
+limits:
+  max_file_size_mb: 100
+  max_pages_per_pdf: 50
+
+# Enhanced monitoring
+monitoring:
+  progress_callback: true
+  save_report: true
+  report_file: processing_report_v3.json
+  resource_monitoring: true
+  alert_on_failures: true

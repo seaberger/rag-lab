@@ -7,14 +7,13 @@ import asyncio
 import contextlib
 import os
 import shutil
-
-# Add parent directory for imports
 import sys
 import uuid
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 
 # Import cleanup fixtures
 
@@ -24,7 +23,13 @@ from pipeline.enhanced_core import EnhancedPipeline
 from qdrant_client import QdrantClient
 from qdrant_client.http import exceptions as qdrant_exceptions
 
-from utils.config import PipelineConfig
+from utils.config import DatabaseSettings, PipelineConfig, PostgreSQLSettings
+
+try:
+    from core.database_factory import DatabaseFactory
+except ImportError:
+    # Database factory may not be available in all test environments
+    DatabaseFactory = None
 
 # Test environment name
 TEST_ENVIRONMENT = "test_env"
@@ -52,20 +57,12 @@ def qdrant_client_context(config):
 def ensure_database_connections_closed():
     """Force close any lingering database connections."""
     import gc
-    import sqlite3
 
     # Force garbage collection to close any lingering connections
     gc.collect()
 
-    # Try to close any open SQLite connections
-    try:
-        # This is a bit of a hack, but helps with SQLite connection cleanup
-        for obj in gc.get_objects():
-            if isinstance(obj, sqlite3.Connection):
-                with contextlib.suppress(Exception):
-                    obj.close()
-    except Exception:
-        pass  # Best effort cleanup
+    # PostgreSQL connections are managed by connection pools
+    # and will be cleaned up automatically
 
 
 @pytest.fixture(scope="session")
@@ -109,7 +106,22 @@ def create_test_config(
 
     # Generate unique identifier for this test instance (use UUID for better uniqueness)
     if unique_id is None:
-        unique_id = str(uuid.uuid4()).replace("-", "")[:12]  # 12 char unique ID
+        unique_id = str(uuid.uuid4()).replace("-", "")[:12]  # 12 char unique ID for paths
+
+    # For multi-tenancy testing, use different registered tenant IDs for different environments
+    # But keep a consistent pattern for the same environment across test runs
+    if environment == "test_env":
+        # Default test environment uses the CI tenant ID
+        tenant_uuid = "11111111-1111-1111-1111-111111111111"
+    elif environment == "env1":
+        # Use a second registered test tenant for env1
+        tenant_uuid = "22222222-2222-2222-2222-222222222222"
+    elif environment == "env2":
+        # Use a third registered test tenant for env2
+        tenant_uuid = "33333333-3333-3333-3333-333333333333"
+    else:
+        # For other environments, use the default CI tenant to avoid registration issues
+        tenant_uuid = "11111111-1111-1111-1111-111111111111"
 
     # Create environment-specific paths with unique ID
     env_path = base_path / f"{environment}_{unique_id}"
@@ -117,14 +129,16 @@ def create_test_config(
 
     # Override all database and storage paths
     config.storage.base_dir = str(env_path / "storage_data")
-    config.storage.keyword_db_path = str(env_path / "keyword_index.db")
-    config.storage.document_registry_path = str(env_path / "document_registry.db")
+    # PostgreSQL is used for keyword index and document registry - no file paths needed
+    config.storage.keyword_db_path = None
+    config.storage.document_registry_path = None
 
     config.cache.directory = str(env_path / "cache")
     # Configure Qdrant for server mode (baseline for all tests)
     config.qdrant.mode = "server"
     # Create unique collection name per test to avoid conflicts
-    config.qdrant.collection_name = f"datasheets_{environment}_{unique_id}"
+    # Use CI test prefix for proper cleanup
+    config.qdrant.collection_name = f"ci_test_{environment}_{unique_id}"
 
     config.job_queue.job_storage_path = str(env_path / "jobs.db")
     config.fingerprint.storage_path = str(env_path / "fingerprints.db")
@@ -133,6 +147,27 @@ def create_test_config(
     config.pipeline.timeout_per_page = 10
     config.chunking.chunk_size = 512
     config.chunking.chunk_overlap = 50
+
+    # Configure PostgreSQL for tests
+    config.database.backend = "postgresql"
+
+    # Load PostgreSQL credentials from environment
+    # First check if .env.postgres exists and load it
+    env_postgres = Path(__file__).parent.parent.parent.parent / ".env.postgres"
+    if env_postgres.exists():
+        load_dotenv(env_postgres, override=True)
+
+    # Apply PostgreSQL settings
+    config.database.postgresql.host = os.environ.get("POSTGRES_HOST", "localhost")
+    config.database.postgresql.port = int(os.environ.get("POSTGRES_PORT", "5432"))
+    config.database.postgresql.database = os.environ.get(
+        "POSTGRES_DB", os.environ.get("POSTGRES_DATABASE", "rag_lab")
+    )
+    config.database.postgresql.user = os.environ.get("POSTGRES_USER", "postgres")
+    config.database.postgresql.password = os.environ.get("POSTGRES_PASSWORD", "")
+    config.database.postgresql.default_tenant_id = (
+        tenant_uuid  # Use full UUID as tenant for test isolation
+    )
 
     return config
 
@@ -270,6 +305,8 @@ def clear_test_databases(config: PipelineConfig):
     ]
 
     for db_path in db_paths:
+        if db_path is None:  # Skip None paths (PostgreSQL-managed)
+            continue
         db_file = Path(db_path)
         if db_file.exists():
             for attempt in range(max_retries):
@@ -282,6 +319,68 @@ def clear_test_databases(config: PipelineConfig):
                         time.sleep(retry_delay)
                     else:
                         print(f"Warning: Could not remove {db_file.name}: {e}")
+
+    # Clear PostgreSQL data if using PostgreSQL backend
+    if config.database.backend == "postgresql":
+        try:
+            # Import here to avoid circular imports
+            from ..core.database_factory import DatabaseFactory
+
+            # Get the tenant ID from config
+            tenant_id = config.database.postgresql.default_tenant_id
+
+            # Create a new database factory to get direct SQL access
+            factory = DatabaseFactory(config)
+
+            # Clear data using direct SQL for better reliability
+            if hasattr(factory, "registry") and factory.registry:
+                # Clear registry documents
+                try:
+                    factory.registry.db.execute(
+                        "DELETE FROM registry.documents WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared registry documents for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear registry documents: {e}")
+
+            if hasattr(factory, "keyword_index") and factory.keyword_index:
+                # Clear keyword search data
+                try:
+                    factory.keyword_index.db.execute(
+                        "DELETE FROM search.keyword_search WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    factory.keyword_index.db.execute(
+                        "DELETE FROM search.doc_metadata WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared keyword search data for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear keyword search data: {e}")
+
+            if hasattr(factory, "job_manager") and factory.job_manager:
+                # Clear jobs
+                try:
+                    factory.job_manager.db.execute(
+                        "DELETE FROM jobs.queue WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared jobs for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear jobs: {e}")
+
+            if hasattr(factory, "fingerprint_manager") and factory.fingerprint_manager:
+                # Clear fingerprints
+                try:
+                    factory.fingerprint_manager.db.execute(
+                        "DELETE FROM fingerprints.fingerprints WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared fingerprints for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear fingerprints: {e}")
+
+            # Force close all connections to ensure clean state
+            # Note: TenantConnectionManager handles connection pooling internally
+
+        except Exception as e:
+            print(f"Warning: Could not clear PostgreSQL data: {e}")
 
 
 @pytest.fixture(scope="session")
@@ -327,12 +426,53 @@ def test_config(test_base_dir):
     # clear_test_databases(config)
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
+def database_factory(test_config):
+    """Create DatabaseFactory for test configuration."""
+    if DatabaseFactory is None:
+        pytest.skip("DatabaseFactory not available")
+
+    factory = DatabaseFactory(test_config)
+
+    # Validate configuration
+    if not factory.validate_backend_configuration():
+        pytest.skip(f"Database backend not properly configured: {factory.backend}")
+
+    yield factory
+
+    # Factory cleanup is handled by individual adapter cleanup
+
+
+@pytest.fixture
+def database_adapters(database_factory):
+    """Create database adapters for testing."""
+    adapters = None
+    try:
+        adapters = database_factory.create_all()
+        yield adapters
+    finally:
+        if adapters:
+            database_factory.close_all(adapters)
+
+
+@pytest_asyncio.fixture(scope="function")
 async def test_pipeline(test_config):
     """Provide an initialized test pipeline with proper cleanup."""
     pipeline = None
     try:
-        pipeline = EnhancedPipeline(test_config)
+        # Create DatabaseFactory and adapters for proper component initialization
+        if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
+            factory = DatabaseFactory(test_config)
+            # Always create adapters for PostgreSQL backend
+            try:
+                adapters = factory.create_all()
+                pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
+            except Exception as e:
+                # If factory fails, raise error since we require PostgreSQL
+                raise ValueError(f"Failed to create database adapters: {e}")
+        else:
+            # Direct initialization for compatibility
+            raise ValueError("Pipeline v3 requires PostgreSQL backend with DatabaseFactory")
 
         # Wait for Qdrant to be ready
         import time
@@ -354,15 +494,25 @@ async def test_pipeline(test_config):
         yield pipeline
 
     finally:
-        # Proper cleanup of Qdrant resources
+        # Proper cleanup of all resources
         if pipeline:
+            # Close DatabaseFactory adapters if they exist
+            if hasattr(pipeline, "database_adapters") and pipeline.database_adapters:
+                try:
+                    # Close all adapters through their close methods
+                    for _adapter_name, adapter in pipeline.database_adapters.items():
+                        if hasattr(adapter, "close"):
+                            adapter.close()
+                except Exception as e:
+                    print(f"Warning: Error closing database adapters: {e}")
+
             cleanup_qdrant_resources(pipeline, test_config)
 
-        # Optional: Clear databases if needed for this specific test
-        # clear_test_databases(test_config)
+        # Clear databases after each test for proper isolation
+        clear_test_databases(test_config)
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def populated_pipeline(test_pipeline, test_config):
     """Provide a pipeline with pre-populated test data."""
     pipeline = test_pipeline
@@ -371,6 +521,7 @@ async def populated_pipeline(test_pipeline, test_config):
     test_doc_path = Path("data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf")
 
     if test_doc_path.exists():
+        print(f"[populated_pipeline] Processing document: {test_doc_path}")
         # Process document WITH keywords to enable keyword search tests
         result = await pipeline.process_document(
             str(test_doc_path),
@@ -382,8 +533,26 @@ async def populated_pipeline(test_pipeline, test_config):
             with_keywords=True,  # Enable keyword indexing for search tests
         )
 
-        # Store the doc_id for tests to use
-        pipeline.test_doc_id = result.get("doc_id") if result else None
+        print(f"[populated_pipeline] Process result: {result}")
+        print(f"[populated_pipeline] Result status: '{result.get('status') if result else 'None'}'")
+        print(f"[populated_pipeline] Result keys: {list(result.keys()) if result else 'None'}")
+
+        # Check if processing succeeded
+        if result.get("status") == "error":
+            error_msg = f"Document processing failed: {result.get('error', 'unknown error')}"
+            error_details = result.get("error_details", "No additional details")
+            print(f"[populated_pipeline] ERROR: {error_msg}")
+            print(f"[populated_pipeline] ERROR DETAILS: {error_details}")
+            # Store complete error info
+            pipeline.test_doc_id = None
+            pipeline.test_error = f"{error_msg}. Details: {error_details}"
+        else:
+            # Store the doc_id for tests to use
+            pipeline.test_doc_id = result.get("doc_id") if result else None
+            pipeline.test_error = None
+            print(f"[populated_pipeline] Document ID: {pipeline.test_doc_id}")
+    else:
+        print(f"[populated_pipeline] ERROR: Test document not found at {test_doc_path}")
 
     yield pipeline
 
@@ -518,3 +687,171 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "requires_api" in item.keywords:
                 item.add_marker(skip_api)
+
+    # Check PostgreSQL availability and skip if needed
+    pg_available = check_postgresql_available()
+    if not pg_available:
+        skip_pg = pytest.mark.skip(reason="PostgreSQL not available for testing")
+        for item in items:
+            if "postgresql" in item.keywords or "postgres" in item.keywords:
+                item.add_marker(skip_pg)
+
+
+# PostgreSQL-specific fixtures and functions
+def check_postgresql_available() -> bool:
+    """Check if PostgreSQL is available for testing."""
+    try:
+        # Check if DatabaseFactory is available
+        if DatabaseFactory is None:
+            print("DatabaseFactory not available")
+            return False
+
+        # Check if we have PostgreSQL environment variables
+        # Check for both POSTGRES_DB and POSTGRES_DATABASE
+        has_db = os.getenv("POSTGRES_DB") or os.getenv("POSTGRES_DATABASE")
+        required_env_vars = []
+        if not os.getenv("POSTGRES_HOST"):
+            required_env_vars.append("POSTGRES_HOST")
+        if not has_db:
+            required_env_vars.append("POSTGRES_DB or POSTGRES_DATABASE")
+        if not os.getenv("POSTGRES_USER"):
+            required_env_vars.append("POSTGRES_USER")
+        if not os.getenv("POSTGRES_PASSWORD"):
+            required_env_vars.append("POSTGRES_PASSWORD")
+        missing_vars = required_env_vars
+
+        if missing_vars:
+            print(f"PostgreSQL test environment not configured. Missing: {missing_vars}")
+            return False
+
+        # Try to create a PostgreSQL configuration and validate it
+        test_config = PipelineConfig(
+            database=DatabaseSettings(
+                backend="postgresql",
+                postgresql=PostgreSQLSettings(
+                    host=os.getenv("POSTGRES_HOST", "localhost"),
+                    port=int(os.getenv("POSTGRES_PORT", "5432")),
+                    database=os.getenv("POSTGRES_DB", os.getenv("POSTGRES_DATABASE", "rag_lab")),
+                    user=os.getenv("POSTGRES_USER", "postgres"),
+                    password=os.getenv("POSTGRES_PASSWORD", ""),
+                ),
+            )
+        )
+
+        factory = DatabaseFactory(test_config)
+        return factory.validate_backend_configuration()
+    except Exception as e:
+        print(f"PostgreSQL availability check failed: {e}")
+        return False
+
+
+@pytest.fixture(scope="session")
+def postgresql_config():
+    """Create PostgreSQL test configuration."""
+    if not check_postgresql_available():
+        pytest.skip("PostgreSQL not available for testing")
+
+    return PipelineConfig(
+        database=DatabaseSettings(
+            backend="postgresql",
+            log_queries=False,
+            postgresql=PostgreSQLSettings(
+                host=os.getenv("POSTGRES_HOST", "localhost"),
+                port=int(os.getenv("POSTGRES_PORT", "5432")),
+                database=os.getenv("POSTGRES_DATABASE", "test_rag_lab"),
+                user=os.getenv("POSTGRES_USER", "test_user"),
+                password=os.getenv("POSTGRES_PASSWORD", ""),
+                ssl_mode=os.getenv("POSTGRES_SSL_MODE", "prefer"),
+                default_tenant_id=str(uuid.uuid4()),  # Unique tenant per test session
+            ),
+        )
+    )
+
+
+@pytest.fixture(params=["sqlite", "postgresql"])
+def database_backend(request):
+    """Parametrized fixture for testing both backends."""
+    backend = request.param
+
+    # Skip PostgreSQL tests if not available
+    if backend == "postgresql" and not check_postgresql_available():
+        pytest.skip("PostgreSQL not available for testing")
+
+    return backend
+
+
+@pytest.fixture
+def test_config_multi_backend(database_backend, test_config, postgresql_config):
+    """Get test configuration for the specified backend."""
+    if database_backend == "sqlite":
+        return test_config
+    elif database_backend == "postgresql":
+        return postgresql_config
+    else:
+        raise ValueError(f"Unknown backend: {database_backend}")
+
+
+@pytest.fixture
+def database_factory_multi(test_config_multi_backend):
+    """Create database factory for both backends."""
+    if DatabaseFactory is None:
+        pytest.skip("DatabaseFactory not available")
+
+    factory = DatabaseFactory(test_config_multi_backend)
+
+    # Validate configuration before use
+    if not factory.validate_backend_configuration():
+        pytest.skip(f"Database backend not properly configured: {factory.backend}")
+
+    return factory
+
+
+@pytest.fixture
+def test_tenant_id():
+    """Generate unique tenant ID for tests."""
+    return str(uuid.uuid4())
+
+
+@pytest.fixture
+def database_adapters_multi(database_factory_multi, test_tenant_id):
+    """Create database adapters for both backends."""
+    try:
+        adapters = database_factory_multi.create_all()
+        yield adapters
+    except Exception as e:
+        pytest.skip(f"Could not create database adapters: {e}")
+    finally:
+        if "adapters" in locals():
+            database_factory_multi.close_all(adapters)
+
+
+# Helper functions for multi-backend tests
+def create_test_document_info() -> dict:
+    """Create test document information."""
+    return {
+        "source": "/path/to/test.pdf",
+        "content_hash": "abc123def456",  # pragma: allowlist secret
+        "size": 1024,
+        "modified_time": 1234567890.0,
+        "metadata": {"type": "test", "category": "document"},
+    }
+
+
+def create_test_job_info() -> dict:
+    """Create test job information."""
+    return {
+        "job_type": "process_document",
+        "payload": {"source": "/path/to/test.pdf", "mode": "datasheet"},
+        "priority": 1,
+    }
+
+
+def create_test_search_data() -> dict:
+    """Create test search data."""
+    return {
+        "doc_id": str(uuid.uuid4()),
+        "chunk_id": "chunk_001",
+        "text": "This is test content about laser sensors and photodiodes.",
+        "keywords": ["laser", "sensor", "photodiode", "measurement"],
+        "metadata": {"page": 1, "section": "specifications"},
+    }

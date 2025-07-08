@@ -1,41 +1,54 @@
 # Pipeline v3 Quick Reference 🚀
 
-## 🎉 **LATEST UPDATES** - Issues #36 & #22 RESOLVED
-- **✅ NEW: Enterprise CLI Parameters**: Consistent `--document-type`, `--processing-options`, `--profile` (Issue #36)
+## 🎉 **LATEST UPDATES** - Multi-Tenant Enterprise Architecture Ready!
+- **✅ NEW: PostgreSQL Multi-Tenant Database**: Complete tenant isolation with Row-Level Security (January 2025)
+- **✅ Database Setup Automation**: Full PostgreSQL + Qdrant setup with comprehensive documentation
+- **✅ CRITICAL BUG FIX**: Vector search tenant filtering now works correctly (was bypassed before)
+- **✅ Tenant-Specific CLI**: `--tenant-id` parameter for complete data isolation
+- **✅ Enterprise CLI Parameters**: Consistent `--document-type`, `--processing-options`, `--profile`
 - **✅ Enhanced Search**: Advanced hybrid fusion algorithms (RRF, Adaptive, Weighted)
-- **✅ CLI Search Fixed**: All search types working (vector, keyword, hybrid)
-- **✅ Vector Search**: Proper LlamaIndex integration with VectorStoreQuery
-- **✅ Basic Filtering**: Document ID filtering implemented
-- **✅ Production Ready**: All core functionality restored and enhanced
+- **✅ Production Ready**: Enterprise-grade multi-tenant architecture with complete data isolation
 
 ## ✅ Recent Features Added
+- **January 2025**: 🆕 **Complete Multi-Tenant PostgreSQL Architecture** with RLS and tenant isolation
+- **January 2025**: 🆕 **Database Setup Automation** - Complete PostgreSQL + Qdrant setup scripts and documentation
+- **January 2025**: 🆕 **Critical Tenant Filtering Fix** - Vector search now properly respects tenant boundaries
+- **January 2025**: 🆕 **CLI Tenant Support** - `--tenant-id` parameter for tenant-specific operations
 - **Issue #36**: 🆕 Enterprise CLI parameter consistency (`--document-type`, `--processing-options`, `--profile`)
-- **Issue #33**: 🆕 Enhanced directory parsing with filtering and Office document support (**LATEST**)
+- **Issue #33**: 🆕 Enhanced directory parsing with filtering and Office document support
 - **Issue #45**: 🆕 URL Batch Processing (process URLs from markdown/JSON files)
 - **Issue #31**: 🆕 Microsoft Office document support (Word & PowerPoint)
 - **Issue #22**: Enhanced search with advanced hybrid fusion methods
-- **Issue #17**: Fixed keyword generation JSON parsing (OpenAI compatibility)
-- **Issue #20**: Fixed vector indexing with keyword enhancement
-- **Issue #19**: Fixed vector index deletion during document updates
-- **Issue #18**: Removed redundant update command (use add with --force)
-- **Issue #11**: Configurable timeout handling with `--timeout` and `--timeout-per-page`
-- **Issue #9**: Consolidated CLI with full v2.1 feature parity
 
-## ⚠️ **CRITICAL: Start Qdrant Server First!** ⚠️
+## ⚠️ **CRITICAL: Database Setup Required!** ⚠️
 
-**Pipeline v3 now uses Qdrant server mode by default!** You MUST start the server before processing:
+**Pipeline v3 uses multi-tenant PostgreSQL + Qdrant architecture!**
 
+### Quick Setup (New Installations)
 ```bash
-# ✅ REQUIRED - Start Qdrant server first
+# ✅ OPTION 1: Automated setup (recommended)
+./setup_databases.sh
+
+# ✅ OPTION 2: Manual setup
+# See: DATABASE_SETUP_GUIDE.md for detailed instructions
+
+# ✅ Verify setup works
+uv run python -m src.pipeline_v3.cli_main status --json
+```
+
+### Daily Usage (Services Already Setup)
+```bash
+# Start Qdrant server (if not running)
 ./scripts/qdrant_server.sh start
 
+# PostgreSQL should be running as system service
 # Dashboard available at: http://localhost:6333/dashboard
 ```
 
-**For offline/local development only:**
+**For single-user local development only:**
 ```bash
-# Use local file storage instead
-python cli_main.py --config config_local.yaml [command]
+# Use SQLite instead of PostgreSQL
+uv run python -m src.pipeline_v3.cli_main --config config_local.yaml [command]
 ```
 
 ## ⚠️ **CRITICAL PRODUCTION WARNING** ⚠️
@@ -61,43 +74,48 @@ python cli_main.py add "docs/*.pdf"  # Processes reliably
 
 ### Quick Start Flow (<10 lines)
 ```bash
-# 1. Start Qdrant server (REQUIRED first step!)
-./scripts/qdrant_server.sh start
+# 1. Setup databases (one-time setup)
+./setup_databases.sh
 
-# 2. Modern document processing with type classification
-python cli_main.py add document.pdf --document-type datasheet --processing-options keywords
+# 2. Verify multi-tenant system works
+uv run python -m src.pipeline_v3.cli_main status --json
 
-# 3. Advanced hybrid search with adaptive fusion
-python cli_main.py search "laser sensors" --fusion-method adaptive --top-k 5
+# 3. Modern document processing with tenant isolation
+uv run python -m src.pipeline_v3.cli_main add document.pdf --document-type datasheet --processing-options keywords
 
-# 4. Directory processing with filtering
-python cli_main.py add /docs --recursive --include-pattern "*.pdf" --exclude-pattern "**/test/**"
+# 4. Multi-tenant search with complete data isolation
+uv run python -m src.pipeline_v3.cli_main search "laser sensors" --fusion-method adaptive --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
 
-# 5. URL batch processing
-python cli_main.py add dummy --url-file batch_urls.json --workers 3
+# 5. Directory processing with tenant context
+uv run python -m src.pipeline_v3.cli_main add /docs --recursive --include-pattern "*.pdf" --exclude-pattern "**/test/**"
 
-# 6. Page-range processing for large documents
-python cli_main.py add manual.pdf --pages "1-10" --document-type manual
+# 6. Test tenant isolation (should return different results)
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+uv run python -m src.pipeline_v3.cli_main search "test" --tenant-id 4a58b5b8-9c7e-4e5a-8c3b-7f9e6d2a1c8e
 ```
 
 ### Document Operations
 ```bash
-# Modern Document Type Classification
-python cli_main.py add datasheet.pdf --document-type datasheet --processing-options keywords
-python cli_main.py add manual.pdf --document-type manual --processing-options enhanced-metadata
-python cli_main.py add spec.pdf --document-type specification --metadata version=2.0
-python cli_main.py add unknown.pdf --document-type auto  # Automatic detection
+# Modern Document Type Classification with Multi-Tenant Support
+uv run python -m src.pipeline_v3.cli_main add datasheet.pdf --document-type datasheet --processing-options keywords
+uv run python -m src.pipeline_v3.cli_main add manual.pdf --document-type manual --processing-options enhanced-metadata
+uv run python -m src.pipeline_v3.cli_main add spec.pdf --document-type specification --metadata version=2.0
+uv run python -m src.pipeline_v3.cli_main add unknown.pdf --document-type auto  # Automatic detection
+
+# Tenant-Specific Document Management (Enterprise)
+uv run python -m src.pipeline_v3.cli_main add document.pdf --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+uv run python -m src.pipeline_v3.cli_main add confidential.pdf --tenant-id 4a58b5b8-9c7e-4e5a-8c3b-7f9e6d2a1c8e
 
 # Processing Profiles (Predefined Configurations)
-python cli_main.py add catalog.pdf --profile comprehensive
-python cli_main.py add datasheet.pdf --profile standard-datasheet
-python cli_main.py add quick_scan.pdf --profile quick-scan
+uv run python -m src.pipeline_v3.cli_main add catalog.pdf --profile comprehensive
+uv run python -m src.pipeline_v3.cli_main add datasheet.pdf --profile standard-datasheet
+uv run python -m src.pipeline_v3.cli_main add quick_scan.pdf --profile quick-scan
 
 # Advanced Directory Processing with Patterns
-python cli_main.py add /company_docs --recursive --dry-run                      # Preview files
-python cli_main.py add /docs --include-pattern "*.pdf" --exclude-pattern "**/test/**"
-python cli_main.py add /reports --include-pattern "*.docx" --include-pattern "*.pptx"
-python cli_main.py add /data --recursive --exclude-pattern "*.tmp" --exclude-pattern ".git/**"
+uv run python -m src.pipeline_v3.cli_main add /company_docs --recursive --dry-run                      # Preview files
+uv run python -m src.pipeline_v3.cli_main add /docs --include-pattern "*.pdf" --exclude-pattern "**/test/**"
+uv run python -m src.pipeline_v3.cli_main add /reports --include-pattern "*.docx" --include-pattern "*.pptx"
+uv run python -m src.pipeline_v3.cli_main add /data --recursive --exclude-pattern "*.tmp" --exclude-pattern ".git/**"
 
 # URL Batch Processing (Modern)
 python cli_main.py add dummy --url-file batch_urls.json --processing-options keywords
@@ -108,42 +126,52 @@ python cli_main.py add large_manual.pdf --pages "1-10" --document-type manual
 python cli_main.py add catalog.pdf --pages "1-5,20-30" --processing-options keywords
 python cli_main.py add spec.pdf --pages "1,3,5,10-15" --profile standard-datasheet
 
-# Advanced Search with Multiple Fusion Methods
-python cli_main.py search "laser measurement" --fusion-method adaptive --top-k 10
-python cli_main.py search "PM10K specifications" --type keyword --filter '{"doc_ids": ["abc123"]}'
-python cli_main.py search "calibration procedures" --type hybrid --fusion-method rrf
-python cli_main.py search "thermopile sensor" --type vector --top-k 5
+# Advanced Search with Multiple Fusion Methods and Tenant Isolation
+uv run python -m src.pipeline_v3.cli_main search "laser measurement" --fusion-method adaptive --top-k 10
+uv run python -m src.pipeline_v3.cli_main search "PM10K specifications" --type keyword --filter '{"doc_ids": ["abc123"]}'
+uv run python -m src.pipeline_v3.cli_main search "calibration procedures" --type hybrid --fusion-method rrf
+uv run python -m src.pipeline_v3.cli_main search "thermopile sensor" --type vector --top-k 5
+
+# Multi-Tenant Search (Complete Data Isolation)
+uv run python -m src.pipeline_v3.cli_main search "sensor" --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
+uv run python -m src.pipeline_v3.cli_main search "sensor" --tenant-id 4a58b5b8-9c7e-4e5a-8c3b-7f9e6d2a1c8e  # Different results
 
 # Document Management
-python cli_main.py add document.pdf --force  # Force reprocess with change detection
-python cli_main.py remove document.pdf       # Remove from all indexes
+uv run python -m src.pipeline_v3.cli_main add document.pdf --force  # Force reprocess with change detection
+uv run python -m src.pipeline_v3.cli_main remove document.pdf       # Remove from all indexes
+
+# Tenant-Specific Document Management
+uv run python -m src.pipeline_v3.cli_main remove document.pdf --tenant-id 081f2c7d-20be-4fc6-b8e2-113b9629db8e
 ```
 
 ### Queue Management
 ```bash
 # Start/Stop processing queue
-python cli_main.py queue start --workers 4
-python cli_main.py queue stop --wait
-python cli_main.py queue status --detailed
+uv run python -m src.pipeline_v3.cli_main queue start --workers 4
+uv run python -m src.pipeline_v3.cli_main queue stop --wait
+uv run python -m src.pipeline_v3.cli_main queue status --detailed
 ```
 
 ### System Status
 ```bash
-# Check system status
-python cli_main.py status
-python cli_main.py status --detailed --json
+# Check system status (shows tenant context and PostgreSQL backend)
+uv run python -m src.pipeline_v3.cli_main status
+uv run python -m src.pipeline_v3.cli_main status --detailed --json
 
 # Run maintenance
-python cli_main.py maintenance --repair
-python cli_main.py maintenance --consistency-check
+uv run python -m src.pipeline_v3.cli_main maintenance --repair
+uv run python -m src.pipeline_v3.cli_main maintenance --consistency-check
 ```
 
 ### Configuration
 ```bash
 # View/Set configuration
-python cli_main.py config list
-python cli_main.py config get queue.max_workers
-python cli_main.py config set queue.max_workers 8
+uv run python -m src.pipeline_v3.cli_main config list
+uv run python -m src.pipeline_v3.cli_main config get queue.max_workers
+uv run python -m src.pipeline_v3.cli_main config set queue.max_workers 8
+
+# View tenant configuration
+uv run python -m src.pipeline_v3.cli_main config get database.postgresql.default_tenant_id
 ```
 
 ### Advanced Batch Example (Production)
