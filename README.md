@@ -1,7 +1,7 @@
 # RAG Lab - Production Document Intelligence Engine 🚀
 
-[![CI/CD Pipeline](https://github.com/seaberger/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/ci.yml)
-[![Pipeline v3 CI](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/pipeline_v3_ci.yml)
+[![Quick CI](https://github.com/seaberger/rag-lab/actions/workflows/quick-ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/quick-ci.yml)
+[![Comprehensive CI](https://github.com/seaberger/rag-lab/actions/workflows/comprehensive-ci.yml/badge.svg)](https://github.com/seaberger/rag-lab/actions/workflows/comprehensive-ci.yml)
 [![Tests](https://img.shields.io/badge/tests-359%20passing-brightgreen)](./src/pipeline_v3/tests/)
 [![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen)](./src/pipeline_v3/tests/)
 [![Documentation](https://img.shields.io/badge/docs-comprehensive-blue)](./src/pipeline_v3/USER_MANUAL.md)

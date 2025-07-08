@@ -1,4 +1,9 @@
-name: CI/CD Pipeline
+name: Quick CI
+
+# Quick CI Pipeline - Runs on every push/PR to main branches
+# Mirrors the local run_local_quickci.sh script
+# Focuses on fast feedback with essential tests only
+# Minimizes OpenAI API usage by running all tests in one command
 
 on:
   push:
