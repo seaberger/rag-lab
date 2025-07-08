@@ -617,6 +617,11 @@ class EnhancedPipeline:
                 enhanced_markdown = "\n\n".join(node.text for node in nodes) if nodes else content
             else:
                 # Use direct indexing without keyword enhancement
+                # Ensure source is in metadata for proper indexing
+                if metadata is None:
+                    metadata = {}
+                if source is not None and "source" not in metadata:
+                    metadata["source"] = str(source)
                 success = self.index_manager.add_document(doc_id, content, metadata, index_types)
                 enhanced_markdown = content  # No enhancement, use original
 

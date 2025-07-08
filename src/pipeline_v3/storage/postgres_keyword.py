@@ -466,6 +466,10 @@ class PostgreSQLKeywordIndex:
         logger.info(f"Deleted {result} chunks for document: {doc_id[:8]}")
         return result
 
+    def remove_document(self, doc_id: str) -> int:
+        """Remove document from index (alias for delete_document for interface compatibility)."""
+        return self.delete_document(doc_id)
+
     def rebuild_search_vectors(self) -> int:
         """Rebuild search vectors for all documents (maintenance operation)."""
         # This would be triggered if we change the text search configuration

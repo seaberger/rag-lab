@@ -180,7 +180,15 @@ class IndexManager:
         try:
             # Get doc_id from first chunk's metadata
             doc_id = chunks[0].metadata.get("doc_id", "unknown")
-            source = chunks[0].metadata.get("source", "unknown")
+            source = chunks[0].metadata.get("source", None)
+
+            # If source is not set, generate a unique one to avoid conflicts
+            if not source or source == "unknown":
+                source = f"doc_{doc_id[:8]}"
+                # Update all chunks to have this source
+                for chunk in chunks:
+                    chunk.metadata["source"] = source
+
             pairs = chunks[0].metadata.get("pairs", [])
 
             # Debug log to understand why source might be unknown
@@ -291,20 +299,31 @@ class IndexManager:
             # Create document with custom structure
             doc_metadata = metadata or {}
             doc_metadata["doc_id"] = doc_id  # Ensure doc_id is in metadata
+
+            # Ensure source is preserved in metadata
+            if "source" not in doc_metadata:
+                # If no source provided, use doc_id as a fallback to avoid conflicts
+                doc_metadata["source"] = f"doc_{doc_id[:8]}"
+
             doc = Document(text=content, doc_id=doc_id, metadata=doc_metadata)
 
             # Split into chunks
             chunks = self.text_splitter.create_chunks(doc)
 
-            # Add backend-specific metadata
+            # Add backend-specific metadata and ensure source is set
+            source_value = doc_metadata.get("source", f"doc_{doc_id[:8]}")
             if self.config.database.backend == "postgresql":
                 tenant_id = self.config.database.postgresql.default_tenant_id
                 for chunk in chunks:
                     chunk.metadata["tenant_id"] = tenant_id
                     chunk.metadata["backend"] = "postgresql"
+                    chunk.metadata["source"] = source_value  # Ensure source is set
+                    chunk.metadata["doc_id"] = doc_id  # Ensure doc_id is set
             else:
                 for chunk in chunks:
                     chunk.metadata["backend"] = "sqlite"
+                    chunk.metadata["source"] = source_value  # Ensure source is set
+                    chunk.metadata["doc_id"] = doc_id  # Ensure doc_id is set
 
             success = True
 
@@ -433,16 +452,26 @@ class IndexManager:
             success = True
 
             # Ensure backend-specific metadata
+            # Extract source from first chunk or generate a unique one
+            source_value = None
+            if chunks and "source" in chunks[0].metadata:
+                source_value = chunks[0].metadata["source"]
+            if not source_value:
+                # Generate unique source to avoid conflicts
+                source_value = f"doc_{doc_id[:8]}"
+
             if self.config.database.backend == "postgresql":
                 tenant_id = self.config.database.postgresql.default_tenant_id
                 for chunk in chunks:
                     chunk.metadata["tenant_id"] = tenant_id
                     chunk.metadata["backend"] = "postgresql"
                     chunk.metadata["doc_id"] = doc_id
+                    chunk.metadata["source"] = source_value  # Ensure source is set
             else:
                 for chunk in chunks:
                     chunk.metadata["backend"] = "sqlite"
                     chunk.metadata["doc_id"] = doc_id
+                    chunk.metadata["source"] = source_value  # Ensure source is set
 
             # Add to vector index
             if index_types.value in ["vector", "both"] and self.qdrant_client:
@@ -577,28 +606,25 @@ class IndexManager:
         try:
             success = True
 
-            # Get existing index entries
-            entries = self.registry.get_index_entries(doc_id)
+            # Get existing index entries (for logging purposes)
+            # Note: We don't need to check entries before deletion as we always
+            # attempt to delete from both indexes to ensure cleanup
 
             # Remove from vector index
             if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.qdrant_client:
                 try:
-                    vector_entries = [e for e in entries if e.index_type == IndexType.VECTOR.value]
-                    if vector_entries:
-                        # Use filter-based deletion to ensure all chunks are removed
-                        self.qdrant_client.delete(
-                            collection_name=self.config.qdrant.collection_name,
-                            points_selector=FilterSelector(
-                                filter=Filter(
-                                    must=[
-                                        FieldCondition(key="doc_id", match=MatchValue(value=doc_id))
-                                    ]
-                                )
-                            ),
-                        )
-                        logger.info(
-                            f"Removed all chunks for document {doc_id[:8]} from vector index"
-                        )
+                    # Always attempt to delete from Qdrant, regardless of registry entries
+                    # This ensures cleanup even if registry is out of sync
+                    self.qdrant_client.delete(
+                        collection_name=self.config.qdrant.collection_name,
+                        points_selector=FilterSelector(
+                            filter=Filter(
+                                must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
+                            )
+                        ),
+                        wait=True,  # Ensure synchronous deletion
+                    )
+                    logger.info(f"Removed all chunks for document {doc_id[:8]} from vector index")
 
                 except Exception as e:
                     logger.error(f"Failed to remove from vector index: {e}")
@@ -1383,6 +1409,7 @@ class IndexManager:
                         must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
                     )
                 ),
+                wait=True,  # Ensure synchronous deletion
             )
             logger.info(f"Deleted all chunks for document {doc_id[:8]} from vector index")
             return True
