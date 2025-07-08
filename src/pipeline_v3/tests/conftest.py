@@ -104,15 +104,24 @@ def create_test_config(
     """Create a test configuration with isolated databases and unique collection names."""
     config = PipelineConfig()
 
-    # Use the CI test tenant for all tests
-    ci_tenant_id = "11111111-1111-1111-1111-111111111111"
-
     # Generate unique identifier for this test instance (use UUID for better uniqueness)
     if unique_id is None:
         unique_id = str(uuid.uuid4()).replace("-", "")[:12]  # 12 char unique ID for paths
 
-    # Always use the CI tenant ID for PostgreSQL
-    tenant_uuid = ci_tenant_id
+    # For multi-tenancy testing, use different registered tenant IDs for different environments
+    # But keep a consistent pattern for the same environment across test runs
+    if environment == "test_env":
+        # Default test environment uses the CI tenant ID
+        tenant_uuid = "11111111-1111-1111-1111-111111111111"
+    elif environment == "env1":
+        # Use a second registered test tenant for env1
+        tenant_uuid = "22222222-2222-2222-2222-222222222222"
+    elif environment == "env2":
+        # Use a third registered test tenant for env2
+        tenant_uuid = "33333333-3333-3333-3333-333333333333"
+    else:
+        # For other environments, use the default CI tenant to avoid registration issues
+        tenant_uuid = "11111111-1111-1111-1111-111111111111"
 
     # Create environment-specific paths with unique ID
     env_path = base_path / f"{environment}_{unique_id}"
@@ -311,6 +320,68 @@ def clear_test_databases(config: PipelineConfig):
                     else:
                         print(f"Warning: Could not remove {db_file.name}: {e}")
 
+    # Clear PostgreSQL data if using PostgreSQL backend
+    if config.database.backend == "postgresql":
+        try:
+            # Import here to avoid circular imports
+            from ..core.database_factory import DatabaseFactory
+
+            # Get the tenant ID from config
+            tenant_id = config.database.postgresql.default_tenant_id
+
+            # Create a new database factory to get direct SQL access
+            factory = DatabaseFactory(config)
+
+            # Clear data using direct SQL for better reliability
+            if hasattr(factory, "registry") and factory.registry:
+                # Clear registry documents
+                try:
+                    factory.registry.db.execute(
+                        "DELETE FROM registry.documents WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared registry documents for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear registry documents: {e}")
+
+            if hasattr(factory, "keyword_index") and factory.keyword_index:
+                # Clear keyword search data
+                try:
+                    factory.keyword_index.db.execute(
+                        "DELETE FROM search.keyword_search WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    factory.keyword_index.db.execute(
+                        "DELETE FROM search.doc_metadata WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared keyword search data for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear keyword search data: {e}")
+
+            if hasattr(factory, "job_manager") and factory.job_manager:
+                # Clear jobs
+                try:
+                    factory.job_manager.db.execute(
+                        "DELETE FROM jobs.queue WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared jobs for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear jobs: {e}")
+
+            if hasattr(factory, "fingerprint_manager") and factory.fingerprint_manager:
+                # Clear fingerprints
+                try:
+                    factory.fingerprint_manager.db.execute(
+                        "DELETE FROM fingerprints.fingerprints WHERE tenant_id = %s", (tenant_id,)
+                    )
+                    print(f"Cleared fingerprints for tenant {tenant_id}")
+                except Exception as e:
+                    print(f"Warning: Could not clear fingerprints: {e}")
+
+            # Force close all connections to ensure clean state
+            # Note: TenantConnectionManager handles connection pooling internally
+
+        except Exception as e:
+            print(f"Warning: Could not clear PostgreSQL data: {e}")
+
 
 @pytest.fixture(scope="session")
 def test_base_dir():
@@ -392,15 +463,16 @@ async def test_pipeline(test_config):
         # Create DatabaseFactory and adapters for proper component initialization
         if DatabaseFactory and test_config.database.backend in ["sqlite", "postgresql"]:
             factory = DatabaseFactory(test_config)
-            if factory.validate_backend_configuration():
+            # Always create adapters for PostgreSQL backend
+            try:
                 adapters = factory.create_all()
                 pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
-            else:
-                # Fall back to direct initialization
-                pipeline = EnhancedPipeline(test_config)
+            except Exception as e:
+                # If factory fails, raise error since we require PostgreSQL
+                raise ValueError(f"Failed to create database adapters: {e}")
         else:
             # Direct initialization for compatibility
-            pipeline = EnhancedPipeline(test_config)
+            raise ValueError("Pipeline v3 requires PostgreSQL backend with DatabaseFactory")
 
         # Wait for Qdrant to be ready
         import time
@@ -436,11 +508,11 @@ async def test_pipeline(test_config):
 
             cleanup_qdrant_resources(pipeline, test_config)
 
-        # Optional: Clear databases if needed for this specific test
-        # clear_test_databases(test_config)
+        # Clear databases after each test for proper isolation
+        clear_test_databases(test_config)
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def populated_pipeline(test_pipeline, test_config):
     """Provide a pipeline with pre-populated test data."""
     pipeline = test_pipeline
@@ -449,6 +521,7 @@ async def populated_pipeline(test_pipeline, test_config):
     test_doc_path = Path("data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf")
 
     if test_doc_path.exists():
+        print(f"[populated_pipeline] Processing document: {test_doc_path}")
         # Process document WITH keywords to enable keyword search tests
         result = await pipeline.process_document(
             str(test_doc_path),
@@ -460,8 +533,26 @@ async def populated_pipeline(test_pipeline, test_config):
             with_keywords=True,  # Enable keyword indexing for search tests
         )
 
-        # Store the doc_id for tests to use
-        pipeline.test_doc_id = result.get("doc_id") if result else None
+        print(f"[populated_pipeline] Process result: {result}")
+        print(f"[populated_pipeline] Result status: '{result.get('status') if result else 'None'}'")
+        print(f"[populated_pipeline] Result keys: {list(result.keys()) if result else 'None'}")
+
+        # Check if processing succeeded
+        if result.get("status") == "error":
+            error_msg = f"Document processing failed: {result.get('error', 'unknown error')}"
+            error_details = result.get("error_details", "No additional details")
+            print(f"[populated_pipeline] ERROR: {error_msg}")
+            print(f"[populated_pipeline] ERROR DETAILS: {error_details}")
+            # Store complete error info
+            pipeline.test_doc_id = None
+            pipeline.test_error = f"{error_msg}. Details: {error_details}"
+        else:
+            # Store the doc_id for tests to use
+            pipeline.test_doc_id = result.get("doc_id") if result else None
+            pipeline.test_error = None
+            print(f"[populated_pipeline] Document ID: {pipeline.test_doc_id}")
+    else:
+        print(f"[populated_pipeline] ERROR: Test document not found at {test_doc_path}")
 
     yield pipeline
 
@@ -616,13 +707,18 @@ def check_postgresql_available() -> bool:
             return False
 
         # Check if we have PostgreSQL environment variables
-        required_env_vars = [
-            "POSTGRES_HOST",
-            "POSTGRES_DATABASE",
-            "POSTGRES_USER",
-            "POSTGRES_PASSWORD",
-        ]
-        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        # Check for both POSTGRES_DB and POSTGRES_DATABASE
+        has_db = os.getenv("POSTGRES_DB") or os.getenv("POSTGRES_DATABASE")
+        required_env_vars = []
+        if not os.getenv("POSTGRES_HOST"):
+            required_env_vars.append("POSTGRES_HOST")
+        if not has_db:
+            required_env_vars.append("POSTGRES_DB or POSTGRES_DATABASE")
+        if not os.getenv("POSTGRES_USER"):
+            required_env_vars.append("POSTGRES_USER")
+        if not os.getenv("POSTGRES_PASSWORD"):
+            required_env_vars.append("POSTGRES_PASSWORD")
+        missing_vars = required_env_vars
 
         if missing_vars:
             print(f"PostgreSQL test environment not configured. Missing: {missing_vars}")
@@ -635,8 +731,8 @@ def check_postgresql_available() -> bool:
                 postgresql=PostgreSQLSettings(
                     host=os.getenv("POSTGRES_HOST", "localhost"),
                     port=int(os.getenv("POSTGRES_PORT", "5432")),
-                    database=os.getenv("POSTGRES_DATABASE", "test_rag_lab"),
-                    user=os.getenv("POSTGRES_USER", "test_user"),
+                    database=os.getenv("POSTGRES_DB", os.getenv("POSTGRES_DATABASE", "rag_lab")),
+                    user=os.getenv("POSTGRES_USER", "postgres"),
                     password=os.getenv("POSTGRES_PASSWORD", ""),
                 ),
             )

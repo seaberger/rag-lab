@@ -315,121 +315,85 @@ class PostgreSQLDocumentRegistry:
         content_hash: str,
         metadata: dict[str, Any] | None = None,
     ) -> bool:
-        """Register an index entry for a document chunk."""
-        query = """
-            INSERT INTO registry.index_entries (
-                doc_id, tenant_id, index_type, node_id,
-                chunk_index, content_hash, metadata
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s
-            )
-            ON CONFLICT (tenant_id, doc_id, index_type, chunk_index)
-            DO UPDATE SET
-                node_id = EXCLUDED.node_id,
-                content_hash = EXCLUDED.content_hash,
-                metadata = EXCLUDED.metadata,
-                updated_at = NOW()
-        """
+        """Register an index entry for a document chunk.
 
-        try:
-            self.db.execute(
-                query,
-                (
-                    doc_id,
-                    self.tenant_id,
-                    index_type.value,
-                    node_id,
-                    chunk_index,
-                    content_hash,
-                    self.db.json_to_jsonb(metadata) if metadata else None,
-                ),
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Failed to register index entry: {e}")
-            return False
+        In the PostgreSQL implementation, individual chunk tracking is handled
+        by the specialized keyword/vector index adapters. This method is kept
+        for compatibility but doesn't perform any actual storage operations.
+        """
+        # In PostgreSQL architecture, chunk-level tracking is handled by:
+        # - keyword_search table (for keyword index chunks)
+        # - Qdrant vector database (for vector index chunks)
+        # The registry only tracks document-level state, not individual chunks
+        logger.debug(f"Index entry registration handled by specialized adapters: {doc_id[:8]}")
+        return True
 
     def get_index_entries(
         self, doc_id: str, index_type: IndexType | None = None
     ) -> list[IndexRecord]:
-        """Get index entries for a document."""
-        if index_type:
-            query = """
-                SELECT * FROM registry.index_entries
-                WHERE doc_id = %s AND tenant_id = %s AND index_type = %s
-                ORDER BY chunk_index
-            """
-            params = (doc_id, self.tenant_id, index_type.value)
-        else:
-            query = """
-                SELECT * FROM registry.index_entries
-                WHERE doc_id = %s AND tenant_id = %s
-                ORDER BY index_type, chunk_index
-            """
-            params = (doc_id, self.tenant_id)
+        """Get index entries for a document.
 
-        rows = self.db.fetch_all(query, params)
-
-        return [
-            IndexRecord(
-                doc_id=str(row["doc_id"]),
-                index_type=row["index_type"],
-                node_id=row["node_id"],
-                chunk_index=row["chunk_index"],
-                content_hash=row["content_hash"],
-                created_at=row["created_at"].timestamp(),
-                updated_at=row["updated_at"].timestamp(),
-                metadata=self.db.jsonb_to_dict(row["metadata"]) or {},
-            )
-            for row in rows
-        ]
+        In the PostgreSQL implementation, individual chunk tracking is handled
+        by the specialized keyword/vector index adapters. This method returns
+        an empty list for compatibility.
+        """
+        # In PostgreSQL architecture, chunk-level information should be queried from:
+        # - keyword_search table (for keyword index chunks)
+        # - Qdrant vector database (for vector index chunks)
+        # The registry only tracks document-level state, not individual chunks
+        logger.debug(f"Index entries tracked by specialized adapters for: {doc_id[:8]}")
+        return []
 
     def remove_document(self, doc_id: str) -> bool:
-        """Remove document and all its index entries."""
-        # Use transaction to ensure consistency
-        with self.db.transaction() as conn:
-            with conn.cursor() as cur:
-                # Delete index entries first (foreign key constraint)
-                cur.execute(
-                    "DELETE FROM registry.index_entries WHERE doc_id = %s AND tenant_id = %s",
-                    (doc_id, self.tenant_id),
-                )
+        """Remove document from registry.
 
-                # Delete document
-                cur.execute(
-                    "DELETE FROM documents WHERE doc_id = %s AND tenant_id = %s",
-                    (doc_id, self.tenant_id),
-                )
-
-                deleted = cur.rowcount > 0
-
-        if deleted:
-            logger.info(f"Removed document: {doc_id[:8]}")
-
-        return deleted
-
-    def remove_index_entries(self, doc_id: str, index_type: IndexType) -> bool:
-        """Remove index entries for a specific index type."""
+        Note: In the PostgreSQL implementation, individual chunk cleanup is handled
+        by the specialized keyword/vector index adapters via IndexManager.
+        """
         query = """
-            DELETE FROM registry.index_entries
-            WHERE doc_id = %s AND tenant_id = %s AND index_type = %s
+            DELETE FROM documents
+            WHERE doc_id = %s AND tenant_id = %s
         """
 
-        result = self.db.execute(query, (doc_id, self.tenant_id, index_type.value))
+        try:
+            result = self.db.execute(query, (doc_id, self.tenant_id))
+            deleted = result > 0
 
-        if result > 0:
-            # Update document index flags
+            if deleted:
+                logger.info(f"Removed document from registry: {doc_id[:8]}")
+            else:
+                logger.warning(f"Document not found in registry: {doc_id[:8]}")
+
+            return deleted
+        except Exception as e:
+            logger.error(f"Failed to remove document {doc_id[:8]}: {e}")
+            return False
+
+    def remove_index_entries(self, doc_id: str, index_type: IndexType) -> bool:
+        """Remove index entries for a specific index type.
+
+        In the PostgreSQL implementation, individual chunk cleanup is handled
+        by the specialized keyword/vector index adapters. This method only
+        updates the document-level indexing flags.
+        """
+        try:
+            # Update document index flags (the actual chunk removal is handled by adapters)
             if index_type == IndexType.VECTOR:
                 flag_query = "UPDATE documents SET vector_indexed = FALSE WHERE doc_id = %s AND tenant_id = %s"
             elif index_type == IndexType.KEYWORD:
                 flag_query = "UPDATE documents SET keyword_indexed = FALSE WHERE doc_id = %s AND tenant_id = %s"
-            else:
+            else:  # BOTH
                 flag_query = "UPDATE documents SET vector_indexed = FALSE, keyword_indexed = FALSE WHERE doc_id = %s AND tenant_id = %s"
 
-            self.db.execute(flag_query, (doc_id, self.tenant_id))
-            logger.info(f"Removed {result} index entries for document: {doc_id[:8]}")
+            result = self.db.execute(flag_query, (doc_id, self.tenant_id))
 
-        return result > 0
+            if result > 0:
+                logger.info(f"Updated index flags for document: {doc_id[:8]} ({index_type.value})")
+
+            return result > 0
+        except Exception as e:
+            logger.error(f"Failed to remove index entries for {doc_id[:8]}: {e}")
+            return False
 
     def list_documents(
         self,

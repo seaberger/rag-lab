@@ -226,6 +226,7 @@ async def process_and_index_document(
         node.metadata.update(
             {
                 "doc_id": doc_id,
+                "source": source,  # Ensure source is explicitly set on each chunk
                 "pairs": pairs,
                 "chunk_index": i,
                 "total_chunks": len(nodes),

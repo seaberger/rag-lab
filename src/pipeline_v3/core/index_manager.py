@@ -183,14 +183,20 @@ class IndexManager:
             source = chunks[0].metadata.get("source", "unknown")
             pairs = chunks[0].metadata.get("pairs", [])
 
+            # Debug log to understand why source might be unknown
+            logger.debug(f"Chunk 0 metadata keys: {list(chunks[0].metadata.keys())}")
+            logger.debug(f"Extracted source: '{source}', doc_id: '{doc_id}'")
+
             # Pass chunks directly - the adapter expects TextChunk objects
-            logger.info(
-                f"DEBUG: Indexing with pairs: {pairs} (from metadata: {chunks[0].metadata.get('pairs', 'NOT_FOUND')})"
-            )
+            logger.debug(f"Indexing {len(chunks)} chunks with pairs: {pairs}")
             self.keyword_index.index_nodes(chunks, doc_id, source, pairs)
+            logger.debug(f"Successfully indexed {len(chunks)} chunks for doc {doc_id[:8]}")
             return True
         except Exception as e:
             logger.error(f"Failed to index chunks with adapter: {e}")
+            import traceback
+
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
 
     def _keyword_search(
@@ -520,12 +526,24 @@ class IndexManager:
 
             # Update registry if successful
             if success:
-                self.registry.mark_indexed(doc_id, index_types, len(chunks))
+                try:
+                    self.registry.mark_indexed(doc_id, index_types, len(chunks))
+                    logger.debug(f"Successfully marked document {doc_id[:8]} as indexed")
+                except Exception as e:
+                    logger.error(f"Failed to mark document as indexed: {e}")
+                    import traceback
+
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    success = False
+                    self.registry.update_document_state(
+                        doc_id, DocumentState.CORRUPTED, f"Failed to mark as indexed: {e}"
+                    )
             else:
                 self.registry.update_document_state(
                     doc_id, DocumentState.CORRUPTED, "Failed to index chunks"
                 )
 
+            logger.debug(f"add_chunks returning success={success} for doc {doc_id[:8]}")
             return success
 
         except Exception as e:

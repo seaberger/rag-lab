@@ -83,9 +83,10 @@ class PostgreSQLKeywordIndex:
         metadata_query = """
             INSERT INTO doc_metadata (doc_id, tenant_id, source, metadata, chunk_count)
             VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (tenant_id, source)
+            ON CONFLICT (doc_id)
             DO UPDATE SET
-                doc_id = EXCLUDED.doc_id,
+                tenant_id = EXCLUDED.tenant_id,
+                source = EXCLUDED.source,
                 metadata = EXCLUDED.metadata,
                 chunk_count = EXCLUDED.chunk_count
         """

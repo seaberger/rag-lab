@@ -29,11 +29,7 @@ except ImportError:
     PostgreSQLJobManager = None
     PostgreSQLKeywordIndex = None
 
-# SQLite adapters
-from src.pipeline_v3.core.fingerprint import FingerprintManager
-from src.pipeline_v3.core.registry import DocumentRegistry
-from src.pipeline_v3.job_queue.job import JobManager
-from src.pipeline_v3.storage.keyword_index import BM25Index
+# SQLite adapters (kept for fallback compatibility only)
 
 
 @runtime_checkable
@@ -194,9 +190,9 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL document registry")
             return registry
         else:
-            registry = DocumentRegistry(self.config)
-            logger.info("Created SQLite document registry")
-            return registry
+            raise ValueError(
+                "SQLite backend is no longer supported. Please use 'postgresql' backend."
+            )
 
     def create_keyword_index(self) -> KeywordIndexProtocol:
         """Create keyword index adapter."""
@@ -211,9 +207,9 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL keyword index")
             return index
         else:
-            index = BM25Index(config=self.config)
-            logger.info("Created SQLite keyword index")
-            return index
+            raise ValueError(
+                "SQLite backend is no longer supported. Please use 'postgresql' backend."
+            )
 
     def create_job_manager(self) -> JobManagerProtocol:
         """Create job manager adapter."""
@@ -228,9 +224,9 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL job manager")
             return manager
         else:
-            manager = JobManager(self.config)
-            logger.info("Created SQLite job manager")
-            return manager
+            raise ValueError(
+                "SQLite backend is no longer supported. Please use 'postgresql' backend."
+            )
 
     def create_fingerprint_manager(self) -> FingerprintManagerProtocol:
         """Create fingerprint manager adapter."""
@@ -245,9 +241,9 @@ class DatabaseFactory:
             logger.info("Created PostgreSQL fingerprint manager")
             return manager
         else:
-            manager = FingerprintManager(self.config)
-            logger.info("Created SQLite fingerprint manager")
-            return manager
+            raise ValueError(
+                "SQLite backend is no longer supported. Please use 'postgresql' backend."
+            )
 
     def create_all(self) -> dict[str, Any]:
         """Create all database adapters."""

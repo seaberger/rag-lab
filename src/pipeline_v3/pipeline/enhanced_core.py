@@ -62,7 +62,11 @@ class EnhancedPipeline:
 
         # Initialize components that don't use DatabaseFactory (yet)
         self.document_queue = DocumentQueue(self.config)
-        self.index_manager = index_manager or IndexManager(self.config, registry=self.registry)
+        # Pass keyword_index from database adapters if available
+        keyword_index = database_adapters.get("keyword_index") if database_adapters else None
+        self.index_manager = index_manager or IndexManager(
+            self.config, registry=self.registry, keyword_index=keyword_index
+        )
 
         # Pass fingerprint_manager from DatabaseFactory to ChangeDetector if available
         fingerprint_manager = (
@@ -590,9 +594,11 @@ class EnhancedPipeline:
                 pairs_to_use = pairs or (metadata.get("pairs", []) if metadata else [])
 
                 # Process with keyword enhancement
+                # Ensure source is properly converted to string
+                source_str = str(source) if source is not None else "unknown"
                 nodes = await process_and_index_document(
                     doc_id=doc_id,
-                    source=source or "unknown",
+                    source=source_str,
                     markdown=content,
                     pairs=pairs_to_use,
                     metadata=metadata or {},

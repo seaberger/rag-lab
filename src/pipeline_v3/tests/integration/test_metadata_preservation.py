@@ -31,7 +31,13 @@ class TestMetadataPreservation:
         test_collection = f"test_metadata_{int(time.time() * 1000)}"
         test_config.qdrant.collection_name = test_collection
 
-        pipeline = EnhancedPipeline(test_config)
+        # Import DatabaseFactory to create pipeline properly
+        from core.database_factory import DatabaseFactory
+
+        # Create pipeline with database adapters for PostgreSQL
+        factory = DatabaseFactory(test_config)
+        adapters = factory.create_all()
+        pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
 
         try:
             # Test with various metadata types
@@ -48,9 +54,11 @@ class TestMetadataPreservation:
                 "source_system": "test_suite"
             }
 
-            # Create a temporary test file
+            # Create a temporary test file with unique name
             import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            import uuid
+            unique_suffix = f"_{uuid.uuid4().hex[:8]}.md"
+            with tempfile.NamedTemporaryFile(mode='w', suffix=unique_suffix, delete=False) as f:
                 f.write("""# Technical Document
 
 This document tests metadata preservation.
@@ -62,7 +70,8 @@ Content for testing chunking with metadata.
 More content to ensure multiple chunks.""")
                 temp_file = f.name
 
-            # Process document
+            # Process document - log the source being passed
+            logger.info(f"Processing document with source: {temp_file}")
             result = await pipeline.process_document(
                 source=temp_file,
                 metadata=test_metadata
@@ -155,16 +164,25 @@ More content to ensure multiple chunks.""")
         test_collection = f"test_meta_keywords_{int(time.time() * 1000)}"
         test_config.qdrant.collection_name = test_collection
 
-        pipeline = EnhancedPipeline(test_config)
+        # Import DatabaseFactory to create pipeline properly
+        from core.database_factory import DatabaseFactory
+
+        # Create pipeline with database adapters for PostgreSQL
+        factory = DatabaseFactory(test_config)
+        adapters = factory.create_all()
+        pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
 
         try:
-            # Create temp file for testing
+            # Create temp file for testing with unique name
             import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            import uuid
+            unique_suffix = f"_{uuid.uuid4().hex[:8]}.md"
+            with tempfile.NamedTemporaryFile(mode='w', suffix=unique_suffix, delete=False) as f:
                 f.write("Laser power measurement device specifications")
                 temp_file = f.name
 
-            # Process with keywords enabled
+            # Process with keywords enabled - log the source being passed
+            logger.info(f"Processing document with keywords, source: {temp_file}")
             result = await pipeline.process_document(
                 source=temp_file,
                 metadata={
@@ -229,7 +247,13 @@ More content to ensure multiple chunks.""")
         test_collection = f"test_update_meta_{int(time.time() * 1000)}"
         test_config.qdrant.collection_name = test_collection
 
-        pipeline = EnhancedPipeline(test_config)
+        # Import DatabaseFactory to create pipeline properly
+        from core.database_factory import DatabaseFactory
+
+        # Create pipeline with database adapters for PostgreSQL
+        factory = DatabaseFactory(test_config)
+        adapters = factory.create_all()
+        pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
 
         try:
             # Initial document with metadata

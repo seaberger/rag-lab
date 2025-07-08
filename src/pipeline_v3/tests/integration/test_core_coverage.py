@@ -128,11 +128,19 @@ job_queue:
         registry = create_test_registry(test_config)
 
         try:
+            # Get initial document count
+            initial_stats = registry.get_statistics()
+            initial_count = initial_stats["total_documents"]
+
             # Test registration
             import time
+            import uuid
+
+            # Use a unique source to avoid conflicts
+            unique_source = f"test_{uuid.uuid4().hex[:8]}.pdf"
 
             doc_id = registry.register_document(
-            source="test.pdf",
+            source=unique_source,
             content_hash="abc123",
             size=1024,
             modified_time=time.time(),
@@ -143,11 +151,11 @@ job_queue:
             # Test retrieval
             doc = registry.get_document(doc_id)
             assert doc is not None
-            assert doc.source.endswith("test.pdf")
+            assert doc.source.endswith(unique_source)
             assert doc.metadata["doc_type"] == "datasheet"
 
             # Test get by source
-            doc_by_source = registry.get_document_by_source("test.pdf")
+            doc_by_source = registry.get_document_by_source(unique_source)
             assert doc_by_source.doc_id == doc_id
 
             # Test status updates - using update_document_state method
@@ -170,21 +178,30 @@ job_queue:
             # Skip document updates - method not available
             # Would need to check actual registry API
 
-            # Test list documents
-            docs = registry.list_documents(limit=10)
-            assert len(docs) == 1
-            assert docs[0].doc_id == doc_id
+            # Test list documents - should have one more than initial
+            docs = registry.list_documents(limit=100)
+            current_count = len(docs)
+            assert current_count == initial_count + 1
+
+            # Find our test document in the list
+            our_doc = None
+            for doc in docs:
+                if doc.doc_id == doc_id:
+                    our_doc = doc
+                    break
+            assert our_doc is not None
 
             # Test statistics
             stats = registry.get_statistics()
-            assert stats["total_documents"] == 1
+            assert stats["total_documents"] == initial_count + 1
 
             # PostgreSQL registry uses different key names
             if "documents_by_state" in stats:
-                assert stats["documents_by_state"]["indexed"] == 1
+                # We should have at least 1 indexed document (ours)
+                assert stats["documents_by_state"]["indexed"] >= 1
             else:
                 # Fallback for other implementations
-                assert stats.get("by_state", {}).get("indexed", {}).get("count", 0) == 1
+                assert stats.get("by_state", {}).get("indexed", {}).get("count", 0) >= 1
 
             # Change detection is handled by FingerprintManager, not Registry
             # Tested separately in test_fingerprint_store_operations
