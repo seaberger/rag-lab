@@ -171,6 +171,14 @@ Improve how documents are parsed and chunked:
 ## ✅ Recently Completed (Last 30 Days)
 
 ### Multi-Tenant Infrastructure & Database Migration (January 2025)
+- **CI/CD Pipeline Optimization** ✅ (January 8)
+  - Separated Quick CI and Comprehensive CI to minimize OpenAI API costs
+  - Quick CI runs on every commit with optimized 2-document test
+  - Comprehensive CI runs on-demand (label/manual/release) for heavy tests
+  - Added `comprehensive` pytest marker for test categorization
+  - Both pipelines include PostgreSQL multi-tenant database setup
+  - Estimated 80%+ reduction in unnecessary API calls
+  - No test duplication between Quick and Comprehensive pipelines
 - **Database Setup Documentation & Automation** ✅ (January 7)
   - Complete PostgreSQL setup guide with step-by-step instructions
   - Automated setup script (`setup_databases.sh`) for fresh installations

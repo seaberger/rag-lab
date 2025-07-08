@@ -338,6 +338,7 @@ class TestQdrantServerOperations:
     @pytest.mark.server
     @pytest.mark.integration
     @pytest.mark.heavy
+    @pytest.mark.comprehensive  # Batch processing of 5+ documents
     @pytest.mark.requires_api
     @pytest.mark.timeout(900)  # 15 minutes for batch operations
     async def test_batch_operations_server_mode(self, server_pipeline):
@@ -445,6 +446,7 @@ class TestQdrantServerOperations:
     @pytest.mark.server
     @pytest.mark.integration
     @pytest.mark.heavy
+    @pytest.mark.comprehensive  # Tests multiple collection isolation
     @pytest.mark.requires_api
     @pytest.mark.timeout(900)  # 15 minutes for collection isolation
     async def test_collection_isolation(self, test_config):

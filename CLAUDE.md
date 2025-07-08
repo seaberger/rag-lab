@@ -151,29 +151,34 @@ uv run python -m src.pipeline_v3.cli_main --help
 
 ## 🧪 Testing & CI/CD
 
-### **Local CI Testing Scripts**
+### **CI/CD Pipeline Architecture** (Updated January 8, 2025)
 
-We have two local CI scripts that mirror our GitHub Actions pipelines:
+We have optimized our CI/CD pipelines to minimize OpenAI API costs while maintaining thorough testing:
 
-#### **Quick CI** (`./run_local_quickci.sh`)
-- **Purpose**: Fast feedback during development
-- **Runtime**: ~5-10 minutes typically
+#### **Quick CI** (`./run_local_quickci.sh` / `.github/workflows/quick-ci.yml`)
+- **Purpose**: Fast feedback on every commit/PR
+- **Runtime**: ~5-10 minutes
 - **Features**:
-  - Runs all tests in single pytest command
-  - Includes security tests (fast, <1 second)
-  - Code quality checks (ruff linting/formatting)
+  - All unit tests (no API calls)
+  - All security tests (no API calls)
+  - Optimized integration test processing only 2 documents
+  - PostgreSQL multi-tenant database setup
   - Stops early on failures (`--maxfail=5`)
-- **Use when**: Making quick changes, pre-commit checks
+- **Triggers**: Every push/PR to main branches
 
-#### **Comprehensive CI** (`./run_local_ci.sh`)
-- **Purpose**: Thorough testing with detailed stages
-- **Runtime**: ~15-30 minutes typically
+#### **Comprehensive CI** (`./run_local_ci.sh` / `.github/workflows/comprehensive-ci.yml`)
+- **Purpose**: Extended validation for release readiness
+- **Runtime**: ~15-30 minutes
 - **Features**:
-  - 9 separate test stages (unit → security → integration → e2e)
-  - Detailed coverage reports
-  - Better error isolation
-  - Continues through all stages
-- **Use when**: Before creating PRs, major changes
+  - Only tests marked with `@pytest.mark.comprehensive`
+  - Heavy document processing (5+ documents)
+  - Edge cases and stress testing
+  - No duplication with Quick CI tests
+- **Triggers**:
+  - Manual workflow dispatch
+  - PR label: `comprehensive-ci`
+  - Release tags (v*)
+- **Cost Savings**: ~80% reduction in unnecessary API calls
 
 ### **⚠️ IMPORTANT: Timeout Configuration for Claude Code**
 

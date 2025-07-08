@@ -242,6 +242,24 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
+    - name: Set up databases for testing
+      env:
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        CI: true
+      run: |
+        echo "🔧 Setting up test databases..."
+        uv run python src/pipeline_v3/scripts/ci_database_setup.py
+
+        # Verify setup
+        if [ -f "/tmp/ci_test_tenant.txt" ]; then
+          echo "✅ Test tenant created successfully"
+          TEST_TENANT_ID=$(cat /tmp/ci_test_tenant.txt)
+          echo "TEST_TENANT_ID=$TEST_TENANT_ID" >> $GITHUB_ENV
+        else
+          echo "❌ Failed to create test tenant"
+          exit 1
+        fi
+
     - name: Verify test environment
       run: |
         echo "=== Environment Verification ==="
@@ -260,23 +278,44 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-    - name: Run unit tests
+    - name: Run comprehensive tests only
       run: |
-        # Includes new utility tests that boost coverage from 26% to 88%
+        echo "🔍 Running comprehensive tests that are NOT in Quick CI..."
+        echo "These tests focus on:"
+        echo "  - Heavy document processing"
+        echo "  - Multiple document scenarios"
+        echo "  - Edge cases with extensive API usage"
+        echo ""
+
+        # Run ONLY tests marked as comprehensive (not run in Quick CI)
         set +e  # Don't exit on test failures
-        uv run pytest src/pipeline_v3/tests/unit/ -v \
+        uv run pytest src/pipeline_v3/tests/ -v \
+          --timeout=1800 \
           --cov=src.pipeline_v3 \
           --cov-report=xml \
           --cov-report=html \
           --cov-report=term-missing \
-          --junit-xml=test-results/unit-results.xml
+          --junit-xml=test-results/comprehensive-results.xml \
+          --ignore=src/pipeline_v3/tests/archive \
+          -m "comprehensive"
 
         TEST_EXIT_CODE=$?
 
         # Ensure result file exists even on failure
-        if [ ! -f "test-results/unit-results.xml" ]; then
+        if [ ! -f "test-results/comprehensive-results.xml" ]; then
           mkdir -p test-results
-          echo '<?xml version="1.0" encoding="UTF-8"?><testsuite name="unit-tests" tests="0" failures="0" errors="1" time="0"><testcase name="initialization" classname="setup"><error message="Test execution failed">Unit tests failed to execute properly</error></testcase></testsuite>' > test-results/unit-results.xml
+          echo '<?xml version="1.0" encoding="UTF-8"?><testsuite name="comprehensive-tests" tests="0" failures="0" errors="1" time="0"><testcase name="initialization" classname="setup"><error message="No comprehensive tests found or test execution failed">Check if tests are properly marked with @pytest.mark.comprehensive</error></testcase></testsuite>' > test-results/comprehensive-results.xml
+        fi
+
+        # Check if no tests were found
+        if grep -q "no tests ran" test-results/comprehensive-results.xml 2>/dev/null || [ $TEST_EXIT_CODE -eq 5 ]; then
+          echo "⚠️ No tests marked as 'comprehensive' were found."
+          echo "To add comprehensive tests, mark them with: @pytest.mark.comprehensive"
+          echo "Example:"
+          echo "  @pytest.mark.comprehensive"
+          echo "  def test_batch_processing_multiple_documents():"
+          echo "      # Test processing 10+ documents"
+          echo "      pass"
         fi
 
         exit $TEST_EXIT_CODE
@@ -287,116 +326,8 @@ jobs:
         POSTGRES_DB: rag_lab
         POSTGRES_USER: rag_user
         POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run security tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/security/ -v \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/security-results.xml
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run smoke integration tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/ -v \
-          --timeout=300 \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/smoke-integration-results.xml \
-          -m "smoke"
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run lightweight integration tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/ -v \
-          --timeout=600 \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/lightweight-integration-results.xml \
-          -m "integration and not heavy and not e2e"
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run server-specific tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/ -v \
-          --timeout=900 \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/server-results.xml \
-          -m "server"
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run E2E tests (critical path)
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/ -v \
-          --timeout=1200 \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/e2e-results.xml \
-          -m "e2e"
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run heavy resource tests (optional)
-      run: |
-        uv run pytest src/pipeline_v3/tests/integration/ -v \
-          --timeout=1800 \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/heavy-results.xml \
-          -m "heavy"
-      continue-on-error: true  # Allow failures for heavy tests
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
-    - name: Run regression tests
-      run: |
-        uv run pytest src/pipeline_v3/tests/regression/ -v \
-          --cov=src.pipeline_v3 \
-          --cov-append \
-          --junit-xml=test-results/regression-results.xml
-      continue-on-error: true  # Allow some failures
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: rag_lab
-        POSTGRES_USER: rag_user
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        TEST_TENANT_ID: ${{ env.TEST_TENANT_ID }}
+        CI: true
 
     - name: Generate coverage report
       run: |

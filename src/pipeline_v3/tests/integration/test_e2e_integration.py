@@ -52,6 +52,7 @@ class TestE2EIntegration:
     @pytest.mark.slow
     @pytest.mark.integration
     @pytest.mark.heavy
+    @pytest.mark.comprehensive  # Full document processing test - heavier than Quick CI
     @pytest.mark.requires_api
     @pytest.mark.timeout(900)  # 15 minutes for heavy operations
     async def test_document_ingestion(
@@ -306,6 +307,7 @@ class TestE2EIntegration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
+    @pytest.mark.comprehensive  # Full pipeline flow - for comprehensive testing
     async def test_complete_pipeline_flow(self, test_pipeline, sample_documents):
         """Test complete pipeline flow: ingest -> search -> status."""
         pipeline = test_pipeline
@@ -433,6 +435,7 @@ class TestDatabaseIsolation:
     """
 
     @pytest.mark.asyncio
+    @pytest.mark.comprehensive  # Heavy isolation testing with multiple environments
     async def test_environment_isolation(self, test_base_dir, sample_documents):
         """Test that different environments have isolated databases."""
         from ..conftest import clear_test_databases, create_test_config
