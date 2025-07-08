@@ -38,6 +38,12 @@ The existing architecture (described in [MULTI_TENANT_ARCHITECTURE.md](./MULTI_T
 - **Basic Search Only**: No per-tenant optimization
 - **No Audit Trail**: No compliance support
 
+### Cache System Limitations
+- **No Tenant Isolation**: Global cache directory shared by all tenants
+- **Cross-Tenant Access**: Any tenant can potentially read another's cached API responses
+- **Obsolete References**: CacheCleaner still references legacy SQLite/local Qdrant
+- **No Tenant IDs**: Cache filenames lack tenant identification
+
 ## PostgreSQL Migration Strategy
 
 ### Why PostgreSQL?
@@ -1705,7 +1711,14 @@ class LocalFileStorage(StorageAdapter):
 - Request authentication middleware
 - Audit logging framework
 
-**3. Local Storage Enhancement**
+**3. Cache System Tenant Isolation (#88)**
+- Implement tenant-aware cache paths: `cache_v3/{tenant_id}/`
+- Add tenant IDs to cache filenames
+- Update CacheCleaner to remove obsolete SQLite/Qdrant references
+- Consider PostgreSQL-based caching for full isolation
+- Ensure test caches don't interfere with production
+
+**4. Local Storage Enhancement**
 - Implement tenant directory structure
 - Add compression and encryption support
 - Create storage abstraction layer
