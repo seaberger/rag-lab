@@ -38,7 +38,13 @@ class TestQdrantServerOperations:
         test_collection = f"test_server_ops_{int(time.time() * 1000)}"
         test_config.qdrant.collection_name = test_collection
 
-        pipeline = EnhancedPipeline(test_config)
+        # Import DatabaseFactory to create pipeline properly
+        from core.database_factory import DatabaseFactory
+
+        # Create pipeline with database adapters for PostgreSQL
+        factory = DatabaseFactory(test_config)
+        adapters = factory.create_all()
+        pipeline = EnhancedPipeline(test_config, database_adapters=adapters)
         yield pipeline
 
         # Cleanup

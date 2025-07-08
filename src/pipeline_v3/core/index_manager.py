@@ -309,6 +309,7 @@ class IndexManager:
 
             # Split into chunks
             chunks = self.text_splitter.create_chunks(doc)
+            logger.info(f"Created {len(chunks)} chunks for document {doc_id[:8]}")
 
             # Add backend-specific metadata and ensure source is set
             source_value = doc_metadata.get("source", f"doc_{doc_id[:8]}")
@@ -328,57 +329,70 @@ class IndexManager:
             success = True
 
             # Add to vector index
-            if index_types in [IndexType.VECTOR, IndexType.BOTH] and self.qdrant_client:
-                try:
-                    # Generate embeddings for all chunks
-                    texts = [chunk.text for chunk in chunks]
-                    embeddings = self.embedding_service.get_text_embedding_batch(texts)
+            if index_types == IndexType.VECTOR or index_types == IndexType.BOTH:
+                if self.qdrant_client:
+                    try:
+                        # Generate embeddings for all chunks
+                        texts = [chunk.text for chunk in chunks]
+                        logger.info(f"Generating embeddings for {len(texts)} chunks")
+                        embeddings = self.embedding_service.get_text_embedding_batch(texts)
+                        logger.info(f"Generated {len(embeddings)} embeddings")
 
-                    # Create points for Qdrant
-                    points = []
-                    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
-                        point = PointStruct(
-                            id=chunk.id,
-                            vector=embedding,
-                            payload={
-                                "text": chunk.text,
-                                "doc_id": doc_id,
-                                "chunk_index": i,
-                                "metadata": chunk.metadata,
-                            },
+                        # Create points for Qdrant
+                        points = []
+                        for i, (chunk, embedding) in enumerate(
+                            zip(chunks, embeddings, strict=False)
+                        ):
+                            point = PointStruct(
+                                id=chunk.id,
+                                vector=embedding,
+                                payload={
+                                    "text": chunk.text,
+                                    "doc_id": doc_id,
+                                    "chunk_index": i,
+                                    "metadata": chunk.metadata,
+                                },
+                            )
+                            points.append(point)
+
+                        # Upsert to Qdrant
+                        logger.info(
+                            f"Upserting {len(points)} points to Qdrant collection {self.config.qdrant.collection_name}"
                         )
-                        points.append(point)
-
-                    # Upsert to Qdrant
-                    self.qdrant_client.upsert(
-                        collection_name=self.config.qdrant.collection_name,
-                        points=points,
-                    )
-
-                    # Register index entries
-                    for i, chunk in enumerate(chunks):
-                        logger.debug(
-                            f"Registering vector index entry: doc_id={doc_id}, chunk_id={chunk.id}"
+                        self.qdrant_client.upsert(
+                            collection_name=self.config.qdrant.collection_name,
+                            points=points,
+                            wait=True,  # Ensure synchronous operation
                         )
-                        self.registry.register_index_entry(
-                            doc_id=doc_id,
-                            index_type=IndexType.VECTOR,
-                            node_id=chunk.id,
-                            chunk_index=i,
-                            content_hash=chunk.hash,
-                            metadata=chunk.metadata,
+                        logger.info(f"Successfully upserted {len(points)} points to Qdrant")
+
+                        # Register index entries
+                        for i, chunk in enumerate(chunks):
+                            logger.debug(
+                                f"Registering vector index entry: doc_id={doc_id}, chunk_id={chunk.id}"
+                            )
+                            self.registry.register_index_entry(
+                                doc_id=doc_id,
+                                index_type=IndexType.VECTOR,
+                                node_id=chunk.id,
+                                chunk_index=i,
+                                content_hash=chunk.hash,
+                                metadata=chunk.metadata,
+                            )
+
+                        logger.info(
+                            f"Added document {doc_id[:8]} to vector index ({len(chunks)} chunks)"
                         )
 
-                    logger.info(
-                        f"Added document {doc_id[:8]} to vector index ({len(chunks)} chunks)"
-                    )
+                    except Exception as e:
+                        logger.error(f"Failed to add to vector index: {e}")
+                        import traceback
 
-                except Exception as e:
-                    logger.error(f"Failed to add to vector index: {e}")
-                    success = False
+                        logger.error(f"Traceback: {traceback.format_exc()}")
+                        success = False
 
             # Add to keyword index
-            if index_types in [IndexType.KEYWORD, IndexType.BOTH] and (
+            if (index_types == IndexType.KEYWORD or index_types == IndexType.BOTH) and (
                 self.keyword_index or self.keyword_conn
             ):
                 try:
@@ -496,10 +510,15 @@ class IndexManager:
                         points.append(point)
 
                     # Upsert to Qdrant
+                    logger.info(
+                        f"Upserting {len(points)} points to Qdrant collection {self.config.qdrant.collection_name}"
+                    )
                     self.qdrant_client.upsert(
                         collection_name=self.config.qdrant.collection_name,
                         points=points,
+                        wait=True,  # Ensure synchronous operation
                     )
+                    logger.info(f"Successfully upserted {len(points)} points to Qdrant")
 
                     # Register index entries
                     for i, chunk in enumerate(chunks):

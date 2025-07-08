@@ -81,7 +81,7 @@ class PostgreSQLKeywordIndex:
         """Index nodes for full-text search."""
         # Insert or update document metadata
         metadata_query = """
-            INSERT INTO doc_metadata (doc_id, tenant_id, source, metadata, chunk_count)
+            INSERT INTO search.doc_metadata (doc_id, tenant_id, source, metadata, chunk_count)
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (doc_id)
             DO UPDATE SET
@@ -107,7 +107,7 @@ class PostgreSQLKeywordIndex:
 
         # Delete existing chunks for this document
         delete_query = """
-            DELETE FROM keyword_search
+            DELETE FROM search.documents
             WHERE doc_id = %s AND tenant_id = %s
         """
         self.db.execute(delete_query, (doc_id, self.tenant_id))
@@ -127,13 +127,13 @@ class PostgreSQLKeywordIndex:
 
             # Insert chunk
             chunk_query = """
-                INSERT INTO keyword_search (
-                    doc_id, node_id, tenant_id, chunk_index, content, metadata
+                INSERT INTO search.documents (
+                    doc_id, chunk_id, tenant_id, text, metadata
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s
                 )
-                ON CONFLICT (tenant_id, node_id) DO UPDATE SET
-                    content = EXCLUDED.content,
+                ON CONFLICT (tenant_id, doc_id, chunk_id) DO UPDATE SET
+                    text = EXCLUDED.text,
                     metadata = EXCLUDED.metadata
             """
 
@@ -141,10 +141,9 @@ class PostgreSQLKeywordIndex:
                 chunk_query,
                 (
                     doc_id,
-                    node.node_id,
+                    node.node_id,  # chunk_id
                     self.tenant_id,
-                    node.metadata.get("chunk_index", 0),
-                    clean_text,
+                    clean_text,  # text
                     self.db.json_to_jsonb(node.metadata),
                 ),
             )
@@ -222,17 +221,16 @@ class PostgreSQLKeywordIndex:
         search_query = """
             SELECT
                 doc_id,
-                node_id,
-                chunk_index,
-                content as text,
+                chunk_id,
+                text,
                 metadata,
-                ts_rank(content_tsvector, query) AS score
+                ts_rank(search_vector, query) AS score
             FROM
-                keyword_search,
+                search.documents,
                 plainto_tsquery('english', %s) query
             WHERE
                 tenant_id = %s AND
-                content_tsvector @@ query
+                search_vector @@ query
             ORDER BY score DESC
             LIMIT %s
         """
@@ -243,8 +241,10 @@ class PostgreSQLKeywordIndex:
             return [
                 {
                     "doc_id": str(row["doc_id"]),
-                    "node_id": row["node_id"],
-                    "chunk_index": row["chunk_index"],
+                    "node_id": row["chunk_id"],
+                    "chunk_index": self.db.jsonb_to_dict(row["metadata"]).get("chunk_index", 0)
+                    if row["metadata"]
+                    else 0,
                     "text": row["text"],
                     "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
                     "score": float(row["score"]),
@@ -293,11 +293,10 @@ class PostgreSQLKeywordIndex:
                 doc_id,
                 chunk_id,
                 text,
-                keywords,
                 metadata,
                 ts_rank(search_vector, query) AS score
             FROM
-                documents,
+                search.documents,
                 plainto_tsquery('english', %s) query
             WHERE
                 {" AND ".join(conditions)}
@@ -315,9 +314,11 @@ class PostgreSQLKeywordIndex:
             return [
                 {
                     "doc_id": str(row["doc_id"]),
-                    "chunk_id": row["chunk_id"],
+                    "node_id": row["chunk_id"],
                     "text": row["text"],
-                    "keywords": row["keywords"],
+                    "keywords": self.db.jsonb_to_dict(row["metadata"]).get("keywords", [])
+                    if row["metadata"]
+                    else [],
                     "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
                     "score": float(row["score"]),
                 }
@@ -336,7 +337,7 @@ class PostgreSQLKeywordIndex:
                 dm.doc_id,
                 dm.source,
                 dm.metadata
-            FROM doc_metadata dm
+            FROM search.doc_metadata dm
             WHERE
                 dm.tenant_id = %s AND
                 dm.metadata @> %s
@@ -382,10 +383,9 @@ class PostgreSQLKeywordIndex:
                 doc_id,
                 chunk_id,
                 text,
-                keywords,
                 metadata,
                 similarity(text, %s) AS score
-            FROM documents
+            FROM search.documents
             WHERE
                 tenant_id = %s AND
                 text %% %s AND
@@ -410,9 +410,11 @@ class PostgreSQLKeywordIndex:
             return [
                 {
                     "doc_id": str(row["doc_id"]),
-                    "chunk_id": row["chunk_id"],
+                    "node_id": row["chunk_id"],
                     "text": row["text"],
-                    "keywords": row["keywords"],
+                    "keywords": self.db.jsonb_to_dict(row["metadata"]).get("keywords", [])
+                    if row["metadata"]
+                    else [],
                     "metadata": self.db.jsonb_to_dict(row["metadata"]) or {},
                     "score": float(row["score"]),
                 }
@@ -430,9 +432,9 @@ class PostgreSQLKeywordIndex:
                 COUNT(DISTINCT doc_id) as total_documents,
                 COUNT(*) as total_chunks,
                 COUNT(*) as chunks_with_keywords,
-                pg_size_pretty(pg_relation_size('keyword_search')) as table_size,
-                pg_size_pretty(pg_relation_size('idx_keyword_search_fts')) as index_size
-            FROM keyword_search
+                pg_size_pretty(pg_relation_size('search.documents')) as table_size,
+                pg_size_pretty(pg_relation_size('search.idx_search_vector')) as index_size
+            FROM search.documents
             WHERE tenant_id = %s
         """
 
@@ -450,7 +452,7 @@ class PostgreSQLKeywordIndex:
     def delete_document(self, doc_id: str) -> int:
         """Delete all chunks for a document."""
         query = """
-            DELETE FROM keyword_search
+            DELETE FROM search.documents
             WHERE doc_id = %s AND tenant_id = %s
         """
 
@@ -458,7 +460,7 @@ class PostgreSQLKeywordIndex:
 
         # Also delete from metadata
         meta_query = """
-            DELETE FROM doc_metadata
+            DELETE FROM search.doc_metadata
             WHERE doc_id = %s AND tenant_id = %s
         """
         self.db.execute(meta_query, (doc_id, self.tenant_id))

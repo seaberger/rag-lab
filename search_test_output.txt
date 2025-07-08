@@ -1,0 +1,176 @@
+INFO: Loaded OPENAI_API_KEY from environment variable.
+INFO: Loaded POSTGRES_PASSWORD from environment variable.
+INFO: Loaded OPENAI_API_KEY from environment variable.
+INFO: Loaded POSTGRES_PASSWORD from environment variable.
+============================= test session starts ==============================
+platform darwin -- Python 3.12.9, pytest-8.4.1, pluggy-1.6.0 -- /Users/seanbergman/Repositories/rag_lab/.venv/bin/python3
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.9', 'Platform': 'macOS-15.6-arm64-arm-64bit', 'Packages': {'pytest': '8.4.1', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.9.0', 'html': '4.1.1', 'json-report': '1.5.0', 'timeout': '2.4.0', 'metadata': '3.1.1', 'cov': '6.2.1', 'asyncio': '1.0.0'}}
+rootdir: /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/tests
+configfile: pytest.ini
+plugins: anyio-4.9.0, html-4.1.1, json-report-1.5.0, timeout-2.4.0, metadata-3.1.1, cov-6.2.1, asyncio-1.0.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality [populated_pipeline] Processing document: data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+[populated_pipeline] Process result: {'status': 'error', 'error': 'indexing_failed', 'doc_id': '0a52cd6b-0dad-47de-a975-db15938ea036', 'processing_time': 37.3913848400116}
+[populated_pipeline] ERROR: Document processing failed: indexing_failed
+[populated_pipeline] ERROR DETAILS: No additional details
+FAILEDSuccessfully deleted test collection: ci_test_test_env_c2727015b0a2
+
+
+=================================== FAILURES ===================================
+_________________ TestE2EIntegration.test_search_functionality _________________
+
+self = <src.pipeline_v3.tests.integration.test_e2e_integration.TestE2EIntegration object at 0x10e2f8680>
+populated_pipeline = <pipeline.enhanced_core.EnhancedPipeline object at 0x10e6534d0>
+expected_content = {'fieldmax': {'keywords': ['FieldMaxII', 'laser', 'power', 'meter', 'thermopile', 'optical'], 'model_names': ['FieldMa...res': ['touchscreen', 'USB', 'real-time'], 'keywords': ['LabMax', 'Touch', 'laser', 'power', 'measurement', 'sensor']}}
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    @pytest.mark.e2e
+    @pytest.mark.requires_api
+    @pytest.mark.timeout(600)  # 10 minutes for search tests
+    async def test_search_functionality(self, populated_pipeline, expected_content):
+        """Test different search types with pre-populated data."""
+        pipeline = populated_pipeline
+
+        # Check if document was successfully processed
+        if hasattr(pipeline, 'test_error') and pipeline.test_error:
+>           pytest.fail(f"Document processing failed in fixture: {pipeline.test_error}")
+E           Failed: Document processing failed in fixture: Document processing failed: indexing_failed. Details: No additional details
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:151: Failed
+------------------------------ Captured log setup ------------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://localhost:6333 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
+INFO     src.pipeline_v3.utils.common_utils:database_factory.py:182 DatabaseFactory initialized with backend: postgresql
+INFO     src.pipeline_v3.core.postgres_base:postgres_base.py:114 PostgreSQL sync pool initialized for schema: registry
+INFO     src.pipeline_v3.utils.common_utils:tenant_connection_manager.py:158 Created connection pool for tenant 11111111-1111-1111-1111-111111111111, schema registry
+INFO     src.pipeline_v3.utils.common_utils:postgres_registry.py:68 PostgreSQLDocumentRegistry initialized for tenant: 11111111-1111-1111-1111-111111111111
+INFO     src.pipeline_v3.utils.common_utils:database_factory.py:194 Created PostgreSQL document registry
+INFO     src.pipeline_v3.core.postgres_base:postgres_base.py:114 PostgreSQL sync pool initialized for schema: search
+INFO     src.pipeline_v3.utils.common_utils:tenant_connection_manager.py:158 Created connection pool for tenant 11111111-1111-1111-1111-111111111111, schema search
+INFO     src.pipeline_v3.utils.common_utils:postgres_keyword.py:60 PostgreSQLKeywordIndex initialized for tenant: 11111111-1111-1111-1111-111111111111
+INFO     src.pipeline_v3.utils.common_utils:database_factory.py:211 Created PostgreSQL keyword index
+INFO     src.pipeline_v3.core.postgres_base:postgres_base.py:114 PostgreSQL sync pool initialized for schema: jobs
+INFO     src.pipeline_v3.utils.common_utils:tenant_connection_manager.py:158 Created connection pool for tenant 11111111-1111-1111-1111-111111111111, schema jobs
+INFO     src.pipeline_v3.utils.common_utils:postgres_jobs.py:67 PostgreSQLJobManager initialized for tenant: 11111111-1111-1111-1111-111111111111
+INFO     src.pipeline_v3.utils.common_utils:database_factory.py:228 Created PostgreSQL job manager
+INFO     src.pipeline_v3.core.postgres_base:postgres_base.py:114 PostgreSQL sync pool initialized for schema: fingerprints
+INFO     src.pipeline_v3.utils.common_utils:tenant_connection_manager.py:158 Created connection pool for tenant 11111111-1111-1111-1111-111111111111, schema fingerprints
+INFO     src.pipeline_v3.utils.common_utils:postgres_fingerprint.py:73 PostgreSQLFingerprintManager initialized for tenant: 11111111-1111-1111-1111-111111111111
+INFO     src.pipeline_v3.utils.common_utils:database_factory.py:245 Created PostgreSQL fingerprint manager
+INFO     src.pipeline_v3.utils.common_utils:database_factory.py:261 Created all postgresql database adapters
+INFO     src.pipeline_v3.utils.common_utils:manager.py:94 DocumentQueue initialized with 10 max workers
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:112 Initializing Qdrant in server mode: localhost:6333
+INFO     httpx:_client.py:1025 HTTP Request: GET http://localhost:6333 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:155 Creating Qdrant collection: ci_test_test_env_c2727015b0a2
+INFO     httpx:_client.py:1025 HTTP Request: PUT http://localhost:6333/collections/ci_test_test_env_c2727015b0a2 "HTTP/1.1 200 OK"
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:165 Created collection: ci_test_test_env_c2727015b0a2
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:141 Qdrant client initialized: ci_test_test_env_c2727015b0a2
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:79 IndexManager using DatabaseFactory keyword index adapter
+INFO     src.pipeline_v3.utils.common_utils:embedding_service.py:39 EmbeddingService initialized with model: text-embedding-3-small
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:98 Using custom structures with backend: postgresql
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:100 IndexManager initialized with Qdrant: ./qdrant_data_v3 and keyword index adapter
+INFO     src.pipeline_v3.utils.common_utils:change_detector.py:115 ChangeDetector initialized with DatabaseFactory fingerprint_manager, provided registry
+INFO     src.pipeline_v3.utils.common_utils:enhanced_core.py:102 EnhancedPipeline initialized with full lifecycle management using DatabaseFactory adapters
+INFO     httpx:_client.py:1025 HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
+INFO     src.pipeline_v3.utils.common_utils:parsers.py:226 Using generic mode for PDF: FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+INFO     utils.common_utils:pipeline.py:138 Loaded 159378 bytes from data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+INFO     src.pipeline_v3.utils.openai_client:openai_client.py:95 OpenAI client created successfully
+INFO     src.pipeline_v3.utils.common_utils:parsers.py:75 Processing all 2 pages of FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+INFO     src.pipeline_v3.utils.page_range:page_range.py:202 📄 Processing page 1 (1/2)...
+WARNING  src.pipeline_v3.utils.page_range:page_range.py:209 Page number mismatch: expected 1, got 2
+INFO     src.pipeline_v3.utils.page_range:page_range.py:214 ✅ Page 2 processed in 0.08s
+INFO     src.pipeline_v3.utils.common_utils:parsers.py:131 Converted 2 pages from FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf (total pages: 2)
+INFO     src.pipeline_v3.utils.common_utils:parsers.py:519 Using timeout of 120s for 2 pages
+INFO     httpx:_client.py:1025 HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 200 OK"
+INFO     src.pipeline_v3.utils.common_utils:enhanced_core.py:219 Change analysis for FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf: complete_rewrite -> full_reindex
+INFO     src.pipeline_v3.utils.common_utils:postgres_registry.py:114 Document content changed, marking as stale: data/sample_docs/FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+INFO     src.pipeline_v3.utils.common_utils:postgres_fingerprint.py:205 Updated fingerprint for: FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+INFO     src.pipeline_v3.utils.common_utils:postgres_registry.py:256 Updated document state: 0a52cd6b -> updating
+WARNING  src.pipeline_v3.utils.common_utils:index_manager.py:235 Keyword index adapter does not support remove_document
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:609 Removed document 0a52cd6b from both index(es)
+INFO     src.pipeline_v3.utils.openai_client:openai_client.py:95 OpenAI client created successfully
+INFO     httpx:_client.py:1025 HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO     src.pipeline_v3.utils.common_utils:chunking_metadata.py:34 Added keywords to 3 nodes
+INFO     src.pipeline_v3.utils.common_utils:embedding_service.py:108 Embedding batch 1/1
+INFO     httpx:_client.py:1025 HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: PUT http://localhost:6333/collections/ci_test_test_env_c2727015b0a2/points?wait=true "HTTP/1.1 200 OK"
+ERROR    src.pipeline_v3.utils.common_utils:postgres_registry.py:349 Failed to register index entry: column "updated_at" of relation "index_entries" does not exist
+LINE 13:                 updated_at = NOW()
+                         ^
+ERROR    src.pipeline_v3.utils.common_utils:postgres_registry.py:349 Failed to register index entry: column "updated_at" of relation "index_entries" does not exist
+LINE 13:                 updated_at = NOW()
+                         ^
+ERROR    src.pipeline_v3.utils.common_utils:postgres_registry.py:349 Failed to register index entry: column "updated_at" of relation "index_entries" does not exist
+LINE 13:                 updated_at = NOW()
+                         ^
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:483 Added document 0a52cd6b to vector index (3 chunks)
+INFO     src.pipeline_v3.utils.common_utils:index_manager.py:187 DEBUG: Indexing with pairs: [] (from metadata: [])
+ERROR    src.pipeline_v3.utils.common_utils:index_manager.py:193 Failed to index chunks with adapter: duplicate key value violates unique constraint "doc_metadata_pkey"
+DETAIL:  Key (doc_id)=(0a52cd6b-0dad-47de-a975-db15938ea036) already exists.
+INFO     src.pipeline_v3.utils.common_utils:postgres_registry.py:256 Updated document state: 0a52cd6b -> corrupted
+INFO     src.pipeline_v3.utils.common_utils:enhanced_core.py:610 Added document 0a52cd6b with keyword enhancement (3 chunks)
+INFO     src.pipeline_v3.utils.common_utils:postgres_registry.py:256 Updated document state: 0a52cd6b -> corrupted
+INFO     src.pipeline_v3.utils.common_utils:enhanced_core.py:518 Created storage artifact: test_data/test_env_c2727015b0a2/storage_data/0a52cd6b-0dad-47de-a975-db15938ea036.jsonl
+INFO     src.pipeline_v3.utils.common_utils:postgres_fingerprint.py:205 Updated fingerprint for: FieldMaxII-Meter-Family-Data-Sheet_FORMFIRST.pdf
+---------------------------- Captured log teardown -----------------------------
+INFO     httpx:_client.py:1025 HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: DELETE http://localhost:6333/collections/ci_test_test_env_c2727015b0a2 "HTTP/1.1 200 OK"
+=============================== warnings summary ===============================
+src/pipeline_v3/tests/integration/test_e2e_integration.py:54
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/tests/integration/test_e2e_integration.py:54: PytestUnknownMarkWarning: Unknown pytest.mark.heavy - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.heavy
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:142
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/tests/integration/test_e2e_integration.py:142: PytestUnknownMarkWarning: Unknown pytest.mark.e2e - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.e2e
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:202
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/tests/integration/test_e2e_integration.py:202: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:364
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/tests/integration/test_e2e_integration.py:364: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+src/pipeline_v3/tests/integration/test_e2e_integration.py:394
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/tests/integration/test_e2e_integration.py:394: PytestUnknownMarkWarning: Unknown pytest.mark.smoke - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.smoke
+
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+  /Users/seanbergman/Repositories/rag_lab/.venv/lib/python3.12/site-packages/psycopg_pool/pool.py:119: DeprecationWarning: the default for the ConnectionPool 'open' parameter will become 'False' in a future release. Please use open={True|False} explicitly, or use the pool as context manager using: `with ConnectionPool(...) as pool: ...`
+    warnings.warn(
+
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/core/index_manager.py:121: UserWarning: Api key is used with an insecure connection.
+    self.qdrant_client = qdrant_client.QdrantClient(
+
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+  /Users/seanbergman/Repositories/rag_lab/src/pipeline_v3/core/pipeline.py:168: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.created_at = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED src/pipeline_v3/tests/integration/test_e2e_integration.py::TestE2EIntegration::test_search_functionality
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+======================= 1 failed, 16 warnings in 37.84s ========================

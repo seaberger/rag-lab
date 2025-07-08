@@ -5,8 +5,8 @@ This document provides the current development priorities and active issues for 
 > **🚀 NEW: Enterprise Multi-Tenant Focus** - RAG Lab is evolving from a single-user system to a full enterprise platform with PostgreSQL, API authentication, per-tenant MCP servers, and advanced search capabilities. See the new [Enterprise Implementation Guide](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md) for the complete vision.
 
 **Last Updated:** January 7, 2025
-**Active GitHub Issues:** 26 open (including 9 new enterprise features)
-**Critical Architecture Gaps:** 9 (see [ISSUES.md](ISSUES.md))
+**Active GitHub Issues:** 27 open (including 9 new enterprise features)
+**Critical Architecture Gaps:** 10 (see [ISSUES.md](ISSUES.md))
 **Enterprise Implementation Guide:** [ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md](src/pipeline_v3/docs/ENTERPRISE_MULTI_TENANT_IMPLEMENTATION.md)
 **Database Setup Guide:** [DATABASE_SETUP_GUIDE.md](DATABASE_SETUP_GUIDE.md)
 
@@ -66,6 +66,14 @@ Improve how documents are parsed and chunked:
   - 🔄 **Remaining:** API authentication integration and production hardening
   - **Priority:** CRITICAL | **Effort:** 20% remaining (~3-5 days)
   - **📋 Setup Guide:** [DATABASE_SETUP_GUIDE.md](DATABASE_SETUP_GUIDE.md)
+
+### 🗄️ Infrastructure & Cache System (HIGH PRIORITY)
+- **[Issue #88](https://github.com/seaberger/rag-lab/issues/88)**: Cache System Not Tenant-Aware and References Obsolete Database Files
+  - API response cache lacks tenant isolation (security risk)
+  - CacheCleaner references obsolete SQLite/local Qdrant files
+  - Need tenant-aware cache paths: `cache_v3/{tenant_id}/`
+  - Consider PostgreSQL-based caching for full isolation
+  - **Priority:** HIGH | **Effort:** Medium (3-5 days)
 
 ### 🔐 Security & Authentication (HIGH PRIORITY)
 - **[Issue #78](https://github.com/seaberger/rag-lab/issues/78)**: API Key & Authentication System for Multi-Tenant Access

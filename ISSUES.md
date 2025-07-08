@@ -2,8 +2,8 @@
 
 This document catalogs real, actionable architecture gaps that affect production readiness and security.
 
-**Last Updated:** July 4, 2025
-**Total Critical Issues**: 9 | **Resolved**: 3 | **In Progress**: 0
+**Last Updated:** January 7, 2025
+**Total Critical Issues**: 10 | **Resolved**: 3 | **In Progress**: 1
 
 ## 🚨 Security Vulnerabilities
 
@@ -78,6 +78,24 @@ This document catalogs real, actionable architecture gaps that affect production
 **Description**: Temporary files created with predictable names in current directory instead of secure temp location.
 
 **Fix**: Use Python's `tempfile.NamedTemporaryFile()` for secure temporary file creation.
+
+## 🏗️ Infrastructure Issues
+
+### ISSUE-INFRA-001: Cache System Not Tenant-Aware
+**Priority**: HIGH
+**GitHub Issue**: [Issue #88](https://github.com/seaberger/rag-lab/issues/88)
+**Location**: `utils/cache_manager.py`, API cache in `cache_v3/`
+**Impact**: Potential cross-tenant data leakage, test interference with production
+
+**Description**:
+- API response cache files are stored globally without tenant isolation
+- Cache filenames don't include tenant IDs, allowing cross-tenant cache access
+- CacheCleaner still references obsolete SQLite/local Qdrant files instead of current PostgreSQL/Qdrant Server architecture
+
+**Fix**:
+- Implement tenant-aware cache paths: `cache_v3/{tenant_id}/`
+- Update CacheCleaner to only handle current architecture
+- Consider moving cache to PostgreSQL for full tenant isolation
 
 ## 💾 Data Protection
 

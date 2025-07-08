@@ -8,6 +8,7 @@ After thorough analysis, the test failures are caused by **inter-module resource
 2. **Environment variable pollution between test modules**
 3. **Incomplete resource cleanup between test classes**
 4. **Mock state leakage across test boundaries**
+5. **Cache system lacks tenant isolation** (NEW: January 2025)
 
 ## Pattern Analysis
 
@@ -118,12 +119,38 @@ pip install pytest-order
 @pytest.mark.order(-1)  # Cleanup tests
 ```
 
+## Cache Isolation Issues (January 2025 Update)
+
+### Discovery
+During PostgreSQL migration testing, we discovered that the cache system is **not tenant-aware**:
+
+1. **Global Cache Directory**: All tenants share `cache_v3/` without isolation
+2. **No Tenant IDs in Filenames**: Cache files like `abc50ef9_datashee.json.lz4` lack tenant identification
+3. **Obsolete References**: `CacheCleaner` still tries to clear legacy SQLite/local Qdrant files
+
+### Impact on Testing
+- Tests can read/pollute production tenant caches
+- Running tests with cache clearing affects ALL tenants
+- No way to clear cache for specific tenant
+
+### Current Workaround
+Tests now use isolated cache directories:
+```python
+config.cache.directory = str(Path(temp_dir) / "cache_test")
+```
+
+### Long-term Solution (Issue #88)
+- Implement tenant-aware cache paths: `cache_v3/{tenant_id}/`
+- Update CacheCleaner for current PostgreSQL/Qdrant Server architecture
+- Consider PostgreSQL-based caching for full tenant isolation
+
 ## Conclusion
 
 The test failures are not due to improper test design but resource contention in the testing infrastructure. The solution is not test ordering but better resource isolation through:
-1. Qdrant server mode (preferred)
+1. Qdrant server mode (preferred) ✅ **COMPLETED**
 2. Explicit cleanup delays
 3. Separate test execution by resource type
 4. Better mock cleanup
+5. Tenant-aware cache system (NEW)
 
-The current UUID-based isolation is necessary but insufficient for file-based Qdrant testing at scale.
+The current UUID-based isolation is necessary but insufficient for file-based Qdrant testing at scale. Additionally, the cache system needs tenant awareness for proper multi-tenant testing.
